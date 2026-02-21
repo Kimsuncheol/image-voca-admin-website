@@ -1,16 +1,24 @@
 import { Timestamp } from 'firebase/firestore';
 
+export type AdType = 'image' | 'video';
+
 export interface Ad {
   id: string;
-  videoUrl: string;
-  publishedAt: Timestamp;
+  type: AdType;
+  title: string;
+  description: string;
+  imageUrl?: string;
+  videoUrl?: string;
+  active: boolean;
+  createdAt: Timestamp;
+  createdBy: string;
 }
 
-export function isExpired(ad: Ad): boolean {
-  const expiryMs = ad.publishedAt.toMillis() + 7 * 24 * 60 * 60 * 1000;
-  return Date.now() > expiryMs;
-}
-
-export function getExpiryDate(ad: Ad): Date {
-  return new Date(ad.publishedAt.toMillis() + 7 * 24 * 60 * 60 * 1000);
+/** Form data for creating a new ad (no id/createdAt yet). */
+export interface AdFormData {
+  type: AdType;
+  title: string;
+  description: string;
+  imageFile?: File;
+  videoUrl?: string;
 }

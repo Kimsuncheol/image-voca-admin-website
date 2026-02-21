@@ -3,6 +3,8 @@ import {
   doc,
   getDoc,
   getDocs,
+  query,
+  limit,
   setDoc,
   writeBatch,
 } from 'firebase/firestore';
@@ -53,6 +55,17 @@ export async function getDayWords(coursePath: string, dayId: string): Promise<Wo
     id: d.id,
     ...d.data(),
   })) as Word[];
+}
+
+/**
+ * Returns true if the day collection already has at least one word document.
+ * Used for overwrite detection (FR-4).
+ */
+export async function checkDayExists(coursePath: string, dayId: string): Promise<boolean> {
+  const courseRef = doc(db, coursePath);
+  const dayCollection = collection(courseRef, dayId);
+  const snap = await getDocs(query(dayCollection, limit(1)));
+  return !snap.empty;
 }
 
 export async function addWordsToDay(

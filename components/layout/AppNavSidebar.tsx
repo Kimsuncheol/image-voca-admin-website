@@ -14,6 +14,7 @@ import PostAddIcon from "@mui/icons-material/PostAdd";
 import MenuBookIcon from "@mui/icons-material/MenuBook";
 import PeopleIcon from "@mui/icons-material/People";
 import OndemandVideoIcon from "@mui/icons-material/OndemandVideo";
+import LocalOfferIcon from "@mui/icons-material/LocalOffer";
 import { useTranslation } from "react-i18next";
 
 const drawerWidth = 260;
@@ -48,6 +49,11 @@ export default function AppNavSidebar() {
       title: t("dashboard.ads", "Ads"),
       icon: <OndemandVideoIcon />,
       href: "/ads",
+    },
+    {
+      title: t("dashboard.promotionCodes", "Promotion Codes"),
+      icon: <LocalOfferIcon />,
+      href: "/promotion-codes",
     },
   ];
 

@@ -14,6 +14,8 @@ import { type ParseResult } from '@/lib/utils/csvParser';
 export interface CsvItem {
   id: string;
   fileName: string;
+  /** Original File object kept for Storage backup upload (FR-6) */
+  file: File | null;
   dayName: string;
   data: ParseResult | null;
 }
@@ -21,9 +23,10 @@ export interface CsvItem {
 interface CsvUploadTabProps {
   items: CsvItem[];
   onItemsChange: (items: CsvItem[]) => void;
+  isCollocation?: boolean;
 }
 
-export default function CsvUploadTab({ items, onItemsChange }: CsvUploadTabProps) {
+export default function CsvUploadTab({ items, onItemsChange, isCollocation }: CsvUploadTabProps) {
   const { t } = useTranslation();
   const [modalOpen, setModalOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState<number>(-1);
@@ -42,20 +45,26 @@ export default function CsvUploadTab({ items, onItemsChange }: CsvUploadTabProps
     onItemsChange(items.filter((_, i) => i !== index));
   };
 
-  const handleModalConfirm = (dayName: string, data: ParseResult) => {
+  const handleModalConfirm = (dayName: string, data: ParseResult, file?: File) => {
     if (activeIndex === -1) {
       // Adding a new item from the modal
       const newItem: CsvItem = {
         id: crypto.randomUUID(),
-        fileName: data.words.length > 0 ? `${dayName}.csv` : 'Untitled.csv',
+        fileName: file?.name ?? (data.words.length > 0 ? `${dayName}.csv` : 'Untitled.csv'),
+        file: file ?? null,
         dayName,
         data,
       };
       onItemsChange([...items, newItem]);
     } else {
-      // Editing an existing item
+      // Editing an existing item; keep the previous file if no new one was selected
       const updated = [...items];
-      updated[activeIndex] = { ...updated[activeIndex], dayName, data };
+      updated[activeIndex] = {
+        ...updated[activeIndex],
+        dayName,
+        data,
+        file: file ?? updated[activeIndex].file,
+      };
       onItemsChange(updated);
     }
   };
@@ -91,6 +100,7 @@ export default function CsvUploadTab({ items, onItemsChange }: CsvUploadTabProps
         onConfirm={handleModalConfirm}
         initialDayName={activeIndex >= 0 ? items[activeIndex]?.dayName : ''}
         initialData={activeIndex >= 0 ? items[activeIndex]?.data : null}
+        isCollocation={isCollocation}
       />
     </Box>
   );

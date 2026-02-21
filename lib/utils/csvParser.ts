@@ -13,6 +13,14 @@ export interface ParseResult {
   detectedHeaders: string[];
 }
 
+/** Exported alias for normalizeRow — required by FR-9. */
+export function extractVocaFields(
+  row: Record<string, unknown>,
+  isCollocation: boolean
+): Record<string, unknown> {
+  return normalizeRow(row, isCollocation);
+}
+
 function normalizeRow(row: Record<string, unknown>, isCollocation: boolean): Record<string, unknown> {
   const normalized: Record<string, unknown> = {};
 
@@ -23,7 +31,7 @@ function normalizeRow(row: Record<string, unknown>, isCollocation: boolean): Rec
   const pronunciationAliases = ['pronunciation', 'pronounciation', '_3'];
   const explanationAliases = ['explanation', '_3']; // _3 is explanation for collocation, pronunciation for word
   const exampleAliases = ['example', 'example sentence', '_4'];
-  const translationAliases = ['translation', '_5', '_6'];
+  const translationAliases = ['translation', '_5'];
 
   for (const [key, value] of Object.entries(row)) {
     const cleanKey = key.trim().toLowerCase();
@@ -60,10 +68,12 @@ function normalizeRow(row: Record<string, unknown>, isCollocation: boolean): Rec
 
 function detectAndParse(
   data: Record<string, unknown>[],
-  rawHeaders: string[]
+  rawHeaders: string[],
+  forceIsCollocation?: boolean,
 ): ParseResult {
   const headers = rawHeaders.map((h) => h.trim().toLowerCase());
-  const isCollocation = headers.includes('collocation');
+  // forceIsCollocation (from the selected course) takes priority over header-based detection.
+  const isCollocation = forceIsCollocation ?? headers.includes('collocation');
   const schema = isCollocation ? collocationWordSchema : standardWordSchema;
 
   const words: (StandardWordInput | CollocationWordInput)[] = [];
@@ -92,7 +102,15 @@ const KNOWN_FIELDS = new Set([
   'explanation', 'example', 'example sentence', 'translation',
 ]);
 
-function processParsedArray(data: string[][]): ParseResult {
+/**
+ * Public alias for processParsedArray — accepts a raw 2-D array of strings (e.g.
+ * from the Google Sheets API values endpoint) and returns a ParseResult.
+ */
+export function parseRowArrays(data: string[][], isCollocation?: boolean): ParseResult {
+  return processParsedArray(data, isCollocation);
+}
+
+function processParsedArray(data: string[][], isCollocation?: boolean): ParseResult {
   if (data.length === 0) return { words: [], isCollocation: false, errors: [], detectedHeaders: [] };
 
   const firstRowNorm = data[0].map(h => (h?.trim() ?? '').toLowerCase());
@@ -109,10 +127,26 @@ function processParsedArray(data: string[][]): ParseResult {
     headers = firstRowNorm;
     rows = data.slice(1);
   } else {
-    // Positional fallback: support up to 6 columns (empty leading column is common
-    // in Google-Sheets exports where column A is a row-number or label column).
+    // Positional fallback: support up to 6 columns.
     headers = ['_1', '_2', '_3', '_4', '_5', '_6'];
     rows = data;
+
+    // Detect empty or numeric leading column (common in Google Sheets exports
+    // where column A is a blank row-number or index column).
+    // Sample up to 5 non-empty rows and check if the first cell is always
+    // empty or a pure integer — if so, drop that leading column.
+    const sampleRows = rows
+      .filter((r) => r.some((c) => c && c.trim()))
+      .slice(0, 5);
+    if (sampleRows.length > 0 && (sampleRows[0]?.length ?? 0) > 1) {
+      const leadingIsIndexOrEmpty = sampleRows.every((r) => {
+        const first = (r[0] ?? '').trim();
+        return first === '' || /^\d+$/.test(first);
+      });
+      if (leadingIsIndexOrEmpty) {
+        rows = rows.map((r) => r.slice(1));
+      }
+    }
   }
 
   const objects = rows
@@ -125,10 +159,10 @@ function processParsedArray(data: string[][]): ParseResult {
       return obj;
     });
 
-  return detectAndParse(objects, headers);
+  return detectAndParse(objects, headers, isCollocation);
 }
 
-export async function parseCsvFile(file: File): Promise<ParseResult> {
+export async function parseCsvFile(file: File, isCollocation?: boolean): Promise<ParseResult> {
   try {
     // Read text first to sniff the delimiter — the same logic used in parseCsvString.
     // .csv files exported from Google Sheets / Excel are often tab-separated despite
@@ -150,10 +184,10 @@ export async function parseCsvFile(file: File): Promise<ParseResult> {
         skipEmptyLines: true,
         delimiter,
         complete(results) {
-          resolve(processParsedArray(results.data as string[][]));
+          resolve(processParsedArray(results.data as string[][], isCollocation));
         },
         error(err) {
-          resolve({ words: [], isCollocation: false, errors: [err.message], detectedHeaders: [] });
+          resolve({ words: [], isCollocation: isCollocation ?? false, errors: [err.message], detectedHeaders: [] });
         },
       });
     });

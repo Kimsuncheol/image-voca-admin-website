@@ -6,6 +6,7 @@ import PostAddIcon from "@mui/icons-material/PostAdd";
 import MenuBookIcon from "@mui/icons-material/MenuBook";
 import PeopleIcon from "@mui/icons-material/People";
 import OndemandVideoIcon from "@mui/icons-material/OndemandVideo";
+import LocalOfferIcon from "@mui/icons-material/LocalOffer";
 import { useTranslation } from "react-i18next";
 import PageLayout from "@/components/layout/PageLayout";
 import NavCard from "@/components/dashboard/NavCard";
@@ -37,6 +38,12 @@ export default function Home() {
       description: t("dashboard.adsDesc"),
       icon: <OndemandVideoIcon />,
       href: "/ads",
+    },
+    {
+      title: t("dashboard.promotionCodes"),
+      description: t("dashboard.promotionCodesDesc"),
+      icon: <LocalOfferIcon />,
+      href: "/promotion-codes",
     },
   ];
 

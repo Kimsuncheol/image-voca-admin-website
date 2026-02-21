@@ -4,68 +4,99 @@ import {
   deleteDoc,
   doc,
   getDocs,
-  onSnapshot,
+  updateDoc,
   query,
   orderBy,
   serverTimestamp,
   Timestamp,
-  type Unsubscribe,
 } from 'firebase/firestore';
+import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import { db } from './config';
-import type { Ad } from '@/types/ad';
+import { storage } from './storage';
+import type { Ad, AdFormData } from '@/types/ad';
 
 const ADS_COLLECTION = 'advertisement';
 
-export async function addAd(videoUrl: string): Promise<void> {
-  await addDoc(collection(db, ADS_COLLECTION), {
-    videoUrl,
-    publishedAt: serverTimestamp(),
+// ---------------------------------------------------------------------------
+// Read
+// ---------------------------------------------------------------------------
+
+/** Fetch every advertisement, newest first. */
+export async function getAllAds(): Promise<Ad[]> {
+  const q = query(collection(db, ADS_COLLECTION), orderBy('createdAt', 'desc'));
+  const snapshot = await getDocs(q);
+
+  return snapshot.docs.map((d) => {
+    const data = d.data();
+    return {
+      id: d.id,
+      type: data.type ?? 'video',
+      title: data.title ?? '',
+      description: data.description ?? '',
+      imageUrl: data.imageUrl,
+      videoUrl: data.videoUrl,
+      active: data.active ?? true,
+      createdAt: data.createdAt ?? data.publishedAt ?? Timestamp.now(),
+      createdBy: data.createdBy ?? '',
+    } as Ad;
   });
 }
 
-export async function deleteAd(id: string): Promise<void> {
-  await deleteDoc(doc(db, ADS_COLLECTION, id));
+// ---------------------------------------------------------------------------
+// Create
+// ---------------------------------------------------------------------------
+
+/** Create a new advertisement. Uploads image to Storage if provided. */
+export async function createAd(formData: AdFormData, userId: string): Promise<void> {
+  const docData: Record<string, unknown> = {
+    type: formData.type,
+    title: formData.title,
+    description: formData.description,
+    active: true,
+    createdAt: serverTimestamp(),
+    createdBy: userId,
+  };
+
+  if (formData.type === 'video') {
+    docData.videoUrl = formData.videoUrl ?? '';
+  }
+
+  // Create doc first to get an ID for the Storage path
+  const docRef = await addDoc(collection(db, ADS_COLLECTION), docData);
+
+  // If image type, upload the file and update the doc with the URL
+  if (formData.type === 'image' && formData.imageFile) {
+    const storagePath = `ads/${docRef.id}/image.jpg`;
+    const storageRef = ref(storage, storagePath);
+    await uploadBytes(storageRef, formData.imageFile);
+    const downloadUrl = await getDownloadURL(storageRef);
+    await updateDoc(docRef, { imageUrl: downloadUrl });
+  }
 }
 
-export async function deleteExpiredAds(): Promise<void> {
-  const sevenDaysAgo = Timestamp.fromMillis(Date.now() - 7 * 24 * 60 * 60 * 1000);
-  const snapshot = await getDocs(collection(db, ADS_COLLECTION));
+// ---------------------------------------------------------------------------
+// Update
+// ---------------------------------------------------------------------------
 
-  const deletePromises = snapshot.docs
-    .filter((d) => {
-      const publishedAt = d.data().publishedAt as Timestamp | undefined;
-      return publishedAt && publishedAt.toMillis() < sevenDaysAgo.toMillis();
-    })
-    .map((d) => deleteDoc(d.ref));
-
-  await Promise.all(deletePromises);
+/** Toggle an advertisement's active status. */
+export async function toggleAdStatus(adId: string, active: boolean): Promise<void> {
+  const adRef = doc(db, ADS_COLLECTION, adId);
+  await updateDoc(adRef, { active });
 }
 
-export function subscribeToAds(callback: (ads: Ad[]) => void): Unsubscribe {
-  const q = query(collection(db, ADS_COLLECTION), orderBy('publishedAt', 'desc'));
+// ---------------------------------------------------------------------------
+// Delete
+// ---------------------------------------------------------------------------
 
-  return onSnapshot(q, (snapshot) => {
-    const now = Date.now();
-    const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
-    const ads: Ad[] = [];
+/** Delete an advertisement. Best-effort cleanup of Storage image. */
+export async function deleteAd(adId: string): Promise<void> {
+  // Try to delete image from Storage (non-critical)
+  try {
+    const storageRef = ref(storage, `ads/${adId}/image.jpg`);
+    await deleteObject(storageRef);
+  } catch {
+    // Image may not exist (video ad) — ignore
+  }
 
-    snapshot.docs.forEach((d) => {
-      const data = d.data();
-      const publishedAt = data.publishedAt as Timestamp | null;
-      if (!publishedAt) return;
-
-      if (publishedAt.toMillis() + sevenDaysMs < now) {
-        deleteDoc(d.ref).catch(() => {});
-        return;
-      }
-
-      ads.push({
-        id: d.id,
-        videoUrl: data.videoUrl,
-        publishedAt,
-      });
-    });
-
-    callback(ads);
-  });
+  await deleteDoc(doc(db, ADS_COLLECTION, adId));
 }
