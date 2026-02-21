@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth, adminDb } from '@/lib/firebase/admin';
 
+/**
+ * Firestore structure:
+ *   {coursePath}            ← course document (has totalDays, lastUploadedDayId, etc.)
+ *     /{dayId}              ← subcollection per day: Day1, Day2, ...
+ *       /{wordDocId}        ← word documents directly inside each day subcollection
+ */
 export async function POST(request: NextRequest) {
   const sessionCookie = request.cookies.get('__session')?.value;
   if (!sessionCookie) {
@@ -16,32 +22,36 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid data' }, { status: 400 });
     }
 
+    // dayName is used as the subcollection name directly (e.g. "Day1")
     const courseRef = adminDb.doc(coursePath);
-    const daysRef = courseRef.collection('days');
-
-    const existingDays = await daysRef.where('name', '==', dayName).get();
-    let dayRef;
-
-    if (!existingDays.empty) {
-      dayRef = existingDays.docs[0].ref;
-    } else {
-      dayRef = daysRef.doc();
-      await dayRef.set({ name: dayName, wordCount: 0 });
-    }
+    const dayCollection = courseRef.collection(dayName);
 
     const batch = adminDb.batch();
-    const wordsRef = dayRef.collection('words');
 
     for (const word of words) {
-      const wordDoc = wordsRef.doc();
+      const wordDoc = dayCollection.doc();
       batch.set(wordDoc, word);
     }
 
-    batch.update(dayRef, { wordCount: words.length });
     await batch.commit();
 
+    // Update course document metadata
+    const courseSnap = await courseRef.get();
+    const currentTotal = (courseSnap.data()?.totalDays as number) || 0;
+    const dayNumber = parseInt(dayName.replace('Day', ''), 10) || 0;
+
+    await courseRef.set(
+      {
+        lastUploadedDayId: dayName,
+        lastUpdated: new Date().toISOString(),
+        totalDays: Math.max(currentTotal, dayNumber),
+      },
+      { merge: true }
+    );
+
     return NextResponse.json({ status: 'success', count: words.length });
-  } catch {
+  } catch (err) {
+    console.error('[upload] Error:', err);
     return NextResponse.json({ error: 'Upload failed' }, { status: 500 });
   }
 }
