@@ -23,7 +23,7 @@ function normalizeRow(row: Record<string, unknown>, isCollocation: boolean): Rec
   const pronunciationAliases = ['pronunciation', 'pronounciation', '_3'];
   const explanationAliases = ['explanation', '_3']; // _3 is explanation for collocation, pronunciation for word
   const exampleAliases = ['example', 'example sentence', '_4'];
-  const translationAliases = ['translation', '_5'];
+  const translationAliases = ['translation', '_5', '_6'];
 
   for (const [key, value] of Object.entries(row)) {
     const cleanKey = key.trim().toLowerCase();
@@ -84,34 +84,39 @@ function detectAndParse(
   return { words, isCollocation, errors, detectedHeaders: rawHeaders };
 }
 
+// Schema field names only — NOT positional aliases.
+// A row qualifies as a header row when ≥2 of its cells match known field names.
+const KNOWN_FIELDS = new Set([
+  'word', 'collocation', 'meaning',
+  'pronunciation', 'pronounciation',
+  'explanation', 'example', 'example sentence', 'translation',
+]);
+
 function processParsedArray(data: string[][]): ParseResult {
   if (data.length === 0) return { words: [], isCollocation: false, errors: [], detectedHeaders: [] };
 
-  const firstRow = data[0].map(h => h?.trim().toLowerCase() || '');
-  
-  const allAliases = [
-    'word', '_1', 'collocation', 'meaning', '_2', 
-    'pronunciation', 'pronounciation', '_3', 'explanation', 
-    'example', 'example sentence', '_4', 'translation', '_5'
-  ];
+  const firstRowNorm = data[0].map(h => (h?.trim() ?? '').toLowerCase());
 
-  const hasHeaders = firstRow.some(h => allAliases.includes(h));
-  console.log('[csvParser] Has headers row:', hasHeaders, '| First row:', firstRow);
+  // Require ≥2 known field names to avoid false positives on data rows that
+  // happen to contain a single common word like "example" or "meaning".
+  const matchCount = firstRowNorm.filter(h => KNOWN_FIELDS.has(h)).length;
+  const hasHeaders = matchCount >= 2;
 
   let headers: string[];
   let rows: string[][];
 
   if (hasHeaders) {
-    headers = firstRow;
+    headers = firstRowNorm;
     rows = data.slice(1);
   } else {
-    headers = ['_1', '_2', '_3', '_4', '_5'];
+    // Positional fallback: support up to 6 columns (empty leading column is common
+    // in Google-Sheets exports where column A is a row-number or label column).
+    headers = ['_1', '_2', '_3', '_4', '_5', '_6'];
     rows = data;
   }
-  console.log('[csvParser] Using headers:', headers, '| Row count:', rows.length);
 
   const objects = rows
-    .filter(rowArray => rowArray.some(cell => cell && cell.trim().length > 0)) // skip fully empty rows
+    .filter(rowArray => rowArray.some(cell => cell && cell.trim().length > 0))
     .map(rowArray => {
       const obj: Record<string, unknown> = {};
       headers.forEach((h, i) => {
@@ -120,28 +125,41 @@ function processParsedArray(data: string[][]): ParseResult {
       return obj;
     });
 
-  console.log('[csvParser] Normalized objects:', objects);
-
   return detectAndParse(objects, headers);
 }
 
-export function parseCsvFile(file: File): Promise<ParseResult> {
-  return new Promise((resolve) => {
-    // Determine delimiter based on file extension
-    const isTsv = file.name.toLowerCase().endsWith('.tsv') || file.name.toLowerCase().endsWith('.txt');
-    
-    Papa.parse(file, {
-      header: false,
-      skipEmptyLines: true,
-      delimiter: isTsv ? '\t' : '', // Empty string tells PapaParse to auto-detect, but we force tab for tsv/txt
-      complete(results) {
-        resolve(processParsedArray(results.data as string[][]));
-      },
-      error(err) {
-        resolve({ words: [], isCollocation: false, errors: [err.message], detectedHeaders: [] });
-      },
+export async function parseCsvFile(file: File): Promise<ParseResult> {
+  try {
+    // Read text first to sniff the delimiter — the same logic used in parseCsvString.
+    // .csv files exported from Google Sheets / Excel are often tab-separated despite
+    // the .csv extension, so relying on PapaParse auto-detect (which defaults to comma)
+    // causes the entire row to become a single cell.
+    const text = await file.text();
+    const firstLine = text.split('\n')[0] ?? '';
+    const tabCount = (firstLine.match(/\t/g) || []).length;
+    const commaCount = (firstLine.match(/,/g) || []).length;
+    const semicolonCount = (firstLine.match(/;/g) || []).length;
+    const delimiter =
+      tabCount >= commaCount && tabCount >= semicolonCount ? '\t'
+      : semicolonCount > commaCount ? ';'
+      : ',';
+
+    return new Promise((resolve) => {
+      Papa.parse(file, {
+        header: false,
+        skipEmptyLines: true,
+        delimiter,
+        complete(results) {
+          resolve(processParsedArray(results.data as string[][]));
+        },
+        error(err) {
+          resolve({ words: [], isCollocation: false, errors: [err.message], detectedHeaders: [] });
+        },
+      });
     });
-  });
+  } catch (err) {
+    return { words: [], isCollocation: false, errors: [String(err)], detectedHeaders: [] };
+  }
 }
 
 export function parseCsvString(csvString: string): ParseResult {
