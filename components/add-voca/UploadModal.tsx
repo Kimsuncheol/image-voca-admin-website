@@ -95,6 +95,11 @@ export default function UploadModal({
 
         {parseResult?.errors.length ? (
           <Alert severity="warning" sx={{ mb: 2 }}>
+            {parseResult.detectedHeaders.length > 0 && (
+              <Typography variant="body2" sx={{ mb: 0.5 }}>
+                <strong>Detected columns:</strong> {parseResult.detectedHeaders.join(', ')}
+              </Typography>
+            )}
             {parseResult.errors.slice(0, 5).map((err, i) => (
               <Typography key={i} variant="body2">{err}</Typography>
             ))}

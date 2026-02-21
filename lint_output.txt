@@ -1,0 +1,75 @@
+
+> image-voca-admin-website@0.1.0 lint
+> eslint
+
+
+/Users/gimseoncheol/Desktop/image-voca-admin-website/app/courses/[courseId]/[dayId]/page.tsx
+  33:7  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+/Users/gimseoncheol/Desktop/image-voca-admin-website/app/courses/[courseId]/[dayId]/page.tsx:33:7
+  31 |   useEffect(() => {
+  32 |     if (!course) {
+> 33 |       setError('Course not found');
+     |       ^^^^^^^^ Avoid calling setState() directly within an effect
+  34 |       setLoading(false);
+  35 |       return;
+  36 |     }  react-hooks/set-state-in-effect
+
+/Users/gimseoncheol/Desktop/image-voca-admin-website/app/courses/[courseId]/page.tsx
+  29:7  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+/Users/gimseoncheol/Desktop/image-voca-admin-website/app/courses/[courseId]/page.tsx:29:7
+  27 |   useEffect(() => {
+  28 |     if (!course) {
+> 29 |       setError('Course not found');
+     |       ^^^^^^^^ Avoid calling setState() directly within an effect
+  30 |       setLoading(false);
+  31 |       return;
+  32 |     }  react-hooks/set-state-in-effect
+
+/Users/gimseoncheol/Desktop/image-voca-admin-website/components/layout/EmotionRegistry.tsx
+  23:6  error  Error: This value cannot be modified
+
+Modifying a value returned from 'useState()', which should not be modified directly. Use the setter function to update instead.
+
+/Users/gimseoncheol/Desktop/image-voca-admin-website/components/layout/EmotionRegistry.tsx:23:6
+  21 |
+  22 |     // Clear inserted cache to prevent duplicates
+> 23 |     (cache as unknown as { inserted: Record<string, string> }).inserted = {};
+     |      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `cache` cannot be modified
+  24 |
+  25 |     return (
+  26 |       <style  react-hooks/immutability
+
+/Users/gimseoncheol/Desktop/image-voca-admin-website/context/ThemeContext.tsx
+  34:16  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+/Users/gimseoncheol/Desktop/image-voca-admin-website/context/ThemeContext.tsx:34:16
+  32 |   useEffect(() => {
+  33 |     const saved = localStorage.getItem('themeMode') as ThemeMode | null;
+> 34 |     if (saved) setModeState(saved);
+     |                ^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  35 |     setSystemPref(getSystemPreference());
+  36 |
+  37 |     const mql = window.matchMedia('(prefers-color-scheme: dark)');  react-hooks/set-state-in-effect
+
+✖ 4 problems (4 errors, 0 warnings)
+

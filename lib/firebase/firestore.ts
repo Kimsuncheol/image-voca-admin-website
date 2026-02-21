@@ -12,21 +12,27 @@ import type { Day } from '@/types/course';
 import type { Word } from '@/types/word';
 
 export async function getCourseDays(coursePath: string): Promise<Day[]> {
+  console.log('[Firestore] getCourseDays called with path:', JSON.stringify(coursePath));
   const courseRef = doc(db, coursePath);
   const daysRef = collection(courseRef, 'days');
   const q = query(daysRef, orderBy('name'));
   const snapshot = await getDocs(q);
-  return snapshot.docs.map((d) => ({
+  console.log('[Firestore] getCourseDays snapshot size:', snapshot.size);
+  const result = snapshot.docs.map((d) => ({
     id: d.id,
     name: d.data().name || d.id,
     wordCount: d.data().wordCount,
   }));
+  console.log('[Firestore] getCourseDays result:', result);
+  return result;
 }
 
 export async function getDayWords(coursePath: string, dayId: string): Promise<Word[]> {
+  console.log('[Firestore] getDayWords called with path:', JSON.stringify(coursePath), 'dayId:', dayId);
   const dayRef = doc(db, coursePath, 'days', dayId);
   const wordsRef = collection(dayRef, 'words');
   const snapshot = await getDocs(wordsRef);
+  console.log('[Firestore] getDayWords snapshot size:', snapshot.size);
   return snapshot.docs.map((d) => ({
     id: d.id,
     ...d.data(),

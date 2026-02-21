@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState } from 'react';
 import List from '@mui/material/List';
 import Button from '@mui/material/Button';
 import Typography from '@mui/material/Typography';
@@ -9,7 +9,7 @@ import AddIcon from '@mui/icons-material/Add';
 import { useTranslation } from 'react-i18next';
 import FileListItem from './FileListItem';
 import UploadModal from './UploadModal';
-import { parseCsvFile, type ParseResult } from '@/lib/utils/csvParser';
+import { type ParseResult } from '@/lib/utils/csvParser';
 
 export interface CsvItem {
   id: string;
@@ -28,29 +28,10 @@ export default function CsvUploadTab({ items, onItemsChange }: CsvUploadTabProps
   const [modalOpen, setModalOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState<number>(-1);
 
-  const handleAddFile = useCallback(() => {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = '.csv';
-    input.multiple = true;
-    input.onchange = async (e) => {
-      const files = (e.target as HTMLInputElement).files;
-      if (!files) return;
-
-      const newItems: CsvItem[] = [];
-      for (const file of Array.from(files)) {
-        const data = await parseCsvFile(file);
-        newItems.push({
-          id: crypto.randomUUID(),
-          fileName: file.name,
-          dayName: '',
-          data,
-        });
-      }
-      onItemsChange([...items, ...newItems]);
-    };
-    input.click();
-  }, [items, onItemsChange]);
+  const handleAddFile = () => {
+    setActiveIndex(-1);
+    setModalOpen(true);
+  };
 
   const handleItemClick = (index: number) => {
     setActiveIndex(index);
@@ -62,9 +43,21 @@ export default function CsvUploadTab({ items, onItemsChange }: CsvUploadTabProps
   };
 
   const handleModalConfirm = (dayName: string, data: ParseResult) => {
-    const updated = [...items];
-    updated[activeIndex] = { ...updated[activeIndex], dayName, data };
-    onItemsChange(updated);
+    if (activeIndex === -1) {
+      // Adding a new item from the modal
+      const newItem: CsvItem = {
+        id: crypto.randomUUID(),
+        fileName: data.words.length > 0 ? `${dayName}.csv` : 'Untitled.csv',
+        dayName,
+        data,
+      };
+      onItemsChange([...items, newItem]);
+    } else {
+      // Editing an existing item
+      const updated = [...items];
+      updated[activeIndex] = { ...updated[activeIndex], dayName, data };
+      onItemsChange(updated);
+    }
   };
 
   return (
