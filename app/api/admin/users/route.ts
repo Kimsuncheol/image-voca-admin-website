@@ -32,6 +32,43 @@ export async function GET(request: NextRequest) {
   }
 }
 
+export async function PATCH(request: NextRequest) {
+  const caller = await verifySession(request);
+  if (!caller) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  const callerRole = (caller as Record<string, unknown>).role as string;
+  if (callerRole !== 'super-admin') {
+    return NextResponse.json({ error: 'Only super-admin can change roles' }, { status: 403 });
+  }
+
+  try {
+    const { uid, role } = await request.json();
+
+    if (!['user', 'admin'].includes(role)) {
+      return NextResponse.json({ error: 'Invalid role. Must be "user" or "admin".' }, { status: 400 });
+    }
+
+    const targetDoc = await adminDb.collection('users').doc(uid).get();
+    if (!targetDoc.exists) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    }
+
+    // Prevent changing another super-admin's role
+    const targetRole = targetDoc.data()?.role as string;
+    if (targetRole === 'super-admin') {
+      return NextResponse.json({ error: 'Cannot change role of a super-admin' }, { status: 403 });
+    }
+
+    await adminDb.collection('users').doc(uid).update({ role });
+
+    return NextResponse.json({ status: 'success' });
+  } catch {
+    return NextResponse.json({ error: 'Failed to update role' }, { status: 500 });
+  }
+}
+
 export async function DELETE(request: NextRequest) {
   const caller = await verifySession(request);
   if (!caller) {

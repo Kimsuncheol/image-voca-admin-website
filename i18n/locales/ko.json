@@ -69,7 +69,9 @@
     "deleteConfirm": "이 사용자를 삭제하시겠습니까?",
     "deleteSuccess": "사용자가 삭제되었습니다",
     "deleteError": "사용자 삭제 실패",
-    "noUsers": "사용자가 없습니다"
+    "noUsers": "사용자가 없습니다",
+    "roleChangeSuccess": "역할이 변경되었습니다",
+    "roleChangeError": "역할 변경 실패"
   },
   "ads": {
     "title": "광고",

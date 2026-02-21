@@ -18,7 +18,7 @@ import { getCourseById, type CourseId } from "@/types/course";
 export default function AddVocaPage() {
   const { t } = useTranslation();
   const [tabIndex, setTabIndex] = useState(0);
-  const [selectedCourse, setSelectedCourse] = useState<CourseId | "">("");
+  const [selectedCourse, setSelectedCourse] = useState<CourseId | "">("CSAT");
   const [csvItems, setCsvItems] = useState<CsvItem[]>([]);
   const [urlItems, setUrlItems] = useState<UrlItem[]>([]);
   const [uploading, setUploading] = useState(false);
