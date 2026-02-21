@@ -63,7 +63,9 @@
   "users": {
     "title": "사용자 관리",
     "username": "사용자명",
+    "email": "이메일",
     "role": "역할",
+    "plan": "플랜",
     "actions": "작업",
     "delete": "삭제",
     "deleteConfirm": "이 사용자를 삭제하시겠습니까?",
@@ -71,7 +73,21 @@
     "deleteError": "사용자 삭제 실패",
     "noUsers": "사용자가 없습니다",
     "roleChangeSuccess": "역할이 변경되었습니다",
-    "roleChangeError": "역할 변경 실패"
+    "roleChangeError": "역할 변경 실패",
+    "subscriptionUpdateSuccess": "구독이 변경되었습니다",
+    "subscriptionUpdateError": "구독 변경 실패",
+    "search": "이름 또는 이메일로 검색",
+    "allPlans": "전체 플랜",
+    "planFree": "무료",
+    "planVocaUnlimited": "단어 무제한",
+    "planVocaSpeaking": "단어+스피킹",
+    "allRoles": "전체 역할",
+    "adminOnly": "관리자",
+    "totalMembers": "전체",
+    "unlimitedMembers": "무제한",
+    "speakingMembers": "스피킹",
+    "detailTitle": "회원 상세",
+    "joinedAt": "가입일"
   },
   "ads": {
     "title": "광고",

@@ -63,7 +63,9 @@
   "users": {
     "title": "User Management",
     "username": "Username",
+    "email": "Email",
     "role": "Role",
+    "plan": "Plan",
     "actions": "Actions",
     "delete": "Delete",
     "deleteConfirm": "Are you sure you want to delete this user?",
@@ -71,7 +73,21 @@
     "deleteError": "Failed to delete user",
     "noUsers": "No users found",
     "roleChangeSuccess": "Role updated successfully",
-    "roleChangeError": "Failed to update role"
+    "roleChangeError": "Failed to update role",
+    "subscriptionUpdateSuccess": "Subscription updated successfully",
+    "subscriptionUpdateError": "Failed to update subscription",
+    "search": "Search by name or email",
+    "allPlans": "All Plans",
+    "planFree": "Free",
+    "planVocaUnlimited": "Voca Unlimited",
+    "planVocaSpeaking": "Voca Speaking",
+    "allRoles": "All Roles",
+    "adminOnly": "Admin",
+    "totalMembers": "Total",
+    "unlimitedMembers": "Unlimited",
+    "speakingMembers": "Speaking",
+    "detailTitle": "Member Details",
+    "joinedAt": "Joined"
   },
   "ads": {
     "title": "Advertisements",

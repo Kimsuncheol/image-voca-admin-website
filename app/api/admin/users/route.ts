@@ -39,33 +39,46 @@ export async function PATCH(request: NextRequest) {
   }
 
   const callerRole = (caller as Record<string, unknown>).role as string;
-  if (callerRole !== 'super-admin') {
-    return NextResponse.json({ error: 'Only super-admin can change roles' }, { status: 403 });
-  }
 
   try {
-    const { uid, role } = await request.json();
+    const { uid, role, plan } = await request.json();
 
-    if (!['user', 'admin'].includes(role)) {
-      return NextResponse.json({ error: 'Invalid role. Must be "user" or "admin".' }, { status: 400 });
+    if (role !== undefined) {
+      if (callerRole !== 'super-admin') {
+        return NextResponse.json({ error: 'Only super-admin can change roles' }, { status: 403 });
+      }
+      if (!['user', 'admin'].includes(role)) {
+        return NextResponse.json({ error: 'Invalid role. Must be "user" or "admin".' }, { status: 400 });
+      }
+      const targetDoc = await adminDb.collection('users').doc(uid).get();
+      if (!targetDoc.exists) {
+        return NextResponse.json({ error: 'User not found' }, { status: 404 });
+      }
+      if (targetDoc.data()?.role === 'super-admin') {
+        return NextResponse.json({ error: 'Cannot change role of a super-admin' }, { status: 403 });
+      }
+      await adminDb.collection('users').doc(uid).update({ role });
+      return NextResponse.json({ status: 'success' });
     }
 
-    const targetDoc = await adminDb.collection('users').doc(uid).get();
-    if (!targetDoc.exists) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    if (plan !== undefined) {
+      if (callerRole !== 'super-admin' && callerRole !== 'admin') {
+        return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
+      }
+      if (!['free', 'voca_unlimited', 'voca_speaking'].includes(plan)) {
+        return NextResponse.json({ error: 'Invalid plan' }, { status: 400 });
+      }
+      const targetDoc = await adminDb.collection('users').doc(uid).get();
+      if (!targetDoc.exists) {
+        return NextResponse.json({ error: 'User not found' }, { status: 404 });
+      }
+      await adminDb.collection('users').doc(uid).update({ plan });
+      return NextResponse.json({ status: 'success' });
     }
 
-    // Prevent changing another super-admin's role
-    const targetRole = targetDoc.data()?.role as string;
-    if (targetRole === 'super-admin') {
-      return NextResponse.json({ error: 'Cannot change role of a super-admin' }, { status: 403 });
-    }
-
-    await adminDb.collection('users').doc(uid).update({ role });
-
-    return NextResponse.json({ status: 'success' });
+    return NextResponse.json({ error: 'Nothing to update' }, { status: 400 });
   } catch {
-    return NextResponse.json({ error: 'Failed to update role' }, { status: 500 });
+    return NextResponse.json({ error: 'Failed to update' }, { status: 500 });
   }
 }
 
