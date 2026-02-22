@@ -27,22 +27,24 @@ export async function POST(request: NextRequest) {
     const dayCollection = courseRef.collection(dayName);
 
     // FR-8: Clear existing day documents before inserting new records to prevent
-    // duplicates. Delete and write in separate batches (Firestore limit: 500 ops each).
+    // duplicates. Chunked to stay within Firestore's 500-op batch limit.
+    const BATCH_LIMIT = 499;
     const existingSnap = await dayCollection.get();
     if (!existingSnap.empty) {
-      const deleteBatch = adminDb.batch();
-      existingSnap.docs.forEach((d) => deleteBatch.delete(d.ref));
-      await deleteBatch.commit();
+      for (let i = 0; i < existingSnap.docs.length; i += BATCH_LIMIT) {
+        const deleteBatch = adminDb.batch();
+        existingSnap.docs.slice(i, i + BATCH_LIMIT).forEach((d) => deleteBatch.delete(d.ref));
+        await deleteBatch.commit();
+      }
     }
 
-    const batch = adminDb.batch();
-
-    for (const word of words) {
-      const wordDoc = dayCollection.doc();
-      batch.set(wordDoc, word);
+    for (let i = 0; i < words.length; i += BATCH_LIMIT) {
+      const batch = adminDb.batch();
+      words.slice(i, i + BATCH_LIMIT).forEach((word) => {
+        batch.set(dayCollection.doc(), word);
+      });
+      await batch.commit();
     }
-
-    await batch.commit();
 
     // FR-13: Update course document metadata
     const courseSnap = await courseRef.get();

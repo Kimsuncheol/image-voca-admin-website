@@ -90,12 +90,13 @@ export default function AddVocaPage() {
 
     uploadingRef.current = true;
 
-    // FR-4: Detect pre-existing day data in Firestore
-    const existingDays: string[] = [];
-    for (const item of readyItems) {
-      const exists = await checkDayExists(course.path, item.dayName);
-      if (exists) existingDays.push(item.dayName);
-    }
+    // FR-4: Detect pre-existing day data in Firestore (parallel)
+    const existsFlags = await Promise.all(
+      readyItems.map((item) => checkDayExists(course.path, item.dayName))
+    );
+    const existingDays: string[] = readyItems
+      .filter((_, i) => existsFlags[i])
+      .map((item) => item.dayName);
 
     // FR-5: Require user confirmation before overwriting
     let skipDays = new Set<string>();
@@ -118,27 +119,22 @@ export default function AddVocaPage() {
     setProgressItems(initial);
     setProgressCounts({ success: 0, failed: 0, skipped: skipDays.size });
     setProgressDone(false);
-    setStatusText("");
+    setStatusText(t("addVoca.statusProcessing"));
     setProgressOpen(true);
 
-    let success = 0;
-    let failed = 0;
-    const skipped = skipDays.size;
+    // Process items with a concurrency pool (up to 3 in-flight at once).
+    // Functional state updates are used for counts to avoid race conditions.
+    const CONCURRENCY = 3;
 
-    for (const item of readyItems) {
-      if (skipDays.has(item.dayName)) continue;
-
+    const processItem = async (item: QueueItem) => {
       updateProgressItem(item.id, { status: "processing" });
-      setStatusText(`${t("addVoca.statusProcessing")} ${item.dayName}…`);
 
       try {
         // FR-6: Upload CSV source file to Storage (CSV items only)
         if (isCsvItem(item) && item.file) {
-          setStatusText(`${t("addVoca.statusStorage")} ${item.dayName}…`);
           try {
             await uploadCsvBackup(item.file, course.id, item.dayName);
           } catch (e) {
-            // Non-fatal: log and continue
             console.error("[Storage] Backup upload failed:", e);
           }
         }
@@ -148,7 +144,6 @@ export default function AddVocaPage() {
 
         if (!isCollocation) {
           // FR-10: IPA lookup for single-word entries with missing pronunciation
-          setStatusText(`${t("addVoca.statusIpa")} ${item.dayName}…`);
           words = await Promise.all(
             words.map(async (w) => {
               const sw = w as StandardWordInput;
@@ -159,7 +154,6 @@ export default function AddVocaPage() {
           );
 
           // FR-11: Linguistic enrichment via OpenAI (best-effort)
-          setStatusText(`${t("addVoca.statusEnrich")} ${item.dayName}…`);
           try {
             const resp = await fetch("/api/admin/enrich", {
               method: "POST",
@@ -175,8 +169,7 @@ export default function AddVocaPage() {
           }
         }
 
-        // FR-12: Write to Firestore (upload route handles FR-8 clear + FR-13 metadata)
-        setStatusText(`${t("addVoca.statusWriting")} ${item.dayName}…`);
+        // FR-12: Write to Firestore
         const uploadResp = await fetch("/api/admin/upload", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -191,17 +184,41 @@ export default function AddVocaPage() {
 
         const { count } = await uploadResp.json();
         updateProgressItem(item.id, { status: "success", wordCount: count });
-        success++;
+        setProgressCounts((prev) => ({ ...prev, success: prev.success + 1 }));
       } catch (e) {
         console.error(`[Upload] ${item.dayName} failed:`, e);
         updateProgressItem(item.id, {
           status: "failed",
           error: e instanceof Error ? e.message : String(e),
         });
-        failed++;
+        setProgressCounts((prev) => ({ ...prev, failed: prev.failed + 1 }));
       }
+    };
 
-      setProgressCounts({ success, failed, skipped });
+    const queue = readyItems.filter((item) => !skipDays.has(item.dayName));
+    const total = queue.length;
+
+    if (total > 0) {
+      let done = 0;
+      let resolveAll!: () => void;
+      const allDone = new Promise<void>((res) => { resolveAll = res; });
+      const inFlight = new Set<Promise<void>>();
+
+      const launchNext = () => {
+        while (inFlight.size < CONCURRENCY && queue.length > 0) {
+          const item = queue.shift()!;
+          const p: Promise<void> = processItem(item).finally(() => {
+            inFlight.delete(p);
+            done++;
+            if (done === total) resolveAll();
+            else launchNext();
+          });
+          inFlight.add(p);
+        }
+      };
+
+      launchNext();
+      await allDone;
     }
 
     setStatusText("");
