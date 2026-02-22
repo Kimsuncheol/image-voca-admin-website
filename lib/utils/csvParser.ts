@@ -81,6 +81,15 @@ function detectAndParse(
 
   data.forEach((row, index) => {
     const normalized = normalizeRow(row, isCollocation);
+
+    // Guard: skip rows that look like a header row that slipped through detection.
+    // A header row has its primary field value equal to the field name itself (e.g. word='Word').
+    // Check both primary field and meaning to avoid false positives on real vocabulary.
+    const primaryKey = isCollocation ? 'collocation' : 'word';
+    const primaryVal = String(normalized[primaryKey] ?? '').toLowerCase();
+    const meaningVal = String(normalized['meaning'] ?? '').toLowerCase();
+    if (primaryVal === primaryKey && meaningVal === 'meaning') return;
+
     const parsed = schema.safeParse(normalized);
     if (parsed.success) {
       words.push(parsed.data);

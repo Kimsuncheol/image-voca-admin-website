@@ -48,14 +48,18 @@ export default function UploadModal({
   );
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
-  const onDrop = useCallback(async (acceptedFiles: File[]) => {
-    if (acceptedFiles.length > 0) {
-      const file = acceptedFiles[0];
-      setSelectedFile(file);
-      const result = await parseCsvFile(file, isCollocation);
-      setParseResult(result);
-    }
-  }, [isCollocation]);
+  const onDrop = useCallback(
+    async (acceptedFiles: File[]) => {
+      if (acceptedFiles.length > 0) {
+        const file = acceptedFiles[0];
+        setSelectedFile(file);
+        const result = await parseCsvFile(file, isCollocation);
+        console.log("[UploadModal] parsed words:", result.words);
+        setParseResult(result);
+      }
+    },
+    [isCollocation],
+  );
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
@@ -134,40 +138,57 @@ export default function UploadModal({
           </Alert>
         ) : null}
 
-        {parseResult && parseResult.words.length > 0 && (() => {
-          const columns: string[] = (isCollocation ?? parseResult.isCollocation)
-            ? ["collocation", "meaning", "explanation", "example", "translation"]
-            : ["word", "meaning", "pronunciation", "example", "translation"];
-          return (
-            <TableContainer component={Paper} sx={{ maxHeight: 300 }}>
-              <Table size="small" stickyHeader>
-                <TableHead>
-                  <TableRow>
-                    {columns.map((col) => (
-                      <TableCell key={col}>{col}</TableCell>
-                    ))}
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {parseResult.words.slice(0, 10).map((word, i) => (
-                    <TableRow key={i}>
+        {parseResult &&
+          parseResult.words.length > 0 &&
+          (() => {
+            const columns: string[] =
+              (isCollocation ?? parseResult.isCollocation)
+                ? [
+                    "collocation",
+                    "meaning",
+                    "explanation",
+                    "example",
+                    "translation",
+                  ]
+                : [
+                    "word",
+                    "meaning",
+                    "pronunciation",
+                    "example",
+                    "translation",
+                  ];
+            return (
+              <TableContainer component={Paper} sx={{ maxHeight: 300 }}>
+                <Table size="small" stickyHeader>
+                  <TableHead>
+                    <TableRow>
                       {columns.map((col) => (
-                        <TableCell key={col}>
-                          {String((word as Record<string, unknown>)[col] ?? "")}
-                        </TableCell>
+                        <TableCell key={col}>{col}</TableCell>
                       ))}
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-              {parseResult.words.length > 10 && (
-                <Typography variant="caption" sx={{ p: 1, display: "block" }}>
-                  ...and {parseResult.words.length - 10} more rows
-                </Typography>
-              )}
-            </TableContainer>
-          );
-        })()}
+                  </TableHead>
+                  <TableBody>
+                    {parseResult.words.slice(0, 10).map((word, i) => (
+                      <TableRow key={i}>
+                        {columns.map((col) => (
+                          <TableCell key={col}>
+                            {String(
+                              (word as Record<string, unknown>)[col] ?? "",
+                            )}
+                          </TableCell>
+                        ))}
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+                {parseResult.words.length > 10 && (
+                  <Typography variant="caption" sx={{ p: 1, display: "block" }}>
+                    ...and {parseResult.words.length - 10} more rows
+                  </Typography>
+                )}
+              </TableContainer>
+            );
+          })()}
       </DialogContent>
       <DialogActions>
         <Button onClick={onClose}>{t("common.cancel")}</Button>
