@@ -93,7 +93,7 @@ export default function UploadModal({
         <TextField
           label={t("addVoca.day")}
           value={dayName}
-          onChange={(e) => setDayName(e.target.value)}
+          onChange={(e) => setDayName(e.target.value.replace(/\s+/g, ''))}
           fullWidth
           margin="normal"
           placeholder="Day 1"
