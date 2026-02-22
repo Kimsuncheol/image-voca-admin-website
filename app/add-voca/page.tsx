@@ -122,13 +122,17 @@ export default function AddVocaPage() {
     setStatusText(t("addVoca.statusProcessing"));
     setProgressOpen(true);
 
-    // Process items with a concurrency pool (up to 3 in-flight at once).
-    // Functional state updates are used for counts to avoid race conditions.
+    // Items to process (excludes skipped)
+    const queue = readyItems.filter((item) => !skipDays.has(item.dayName));
+
+    // PHASE 1: Pre-process (Storage backup + IPA + Enrich) with concurrency pool.
+    // Enriched words are buffered into processedMap instead of uploaded immediately.
     const CONCURRENCY = 3;
+    const processedMap = new Map<string, unknown[]>();
+    const errorMap = new Map<string, string>();
 
-    const processItem = async (item: QueueItem) => {
+    const preprocessItem = async (item: QueueItem) => {
       updateProgressItem(item.id, { status: "processing" });
-
       try {
         // FR-6: Upload CSV source file to Storage (CSV items only)
         if (isCsvItem(item) && item.file) {
@@ -169,45 +173,27 @@ export default function AddVocaPage() {
           }
         }
 
-        // FR-12: Write to Firestore
-        const uploadResp = await fetch("/api/admin/upload", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            coursePath: course.path,
-            dayName: item.dayName,
-            words,
-          }),
-        });
-
-        if (!uploadResp.ok) throw new Error("Upload failed");
-
-        const { count } = await uploadResp.json();
-        updateProgressItem(item.id, { status: "success", wordCount: count });
-        setProgressCounts((prev) => ({ ...prev, success: prev.success + 1 }));
+        processedMap.set(item.id, words);
       } catch (e) {
-        console.error(`[Upload] ${item.dayName} failed:`, e);
-        updateProgressItem(item.id, {
-          status: "failed",
-          error: e instanceof Error ? e.message : String(e),
-        });
-        setProgressCounts((prev) => ({ ...prev, failed: prev.failed + 1 }));
+        console.error(`[Preprocess] ${item.dayName} failed:`, e);
+        const msg = e instanceof Error ? e.message : String(e);
+        errorMap.set(item.id, msg);
+        updateProgressItem(item.id, { status: "failed", error: msg });
       }
     };
 
-    const queue = readyItems.filter((item) => !skipDays.has(item.dayName));
-    const total = queue.length;
-
-    if (total > 0) {
+    if (queue.length > 0) {
+      const pool = [...queue]; // mutable copy consumed by shift()
+      const total = pool.length;
       let done = 0;
       let resolveAll!: () => void;
       const allDone = new Promise<void>((res) => { resolveAll = res; });
       const inFlight = new Set<Promise<void>>();
 
       const launchNext = () => {
-        while (inFlight.size < CONCURRENCY && queue.length > 0) {
-          const item = queue.shift()!;
-          const p: Promise<void> = processItem(item).finally(() => {
+        while (inFlight.size < CONCURRENCY && pool.length > 0) {
+          const item = pool.shift()!;
+          const p: Promise<void> = preprocessItem(item).finally(() => {
             inFlight.delete(p);
             done++;
             if (done === total) resolveAll();
@@ -219,6 +205,66 @@ export default function AddVocaPage() {
 
       launchNext();
       await allDone;
+    }
+
+    // Reflect pre-processing failures in count
+    if (errorMap.size > 0) {
+      setProgressCounts((prev) => ({ ...prev, failed: errorMap.size }));
+    }
+
+    // PHASE 2: FR-12 — single batch upload for all successfully pre-processed days.
+    // Reduces N individual Firestore write round-trips to one HTTP call.
+    const daysToUpload = queue
+      .filter((item) => processedMap.has(item.id))
+      .map((item) => ({
+        dayName: item.dayName,
+        words: processedMap.get(item.id)!,
+      }));
+
+    if (daysToUpload.length > 0) {
+      setStatusText(t("addVoca.statusWriting"));
+      try {
+        const batchResp = await fetch("/api/admin/batch-upload", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ coursePath: course.path, days: daysToUpload }),
+        });
+        if (!batchResp.ok) throw new Error("Batch upload failed");
+
+        const { results } = (await batchResp.json()) as {
+          results: { dayName: string; count: number; error?: string }[];
+        };
+
+        let successCount = 0;
+        let failCount = errorMap.size;
+        for (const r of results) {
+          const item = queue.find((q) => q.dayName === r.dayName);
+          if (!item) continue;
+          if (r.error) {
+            updateProgressItem(item.id, { status: "failed", error: r.error });
+            failCount++;
+          } else {
+            updateProgressItem(item.id, { status: "success", wordCount: r.count });
+            successCount++;
+          }
+        }
+        setProgressCounts((prev) => ({
+          ...prev,
+          success: successCount,
+          failed: failCount,
+        }));
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : "Upload failed";
+        for (const item of queue) {
+          if (processedMap.has(item.id)) {
+            updateProgressItem(item.id, { status: "failed", error: msg });
+          }
+        }
+        setProgressCounts((prev) => ({
+          ...prev,
+          failed: errorMap.size + daysToUpload.length,
+        }));
+      }
     }
 
     setStatusText("");
