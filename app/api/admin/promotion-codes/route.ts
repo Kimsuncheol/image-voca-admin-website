@@ -38,6 +38,30 @@ function hashCode(code: string): string {
   return createHmac('sha256', secret).update(code).digest('hex');
 }
 
+async function deleteExpiredUnusedCodes(): Promise<void> {
+  const today = new Date().toISOString().split('T')[0]; // 'YYYY-MM-DD'
+
+  const snapshot = await adminDb
+    .collection('promotionCodes')
+    .where('currentUses', '==', 0)
+    .get();
+
+  // eventPeriod.endDate is 'YYYY-MM-DD' — lexicographic compare is safe
+  const toDelete = snapshot.docs.filter((d) => {
+    const endDate: string = d.data().eventPeriod?.endDate ?? '';
+    return endDate !== '' && endDate < today;
+  });
+
+  if (toDelete.length === 0) return;
+
+  const CHUNK = 500;
+  for (let i = 0; i < toDelete.length; i += CHUNK) {
+    const batch = adminDb.batch();
+    toDelete.slice(i, i + CHUNK).forEach((d) => batch.delete(d.ref));
+    await batch.commit();
+  }
+}
+
 export async function GET(request: NextRequest) {
   const caller = await verifySession(request);
   if (!caller) {
@@ -48,6 +72,9 @@ export async function GET(request: NextRequest) {
   }
 
   try {
+    // Fire-and-forget cleanup — errors are logged but never block the response
+    deleteExpiredUnusedCodes().catch(console.error);
+
     const snapshot = await adminDb
       .collection('promotionCodes')
       .orderBy('createdAt', 'desc')

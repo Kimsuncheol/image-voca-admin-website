@@ -6,7 +6,8 @@ import Alert from "@mui/material/Alert";
 import CircularProgress from "@mui/material/CircularProgress";
 import Box from "@mui/material/Box";
 import Breadcrumbs from "@mui/material/Breadcrumbs";
-import Link from "@mui/material/Link";
+// import Link from "@mui/material/Link";
+import Link from "next/link";
 import { useTranslation } from "react-i18next";
 import PageLayout from "@/components/layout/PageLayout";
 import { getCourseById } from "@/types/course";
@@ -57,10 +58,16 @@ export default function DayWordsPage({
   return (
     <PageLayout>
       <Breadcrumbs sx={{ mb: 2 }}>
-        <Link href="/courses" underline="hover" color="inherit">
+        <Link
+          href="/courses"
+          style={{ textDecoration: "none", color: "inherit" }}
+        >
           {t("courses.title")}
         </Link>
-        <Link href={`/courses/${courseId}`} underline="hover" color="inherit">
+        <Link
+          href={`/courses/${courseId}`}
+          style={{ textDecoration: "none", color: "inherit" }}
+        >
           {course?.label || courseId}
         </Link>
         <Typography color="text.primary">{dayId}</Typography>

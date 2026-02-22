@@ -38,8 +38,9 @@ export default function AppNav() {
 
   return (
     <AppBar
-      position="static"
+      position="sticky"
       sx={{
+        top: 0,
         width: "100%",
       }}
     >

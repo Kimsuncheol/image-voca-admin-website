@@ -7,7 +7,7 @@ import Alert from "@mui/material/Alert";
 import CircularProgress from "@mui/material/CircularProgress";
 import Box from "@mui/material/Box";
 import Breadcrumbs from "@mui/material/Breadcrumbs";
-import Link from "@mui/material/Link";
+import Link from "next/link";
 import { useTranslation } from "react-i18next";
 import PageLayout from "@/components/layout/PageLayout";
 import { getCourseById } from "@/types/course";
@@ -57,7 +57,10 @@ export default function CourseDaysPage({
   return (
     <PageLayout>
       <Breadcrumbs sx={{ mb: 2 }}>
-        <Link href="/courses" underline="hover" color="inherit">
+        <Link
+          href="/courses"
+          style={{ textDecoration: "none", color: "inherit" }}
+        >
           {t("courses.title")}
         </Link>
         <Typography color="text.primary">
