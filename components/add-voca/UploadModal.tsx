@@ -17,6 +17,7 @@ import TableContainer from "@mui/material/TableContainer";
 import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import Paper from "@mui/material/Paper";
+import InputAdornment from "@mui/material/InputAdornment";
 import CloudUploadIcon from "@mui/icons-material/CloudUpload";
 import { useDropzone } from "react-dropzone";
 import { useTranslation } from "react-i18next";
@@ -92,11 +93,19 @@ export default function UploadModal({
       <DialogContent>
         <TextField
           label={t("addVoca.day")}
-          value={dayName}
-          onChange={(e) => setDayName(e.target.value.replace(/\s+/g, ''))}
+          value={dayName.replace(/^Day/i, "")}
+          onChange={(e) => {
+            const val = e.target.value.replace(/\s+/g, "");
+            setDayName(val ? `Day${val}` : "");
+          }}
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">Day</InputAdornment>
+            ),
+          }}
           fullWidth
           margin="normal"
-          placeholder="Day 1"
+          placeholder="1"
         />
 
         <Box
