@@ -109,12 +109,11 @@
     "allPlans": "전체 플랜",
     "planFree": "무료",
     "planVocaUnlimited": "단어 무제한",
-    "planVocaSpeaking": "단어+스피킹",
     "allRoles": "전체 역할",
     "adminOnly": "관리자",
     "totalMembers": "전체",
     "unlimitedMembers": "무제한",
-    "speakingMembers": "스피킹",
+    "freeMembers": "무료",
     "detailTitle": "회원 상세",
     "joinedAt": "가입일"
   },

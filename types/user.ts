@@ -1,6 +1,6 @@
 export type UserRole = 'super-admin' | 'admin' | 'user';
 
-export type UserPlan = 'free' | 'voca_unlimited' | 'voca_speaking';
+export type UserPlan = 'free' | 'voca_unlimited';
 
 export interface AppUser {
   uid: string;

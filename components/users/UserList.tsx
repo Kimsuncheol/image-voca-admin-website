@@ -55,15 +55,13 @@ const roleColors: Record<UserRole, "error" | "warning" | "default"> = {
 
 function planChipColor(
   plan: UserPlan | undefined
-): "default" | "primary" | "success" {
+): "default" | "primary" {
   if (plan === "voca_unlimited") return "primary";
-  if (plan === "voca_speaking") return "success";
   return "default";
 }
 
 function getPlanLabel(plan: UserPlan | undefined, t: (k: string) => string) {
   if (plan === "voca_unlimited") return t("users.planVocaUnlimited");
-  if (plan === "voca_speaking") return t("users.planVocaSpeaking");
   return t("users.planFree");
 }
 
@@ -119,7 +117,7 @@ export default function UserList({
   // Aggregate counters from all users (not filtered)
   const total = users.length;
   const unlimitedCount = users.filter((u) => u.plan === "voca_unlimited").length;
-  const speakingCount = users.filter((u) => u.plan === "voca_speaking").length;
+  const freeCount = users.filter((u) => !u.plan || u.plan === "free").length;
 
   const filteredUsers = useMemo(() => {
     const q = search.toLowerCase();
@@ -199,7 +197,7 @@ export default function UserList({
       <Stack direction="row" spacing={2} sx={{ mb: 3 }}>
         <StatCard label={t("users.totalMembers")} value={total} />
         <StatCard label={t("users.unlimitedMembers")} value={unlimitedCount} />
-        <StatCard label={t("users.speakingMembers")} value={speakingCount} />
+        <StatCard label={t("users.freeMembers")} value={freeCount} />
       </Stack>
 
       {/* Search + Filters */}
@@ -231,9 +229,6 @@ export default function UserList({
             <ToggleButton value="free">{t("users.planFree")}</ToggleButton>
             <ToggleButton value="voca_unlimited">
               {t("users.planVocaUnlimited")}
-            </ToggleButton>
-            <ToggleButton value="voca_speaking">
-              {t("users.planVocaSpeaking")}
             </ToggleButton>
           </ToggleButtonGroup>
           <ToggleButtonGroup
@@ -420,9 +415,6 @@ export default function UserList({
                     <MenuItem value="free">{t("users.planFree")}</MenuItem>
                     <MenuItem value="voca_unlimited">
                       {t("users.planVocaUnlimited")}
-                    </MenuItem>
-                    <MenuItem value="voca_speaking">
-                      {t("users.planVocaSpeaking")}
                     </MenuItem>
                   </Select>
                 ) : (

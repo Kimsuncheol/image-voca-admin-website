@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth, adminDb } from '@/lib/firebase/admin';
 
+function normalizeLegacyPlan(plan: unknown): unknown {
+  if (plan === 'voca_speaking') return 'voca_unlimited';
+  return plan;
+}
+
 async function verifySession(request: NextRequest) {
   const sessionCookie = request.cookies.get('__session')?.value;
   if (!sessionCookie) return null;
@@ -22,10 +27,14 @@ export async function GET(request: NextRequest) {
 
   try {
     const snapshot = await adminDb.collection('users').get();
-    const users = snapshot.docs.map((doc) => ({
-      uid: doc.id,
-      ...doc.data(),
-    }));
+    const users = snapshot.docs.map((doc) => {
+      const rawData = doc.data() as Record<string, unknown>;
+      return {
+        uid: doc.id,
+        ...rawData,
+        plan: normalizeLegacyPlan(rawData.plan),
+      };
+    });
     return NextResponse.json({ users });
   } catch {
     return NextResponse.json({ error: 'Failed to fetch users' }, { status: 500 });
@@ -65,7 +74,7 @@ export async function PATCH(request: NextRequest) {
       if (callerRole !== 'super-admin' && callerRole !== 'admin') {
         return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
       }
-      if (!['free', 'voca_unlimited', 'voca_speaking'].includes(plan)) {
+      if (!['free', 'voca_unlimited'].includes(plan)) {
         return NextResponse.json({ error: 'Invalid plan' }, { status: 400 });
       }
       const targetDoc = await adminDb.collection('users').doc(uid).get();

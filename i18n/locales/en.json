@@ -109,12 +109,11 @@
     "allPlans": "All Plans",
     "planFree": "Free",
     "planVocaUnlimited": "Voca Unlimited",
-    "planVocaSpeaking": "Voca Speaking",
     "allRoles": "All Roles",
     "adminOnly": "Admin",
     "totalMembers": "Total",
     "unlimitedMembers": "Unlimited",
-    "speakingMembers": "Speaking",
+    "freeMembers": "Free",
     "detailTitle": "Member Details",
     "joinedAt": "Joined"
   },
