@@ -38,6 +38,15 @@ export default function UrlUploadTab({ items, onItemsChange, isCollocation }: Ur
   const [activeIndex, setActiveIndex] = useState<number>(-1);
   const [fetchingUrl, setFetchingUrl] = useState(false);
   const [authError, setAuthError] = useState('');
+  const [urlFetchError, setUrlFetchError] = useState('');
+  const [urlValidationError, setUrlValidationError] = useState<ParseResult | null>(null);
+
+  const getBlockingErrorMessage = (code?: ParseResult['blockingError']) => {
+    if (!code) return '';
+    if (code === 'HEADER_REQUIRED') return t('addVoca.validationHeaderRequired');
+    if (code === 'HEADER_MISMATCH') return t('addVoca.validationHeaderMismatch');
+    return t('addVoca.validationCrossHeaderRow');
+  };
 
   const handleConnectGoogle = async () => {
     setAuthError('');
@@ -50,21 +59,30 @@ export default function UrlUploadTab({ items, onItemsChange, isCollocation }: Ur
 
   const handleAddUrl = async () => {
     if (!urlInput.trim() || !token) return;
+    setUrlFetchError('');
+    setUrlValidationError(null);
     setFetchingUrl(true);
     try {
       const data = await fetchSheetWithToken(urlInput, token, isCollocation);
+      if (data.blockingError) {
+        setUrlValidationError(data);
+        return;
+      }
       onItemsChange([
         ...items,
         { id: crypto.randomUUID(), url: urlInput, dayName: '', data },
       ]);
-    } catch {
+      setUrlInput('');
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      setUrlFetchError(message);
       onItemsChange([
         ...items,
         { id: crypto.randomUUID(), url: urlInput, dayName: '', data: null },
       ]);
+    } finally {
+      setFetchingUrl(false);
     }
-    setUrlInput('');
-    setFetchingUrl(false);
   };
 
   const handleItemClick = (index: number) => {
@@ -114,12 +132,43 @@ export default function UrlUploadTab({ items, onItemsChange, isCollocation }: Ur
           {authError}
         </Alert>
       )}
+      {urlFetchError && (
+        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setUrlFetchError('')}>
+          {t('addVoca.urlFetchError', { message: urlFetchError })}
+        </Alert>
+      )}
+      {urlValidationError?.blockingError && (
+        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setUrlValidationError(null)}>
+          <Typography variant="body2">
+            {getBlockingErrorMessage(urlValidationError.blockingError)}
+          </Typography>
+          {urlValidationError.expectedHeaders &&
+            urlValidationError.expectedHeaders.length > 0 && (
+              <Typography variant="body2" sx={{ mt: 0.5 }}>
+                {t('addVoca.expectedKeys', {
+                  keys: urlValidationError.expectedHeaders.join(', '),
+                })}
+              </Typography>
+            )}
+          {urlValidationError.detectedHeaders.length > 0 && (
+            <Typography variant="body2" sx={{ mt: 0.5 }}>
+              {t('addVoca.detectedKeys', {
+                keys: urlValidationError.detectedHeaders.join(', '),
+              })}
+            </Typography>
+          )}
+        </Alert>
+      )}
 
       {/* URL input row */}
       <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
         <TextField
           value={urlInput}
-          onChange={(e) => setUrlInput(e.target.value)}
+          onChange={(e) => {
+            setUrlInput(e.target.value);
+            if (urlValidationError) setUrlValidationError(null);
+            if (urlFetchError) setUrlFetchError('');
+          }}
           placeholder={t('addVoca.urlPlaceholder')}
           fullWidth
           size="small"

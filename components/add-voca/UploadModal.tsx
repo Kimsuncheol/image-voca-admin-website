@@ -81,6 +81,13 @@ export default function UploadModal({
     setSelectedFile(null);
   };
 
+  const getBlockingErrorMessage = (code?: ParseResult["blockingError"]) => {
+    if (!code) return "";
+    if (code === "HEADER_REQUIRED") return t("addVoca.validationHeaderRequired");
+    if (code === "HEADER_MISMATCH") return t("addVoca.validationHeaderMismatch");
+    return t("addVoca.validationCrossHeaderRow");
+  };
+
   return (
     <Dialog
       open={open}
@@ -131,7 +138,25 @@ export default function UploadModal({
           </Typography>
         </Box>
 
-        {parseResult?.errors.length ? (
+        {parseResult?.blockingError ? (
+          <Alert severity="error" sx={{ mb: 2 }}>
+            <Typography variant="body2">{getBlockingErrorMessage(parseResult.blockingError)}</Typography>
+            {parseResult.expectedHeaders && parseResult.expectedHeaders.length > 0 && (
+              <Typography variant="body2" sx={{ mt: 0.5 }}>
+                {t("addVoca.expectedKeys", {
+                  keys: parseResult.expectedHeaders.join(", "),
+                })}
+              </Typography>
+            )}
+            {parseResult.detectedHeaders.length > 0 && (
+              <Typography variant="body2" sx={{ mt: 0.5 }}>
+                {t("addVoca.detectedKeys", {
+                  keys: parseResult.detectedHeaders.join(", "),
+                })}
+              </Typography>
+            )}
+          </Alert>
+        ) : parseResult?.errors.length ? (
           <Alert severity="warning" sx={{ mb: 2 }}>
             {parseResult.detectedHeaders.length > 0 && (
               <Typography variant="body2" sx={{ mb: 0.5 }}>

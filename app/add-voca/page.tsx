@@ -39,6 +39,7 @@ export default function AddVocaPage() {
   const [selectedCourse, setSelectedCourse] = useState<CourseId | "">("CSAT");
   const [csvItems, setCsvItems] = useState<CsvItem[]>([]);
   const [urlItems, setUrlItems] = useState<UrlItem[]>([]);
+  const [courseSwitchNotice, setCourseSwitchNotice] = useState("");
 
   // FR-14: Progress modal state
   const [progressOpen, setProgressOpen] = useState(false);
@@ -284,13 +285,33 @@ export default function AddVocaPage() {
     setProgressOpen(false);
   };
 
+  const handleCourseChange = (courseId: CourseId) => {
+    if (courseId === selectedCourse) return;
+    const hasQueuedItems = csvItems.length > 0 || urlItems.length > 0;
+    setSelectedCourse(courseId);
+    setCsvItems([]);
+    setUrlItems([]);
+    setCourseSwitchNotice(
+      hasQueuedItems ? t("addVoca.queueClearedOnCourseChange") : ""
+    );
+  };
+
   return (
     <PageLayout>
       <Typography variant="h4" gutterBottom fontWeight={600}>
         {t("addVoca.title")}
       </Typography>
 
-      <CourseSelector value={selectedCourse} onChange={setSelectedCourse} />
+      <CourseSelector value={selectedCourse} onChange={handleCourseChange} />
+      {courseSwitchNotice && (
+        <Alert
+          severity="info"
+          sx={{ mb: 2 }}
+          onClose={() => setCourseSwitchNotice("")}
+        >
+          {courseSwitchNotice}
+        </Alert>
+      )}
 
       <Box sx={{ borderBottom: 1, borderColor: "divider", mb: 2 }}>
         <Tabs value={tabIndex} onChange={(_, v) => setTabIndex(v)}>

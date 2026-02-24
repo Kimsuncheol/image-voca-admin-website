@@ -11,7 +11,14 @@ export interface ParseResult {
   isCollocation: boolean;
   errors: string[];
   detectedHeaders: string[];
+  blockingError?: 'HEADER_REQUIRED' | 'HEADER_MISMATCH' | 'CROSS_HEADER_ROW';
+  expectedHeaders?: string[];
 }
+
+const STANDARD_HEADERS = ['word', 'meaning', 'pronunciation', 'example', 'translation'] as const;
+const COLLOCATION_HEADERS = ['collocation', 'meaning', 'explanation', 'example', 'translation'] as const;
+const STANDARD_THIRD_HEADER_SET = new Set(['pronunciation', 'pronounciation']);
+const STANDARD_FOURTH_HEADER_SET = new Set(['example', 'example sentence']);
 
 /** Exported alias for normalizeRow — required by FR-9. */
 export function extractVocaFields(
@@ -103,6 +110,63 @@ function detectAndParse(
   return { words, isCollocation, errors, detectedHeaders: rawHeaders };
 }
 
+function getExpectedHeaders(isCollocation: boolean): string[] {
+  return [...(isCollocation ? COLLOCATION_HEADERS : STANDARD_HEADERS)];
+}
+
+function isExactHeaderSet(headers: string[], expectedHeaders: string[]): boolean {
+  if (headers.length !== expectedHeaders.length) return false;
+  const headerSet = new Set(headers);
+  if (headerSet.size !== expectedHeaders.length) return false;
+  return expectedHeaders.every((h) => headerSet.has(h));
+}
+
+function isNonEmptyRow(row: string[]): boolean {
+  return row.some((cell) => (cell?.trim() ?? '').length > 0);
+}
+
+function buildBlockingResult(
+  isCollocation: boolean,
+  code: NonNullable<ParseResult['blockingError']>,
+  expectedHeaders: string[],
+  detectedHeaders: string[],
+): ParseResult {
+  return {
+    words: [],
+    isCollocation,
+    errors: [],
+    detectedHeaders,
+    blockingError: code,
+    expectedHeaders,
+  };
+}
+
+function isCrossHeaderFirstRow(
+  firstDataRow: string[],
+  targetIsCollocation: boolean,
+): boolean {
+  if (firstDataRow.length < 5) return false;
+  const norm = firstDataRow.map((cell) => (cell?.trim() ?? '').toLowerCase());
+
+  if (targetIsCollocation) {
+    return (
+      norm[0] === 'word' &&
+      norm[1] === 'meaning' &&
+      STANDARD_THIRD_HEADER_SET.has(norm[2]) &&
+      STANDARD_FOURTH_HEADER_SET.has(norm[3]) &&
+      norm[4] === 'translation'
+    );
+  }
+
+  return (
+    norm[0] === 'collocation' &&
+    norm[1] === 'meaning' &&
+    norm[2] === 'explanation' &&
+    norm[3] === 'example' &&
+    norm[4] === 'translation'
+  );
+}
+
 // Schema field names only — NOT positional aliases.
 // A row qualifies as a header row when ≥2 of its cells match known field names.
 const KNOWN_FIELDS = new Set([
@@ -122,23 +186,69 @@ export function parseRowArrays(data: string[][], isCollocation?: boolean): Parse
 function processParsedArray(data: string[][], isCollocation?: boolean): ParseResult {
   if (data.length === 0) return { words: [], isCollocation: false, errors: [], detectedHeaders: [] };
 
-  const firstRowNorm = data[0].map(h => (h?.trim() ?? '').toLowerCase());
+  // Ignore leading blank rows so strict header checks evaluate the first real row.
+  const firstNonEmptyRowIndex = data.findIndex(isNonEmptyRow);
+  if (firstNonEmptyRowIndex < 0) {
+    if (typeof isCollocation === 'boolean') {
+      return buildBlockingResult(
+        isCollocation,
+        'HEADER_REQUIRED',
+        getExpectedHeaders(isCollocation),
+        [],
+      );
+    }
+    return { words: [], isCollocation: false, errors: [], detectedHeaders: [] };
+  }
+
+  const rowsFromFirstNonEmpty = data.slice(firstNonEmptyRowIndex);
+  const firstRowNormAll = rowsFromFirstNonEmpty[0].map((h) =>
+    (h?.trim() ?? '').toLowerCase()
+  );
+  const firstRowNorm = firstRowNormAll.filter((h) => h.length > 0);
+  const targetIsCollocation = isCollocation ?? firstRowNormAll.includes('collocation');
 
   // Require ≥2 known field names to avoid false positives on data rows that
   // happen to contain a single common word like "example" or "meaning".
   const matchCount = firstRowNorm.filter(h => KNOWN_FIELDS.has(h)).length;
   const hasHeaders = matchCount >= 2;
 
+  if (typeof isCollocation === 'boolean') {
+    const expectedHeaders = getExpectedHeaders(targetIsCollocation);
+    if (!hasHeaders) {
+      return buildBlockingResult(
+        targetIsCollocation,
+        'HEADER_REQUIRED',
+        expectedHeaders,
+        firstRowNorm,
+      );
+    }
+    if (!isExactHeaderSet(firstRowNorm, expectedHeaders)) {
+      return buildBlockingResult(
+        targetIsCollocation,
+        'HEADER_MISMATCH',
+        expectedHeaders,
+        firstRowNorm,
+      );
+    }
+  }
+
   let headers: string[];
   let rows: string[][];
+  let headerIndexes: number[] | null = null;
 
   if (hasHeaders) {
-    headers = firstRowNorm;
-    rows = data.slice(1);
+    headerIndexes = [];
+    headers = [];
+    firstRowNormAll.forEach((header, index) => {
+      if (!header) return;
+      headerIndexes!.push(index);
+      headers.push(header);
+    });
+    rows = rowsFromFirstNonEmpty.slice(1);
   } else {
     // Positional fallback: support up to 6 columns.
     headers = ['_1', '_2', '_3', '_4', '_5', '_6'];
-    rows = data;
+    rows = rowsFromFirstNonEmpty;
 
     // Detect empty or numeric leading column (common in Google Sheets exports
     // where column A is a blank row-number or index column).
@@ -158,13 +268,31 @@ function processParsedArray(data: string[][], isCollocation?: boolean): ParseRes
     }
   }
 
+  if (typeof isCollocation === 'boolean') {
+    const firstDataRow = rows.find((row) => row.some((cell) => cell && cell.trim().length > 0));
+    if (firstDataRow && isCrossHeaderFirstRow(firstDataRow, targetIsCollocation)) {
+      return buildBlockingResult(
+        targetIsCollocation,
+        'CROSS_HEADER_ROW',
+        getExpectedHeaders(targetIsCollocation),
+        firstRowNorm,
+      );
+    }
+  }
+
   const objects = rows
     .filter(rowArray => rowArray.some(cell => cell && cell.trim().length > 0))
     .map(rowArray => {
       const obj: Record<string, unknown> = {};
-      headers.forEach((h, i) => {
-        obj[h] = rowArray[i];
-      });
+      if (headerIndexes) {
+        headers.forEach((h, i) => {
+          obj[h] = rowArray[headerIndexes[i]];
+        });
+      } else {
+        headers.forEach((h, i) => {
+          obj[h] = rowArray[i];
+        });
+      }
       return obj;
     });
 
