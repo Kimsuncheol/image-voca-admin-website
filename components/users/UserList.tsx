@@ -37,10 +37,15 @@ interface UserListProps {
   users: AppUser[];
   currentUserRole: UserRole;
   currentUserUid: string;
-  onDelete: (uid: string) => void;
-  onRoleChange: (uid: string, role: "user" | "admin") => void;
-  onPlanChange: (uid: string, plan: UserPlan) => void;
+  onDelete: (uid: string) => Promise<void>;
+  onRoleChange: (uid: string, role: "user" | "admin") => Promise<void>;
+  onPlanChange: (uid: string, plan: UserPlan) => Promise<void>;
 }
+
+type PendingConfirmAction =
+  | { type: "delete"; uid: string }
+  | { type: "roleChange"; uid: string; nextRole: "user" | "admin" }
+  | { type: "planChange"; uid: string; nextPlan: UserPlan };
 
 const roleColors: Record<UserRole, "error" | "warning" | "default"> = {
   "super-admin": "error",
@@ -107,7 +112,9 @@ export default function UserList({
   const [planFilter, setPlanFilter] = useState<UserPlan | "all">("all");
   const [roleFilter, setRoleFilter] = useState<"all" | "admin">("all");
   const [selectedUser, setSelectedUser] = useState<AppUser | null>(null);
-  const [deleteTarget, setDeleteTarget] = useState<AppUser | null>(null);
+  const [pendingConfirmAction, setPendingConfirmAction] =
+    useState<PendingConfirmAction | null>(null);
+  const [isConfirmSubmitting, setIsConfirmSubmitting] = useState(false);
 
   // Aggregate counters from all users (not filtered)
   const total = users.length;
@@ -147,16 +154,43 @@ export default function UserList({
   const canChangePlan = (): boolean =>
     currentUserRole === "admin" || currentUserRole === "super-admin";
 
-  const handleDeleteFromDetail = (user: AppUser) => {
-    setSelectedUser(null);
-    setDeleteTarget(user);
+  const getConfirmMessage = (): string => {
+    if (!pendingConfirmAction) return "";
+    if (pendingConfirmAction.type === "delete") {
+      return t("users.deleteConfirm");
+    }
+    if (pendingConfirmAction.type === "roleChange") {
+      return t("users.confirmRoleChange");
+    }
+    return t("users.confirmPlanChange");
   };
 
-  const handleConfirmDelete = () => {
-    if (deleteTarget) {
-      onDelete(deleteTarget.uid);
-      setDeleteTarget(null);
+  const handleConfirmAction = async () => {
+    if (!pendingConfirmAction || isConfirmSubmitting) return;
+
+    const action = pendingConfirmAction;
+    setPendingConfirmAction(null);
+    setSelectedUser(null);
+    setIsConfirmSubmitting(true);
+
+    try {
+      if (action.type === "delete") {
+        await onDelete(action.uid);
+        return;
+      }
+      if (action.type === "roleChange") {
+        await onRoleChange(action.uid, action.nextRole);
+        return;
+      }
+      await onPlanChange(action.uid, action.nextPlan);
+    } finally {
+      setIsConfirmSubmitting(false);
     }
+  };
+
+  const handleCancelConfirm = () => {
+    if (isConfirmSubmitting) return;
+    setPendingConfirmAction(null);
   };
 
   return (
@@ -288,7 +322,11 @@ export default function UserList({
       {selectedUser && (
         <Dialog
           open
-          onClose={() => setSelectedUser(null)}
+          onClose={() => {
+            if (isConfirmSubmitting) return;
+            setPendingConfirmAction(null);
+            setSelectedUser(null);
+          }}
           maxWidth="xs"
           fullWidth
         >
@@ -333,8 +371,12 @@ export default function UserList({
                     value={selectedUser.role}
                     onChange={(e) => {
                       const newRole = e.target.value as "user" | "admin";
-                      onRoleChange(selectedUser.uid, newRole);
-                      setSelectedUser({ ...selectedUser, role: newRole });
+                      if (newRole === selectedUser.role) return;
+                      setPendingConfirmAction({
+                        type: "roleChange",
+                        uid: selectedUser.uid,
+                        nextRole: newRole,
+                      });
                     }}
                     sx={{ minWidth: 130 }}
                   >
@@ -365,8 +407,13 @@ export default function UserList({
                     value={selectedUser.plan || "free"}
                     onChange={(e) => {
                       const newPlan = e.target.value as UserPlan;
-                      onPlanChange(selectedUser.uid, newPlan);
-                      setSelectedUser({ ...selectedUser, plan: newPlan });
+                      const currentPlan = selectedUser.plan || "free";
+                      if (newPlan === currentPlan) return;
+                      setPendingConfirmAction({
+                        type: "planChange",
+                        uid: selectedUser.uid,
+                        nextPlan: newPlan,
+                      });
                     }}
                     sx={{ minWidth: 170 }}
                   >
@@ -411,7 +458,12 @@ export default function UserList({
               <Button
                 color="error"
                 startIcon={<DeleteIcon />}
-                onClick={() => handleDeleteFromDetail(selectedUser)}
+                onClick={() =>
+                  setPendingConfirmAction({
+                    type: "delete",
+                    uid: selectedUser.uid,
+                  })
+                }
               >
                 {t("users.delete")}
               </Button>
@@ -425,22 +477,28 @@ export default function UserList({
         </Dialog>
       )}
 
-      {/* Delete Confirm Dialog */}
-      <Dialog open={!!deleteTarget} onClose={() => setDeleteTarget(null)}>
-        <DialogTitle>{t("users.delete")}</DialogTitle>
+      {/* Action Confirm Dialog */}
+      <Dialog
+        open={!!pendingConfirmAction}
+        onClose={handleCancelConfirm}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle>{t("users.confirmActionTitle")}</DialogTitle>
         <DialogContent>
-          <DialogContentText>{t("users.deleteConfirm")}</DialogContentText>
+          <DialogContentText>{getConfirmMessage()}</DialogContentText>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setDeleteTarget(null)}>
-            {t("common.cancel")}
+          <Button onClick={handleCancelConfirm} disabled={isConfirmSubmitting}>
+            {t("common.no")}
           </Button>
           <Button
-            onClick={handleConfirmDelete}
-            color="error"
+            onClick={handleConfirmAction}
+            color={pendingConfirmAction?.type === "delete" ? "error" : "primary"}
             variant="contained"
+            disabled={isConfirmSubmitting}
           >
-            {t("common.delete")}
+            {t("common.yes")}
           </Button>
         </DialogActions>
       </Dialog>
