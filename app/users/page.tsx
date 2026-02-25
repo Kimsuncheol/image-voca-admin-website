@@ -1,79 +1,77 @@
 "use client";
 
+/**
+ * UsersPage  —  /users
+ *
+ * Admin page for managing all registered users.
+ * Only accessible to users with role "admin" or "super-admin".
+ *
+ * ── Access control ────────────────────────────────────────────────────
+ *  useAdminGuard() handles redirect: if the current user's role is "user",
+ *  they are automatically sent to "/" once auth resolves.
+ *
+ * ── Data flow ─────────────────────────────────────────────────────────
+ *  GET  /api/admin/users           → fetch all users (on mount)
+ *  PATCH /api/admin/users { uid, role }  → change user role
+ *  PATCH /api/admin/users { uid, plan }  → change subscription plan
+ *  DELETE /api/admin/users { uid }       → remove user account
+ *
+ * ── States ────────────────────────────────────────────────────────────
+ *  authLoading || loading  → UsersPageSkeleton
+ *  user.role === "user"    → null (prevents flash before redirect)
+ *  error                   → Alert banner (non-blocking; list still shown)
+ *  message                 → dismissible success/error Alert after mutations
+ *  success                 → UserList component
+ *
+ * ── Child components ──────────────────────────────────────────────────
+ *  UsersPageSkeleton  — skeleton cards + table rows while loading
+ *  UserList           — full user table with search, filters, detail modal,
+ *                       and inline role/plan controls
+ */
+
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Typography from "@mui/material/Typography";
 import Alert from "@mui/material/Alert";
-import Card from "@mui/material/Card";
-import CardContent from "@mui/material/CardContent";
-import Paper from "@mui/material/Paper";
-import Skeleton from "@mui/material/Skeleton";
-import Stack from "@mui/material/Stack";
-import { useTranslation } from "react-i18next";
-import { useAuth } from "@/context/AuthContext";
+
+// ── Layout ────────────────────────────────────────────────────────────
 import PageLayout from "@/components/layout/PageLayout";
+
+// ── Auth + types ──────────────────────────────────────────────────────
 import type { AppUser, UserPlan } from "@/types/user";
+import { useTranslation } from "react-i18next";
+
+// ── Feature-specific components & hooks ───────────────────────────────
 import UserList from "@/components/users/UserList";
-
-function UsersPageSkeleton({ title }: { title: string }) {
-  return (
-    <PageLayout>
-      <Typography variant="h4" gutterBottom fontWeight={600}>
-        {title}
-      </Typography>
-
-      <Stack direction="row" spacing={2} sx={{ mb: 3 }}>
-        {Array.from({ length: 3 }).map((_, idx) => (
-          <Card key={idx} variant="outlined" sx={{ flex: 1, minWidth: 100 }}>
-            <CardContent sx={{ p: 2, "&:last-child": { pb: 2 } }}>
-              <Skeleton variant="text" width={40} height={42} />
-              <Skeleton variant="text" width={70} />
-            </CardContent>
-          </Card>
-        ))}
-      </Stack>
-
-      <Stack spacing={1.5} sx={{ mb: 2 }}>
-        <Skeleton variant="rounded" height={40} sx={{ maxWidth: 360 }} />
-        <Stack direction="row" spacing={2} flexWrap="wrap" useFlexGap>
-          <Skeleton variant="rounded" width={360} height={36} />
-          <Skeleton variant="rounded" width={180} height={36} />
-        </Stack>
-      </Stack>
-
-      <Paper variant="outlined" sx={{ p: 2 }}>
-        <Stack spacing={1.5}>
-          <Skeleton variant="text" width="100%" height={30} />
-          <Skeleton variant="text" width="100%" height={30} />
-          <Skeleton variant="text" width="100%" height={30} />
-          <Skeleton variant="text" width="100%" height={30} />
-          <Skeleton variant="text" width="100%" height={30} />
-          <Skeleton variant="text" width="100%" height={30} />
-        </Stack>
-      </Paper>
-    </PageLayout>
-  );
-}
+import UsersPageSkeleton from "@/components/users/UsersPageSkeleton";
+import { useAdminGuard } from "@/hooks/useAdminGuard";
 
 export default function UsersPage() {
   const { t } = useTranslation();
-  const { user, loading: authLoading } = useAuth();
   const router = useRouter();
+
+  // ── Auth guard ────────────────────────────────────────────────────
+  // Redirects non-admin users to "/" once auth resolves.
+  // Returns the current user object and auth loading flag.
+  const { user, authLoading } = useAdminGuard();
+
+  // ── Local state ───────────────────────────────────────────────────
   const [users, setUsers] = useState<AppUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+
+  // Feedback message shown after role/plan changes or deletions
   const [message, setMessage] = useState<{
     type: "success" | "error";
     text: string;
   } | null>(null);
 
-  // FR-1: Gate access to admin users only
-  useEffect(() => {
-    if (!authLoading && user?.role === "user") {
-      router.replace("/");
-    }
-  }, [authLoading, user, router]);
-
+  // ── Data fetching ─────────────────────────────────────────────────
+  /**
+   * Fetches the full user list from the admin API route.
+   * Wrapped in useCallback so it can be passed as a stable reference
+   * to the useEffect dependency array.
+   */
   const fetchUsers = useCallback(async () => {
     try {
       const res = await fetch("/api/admin/users");
@@ -91,6 +89,12 @@ export default function UsersPage() {
     fetchUsers();
   }, [fetchUsers]);
 
+  // ── Mutation handlers ─────────────────────────────────────────────
+
+  /**
+   * Promotes or demotes a user's role between "user" and "admin".
+   * Super-admin role can only be granted through the Firebase console.
+   */
   const handleRoleChange = async (uid: string, role: "user" | "admin") => {
     try {
       const res = await fetch("/api/admin/users", {
@@ -102,13 +106,16 @@ export default function UsersPage() {
       if (!res.ok) throw new Error();
 
       setMessage({ type: "success", text: t("users.roleChangeSuccess") });
+      // Optimistic local state update — avoids a full refetch
       setUsers((prev) => prev.map((u) => (u.uid === uid ? { ...u, role } : u)));
     } catch {
       setMessage({ type: "error", text: t("users.roleChangeError") });
     }
   };
 
-  // FR-8: Subscription update
+  /**
+   * Updates a user's subscription plan (e.g. free → voca_unlimited).
+   */
   const handlePlanChange = async (uid: string, plan: UserPlan) => {
     try {
       const res = await fetch("/api/admin/users", {
@@ -119,13 +126,20 @@ export default function UsersPage() {
 
       if (!res.ok) throw new Error();
 
-      setMessage({ type: "success", text: t("users.subscriptionUpdateSuccess") });
+      setMessage({
+        type: "success",
+        text: t("users.subscriptionUpdateSuccess"),
+      });
       setUsers((prev) => prev.map((u) => (u.uid === uid ? { ...u, plan } : u)));
     } catch {
       setMessage({ type: "error", text: t("users.subscriptionUpdateError") });
     }
   };
 
+  /**
+   * Permanently deletes a user account.
+   * Permission check (`canDelete`) is enforced in UserList.
+   */
   const handleDelete = async (uid: string) => {
     try {
       const res = await fetch("/api/admin/users", {
@@ -143,26 +157,31 @@ export default function UsersPage() {
     }
   };
 
-  // FR-9: Loading state
+  // ── Loading state ─────────────────────────────────────────────────
+  // Show skeleton while auth is resolving OR while users are being fetched
   if (authLoading || loading) {
     return <UsersPageSkeleton title={t("users.title")} />;
   }
 
-  // Prevent flash while redirect is pending
+  // Prevent a flash of the page content while the redirect is in flight
   if (user?.role === "user") return null;
 
+  // ── Resolved state ────────────────────────────────────────────────
   return (
     <PageLayout>
+      {/* ── Page heading ─────────────────────────────────────────────── */}
       <Typography variant="h4" gutterBottom fontWeight={600}>
         {t("users.title")}
       </Typography>
 
-      {/* FR-9: Error state */}
+      {/* ── Error / feedback alerts ───────────────────────────────────── */}
+      {/* Fetch error (non-dismissible; indicates a systemic problem) */}
       {error && (
         <Alert severity="error" sx={{ mb: 2 }}>
           {error}
         </Alert>
       )}
+      {/* Mutation feedback (dismissible via the × button) */}
       {message && (
         <Alert
           severity={message.type}
@@ -173,10 +192,19 @@ export default function UsersPage() {
         </Alert>
       )}
 
-      {/* FR-9: Empty state */}
+      {/* ── User list ─────────────────────────────────────────────────── */}
       {users.length === 0 && !error ? (
+        // Empty state: no users found in the database
         <Typography color="text.secondary">{t("users.noUsers")}</Typography>
       ) : (
+        /*
+         * UserList encapsulates:
+         *   - Stat cards (total / unlimited / free counts)
+         *   - Search field & plan/role toggle filters
+         *   - Sortable user table with avatar + email + role chip + plan chip
+         *   - Detail modal with inline role & plan selectors
+         *   - Delete confirmation dialog
+         */
         <UserList
           users={users}
           currentUserRole={user?.role || "user"}

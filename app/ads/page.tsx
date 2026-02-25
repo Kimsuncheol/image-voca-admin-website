@@ -1,115 +1,83 @@
 "use client";
 
+/**
+ * AdsPage  —  /ads
+ *
+ * Admin page for managing advertisements shown in the mobile app.
+ * Accessible to all admin roles (no additional guard needed beyond the
+ * global layout-level auth check).
+ *
+ * ── Ad types supported ────────────────────────────────────────────────
+ *  image  — static image uploaded to Firebase Storage
+ *  video  — external video URL (e.g. YouTube embed link)
+ *
+ * ── Data flow ─────────────────────────────────────────────────────────
+ *  getAllAds()          → fetch all ads from Firestore (on mount + on refresh)
+ *  createAd(form, uid) → create a new Firestore ad document (+ Storage upload)
+ *  toggleAdStatus(id)  → flip the `active` flag on an existing ad
+ *  deleteAd(id)        → remove the ad document (and Storage asset if image)
+ *
+ * ── States ────────────────────────────────────────────────────────────
+ *  loading   → AdsPageSkeleton (header + table rows)
+ *  message   → dismissible success/error Alert after mutations
+ *  modalOpen → AddAdModal (full-screen create form)
+ *  success   → AdList (sortable table with toggle + delete actions)
+ *
+ * ── Child components ──────────────────────────────────────────────────
+ *  AdsPageSkeleton  — skeleton header + 5 table row skeletons
+ *  AdList           — displays all ads with status toggle and delete button
+ *  AddAdModal       — modal form for creating a new ad (image or video)
+ */
+
 import { useState, useEffect, useCallback } from "react";
 import Typography from "@mui/material/Typography";
 import Alert from "@mui/material/Alert";
 import Button from "@mui/material/Button";
 import Box from "@mui/material/Box";
-import Paper from "@mui/material/Paper";
-import Skeleton from "@mui/material/Skeleton";
-import Stack from "@mui/material/Stack";
 import AddIcon from "@mui/icons-material/Add";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import { useTranslation } from "react-i18next";
+
+// ── Layout ────────────────────────────────────────────────────────────
 import PageLayout from "@/components/layout/PageLayout";
+
+// ── Ad types ──────────────────────────────────────────────────────────
 import type { Ad } from "@/types/ad";
 import type { AdFormData } from "@/types/ad";
+
+// ── Firestore ad operations ───────────────────────────────────────────
 import {
   getAllAds,
   createAd,
   toggleAdStatus,
   deleteAd,
 } from "@/lib/firebase/ads";
+
+// ── Feature-specific components ───────────────────────────────────────
 import AdList from "@/components/ads/AdList";
 import AddAdModal from "@/components/ads/AddAdModal";
-
-function AdsPageSkeleton({ title }: { title: string }) {
-  return (
-    <PageLayout>
-      <Box
-        sx={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          mb: 3,
-          gap: 2,
-        }}
-      >
-        <Skeleton variant="text" width={200} height={48} />
-        <Stack direction="row" spacing={1}>
-          <Skeleton variant="rounded" width={110} height={36} />
-          <Skeleton variant="rounded" width={120} height={36} />
-        </Stack>
-      </Box>
-
-      <Typography
-        variant="h4"
-        fontWeight={600}
-        sx={{
-          position: "absolute",
-          width: "1px",
-          height: "1px",
-          p: 0,
-          m: -1,
-          overflow: "hidden",
-          clip: "rect(0 0 0 0)",
-          whiteSpace: "nowrap",
-          border: 0,
-        }}
-      >
-        {title}
-      </Typography>
-
-      <Skeleton variant="text" width={150} sx={{ mb: 1 }} />
-
-      <Paper variant="outlined" sx={{ p: 2 }}>
-        <Stack spacing={1.5}>
-          <Stack direction="row" spacing={2}>
-            <Skeleton variant="text" width="12%" />
-            <Skeleton variant="text" width="16%" />
-            <Skeleton variant="text" width="20%" />
-            <Skeleton variant="text" width="16%" />
-            <Skeleton variant="text" width="10%" />
-            <Skeleton variant="text" width="14%" />
-            <Skeleton variant="text" width="10%" />
-          </Stack>
-
-          {Array.from({ length: 5 }).map((_, idx) => (
-            <Box
-              key={idx}
-              sx={{
-                display: "grid",
-                gridTemplateColumns:
-                  "minmax(90px, 0.9fr) minmax(120px, 1.2fr) minmax(140px, 1.8fr) minmax(120px, 1.2fr) 90px 120px 70px",
-                gap: 2,
-                alignItems: "center",
-              }}
-            >
-              <Skeleton variant="rounded" height={28} width={84} />
-              <Skeleton variant="text" width="80%" />
-              <Skeleton variant="text" width="95%" />
-              <Skeleton variant="rounded" height={40} width={80} />
-              <Skeleton variant="circular" width={36} height={36} />
-              <Skeleton variant="text" width="85%" />
-              <Skeleton variant="circular" width={32} height={32} />
-            </Box>
-          ))}
-        </Stack>
-      </Paper>
-    </PageLayout>
-  );
-}
+import AdsPageSkeleton from "@/components/ads/AdsPageSkeleton";
 
 export default function AdsPage() {
   const { t } = useTranslation();
+
+  // ── Local state ───────────────────────────────────────────────────
   const [ads, setAds] = useState<Ad[]>([]);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
+
+  // Dismissible feedback message shown after create / toggle / delete
   const [message, setMessage] = useState<{
     type: "success" | "error";
     text: string;
   } | null>(null);
 
+  // ── Data fetching ─────────────────────────────────────────────────
+  /**
+   * Fetches all ads from Firestore.
+   * Called on mount and whenever the user clicks "Refresh".
+   * Always resets `loading` so the skeleton re-appears on manual refresh.
+   */
   const fetchAds = useCallback(async () => {
     setLoading(true);
     try {
@@ -126,17 +94,31 @@ export default function AdsPage() {
     fetchAds();
   }, [fetchAds]);
 
+  // ── Mutation handlers ─────────────────────────────────────────────
+
+  /**
+   * Creates a new ad document in Firestore.
+   * If the ad type is "image", createAd also uploads the file to Firebase
+   * Storage and stores the download URL.
+   *
+   * Note: "admin" is used as a placeholder creator UID until the auth
+   * context is wired into this handler.
+   */
   const handleCreate = async (formData: AdFormData) => {
     try {
-      // TODO: pass actual user ID when auth context is available
+      // TODO: replace "admin" with actual user UID from auth context
       await createAd(formData, "admin");
       setMessage({ type: "success", text: t("ads.createSuccess") });
-      fetchAds();
+      fetchAds(); // Reload list to show the new ad
     } catch {
       setMessage({ type: "error", text: t("ads.createError") });
     }
   };
 
+  /**
+   * Toggles the `active` status of an ad (active ↔ inactive).
+   * Active ads are shown in the mobile app; inactive ones are hidden.
+   */
   const handleToggle = async (id: string, active: boolean) => {
     try {
       await toggleAdStatus(id, active);
@@ -147,6 +129,10 @@ export default function AdsPage() {
     }
   };
 
+  /**
+   * Permanently deletes an ad.
+   * For image ads, the associated Storage file is also removed.
+   */
   const handleDelete = async (id: string) => {
     try {
       await deleteAd(id);
@@ -157,12 +143,15 @@ export default function AdsPage() {
     }
   };
 
+  // ── Loading state ─────────────────────────────────────────────────
   if (loading) {
     return <AdsPageSkeleton title={t("ads.title")} />;
   }
 
+  // ── Resolved state ────────────────────────────────────────────────
   return (
     <PageLayout>
+      {/* ── Header row: title + action buttons ───────────────────────── */}
       <Box
         sx={{
           display: "flex",
@@ -174,7 +163,9 @@ export default function AdsPage() {
         <Typography variant="h4" fontWeight={600}>
           {t("ads.title")}
         </Typography>
+
         <Box sx={{ display: "flex", gap: 1 }}>
+          {/* Refresh: re-fetches ads from Firestore */}
           <Button
             variant="outlined"
             startIcon={<RefreshIcon />}
@@ -183,6 +174,8 @@ export default function AdsPage() {
           >
             {t("ads.refresh")}
           </Button>
+
+          {/* Add Ad: opens the AddAdModal creation form */}
           <Button
             variant="contained"
             startIcon={<AddIcon />}
@@ -193,6 +186,7 @@ export default function AdsPage() {
         </Box>
       </Box>
 
+      {/* ── Mutation feedback alert ───────────────────────────────────── */}
       {message && (
         <Alert
           severity={message.type}
@@ -203,12 +197,24 @@ export default function AdsPage() {
         </Alert>
       )}
 
+      {/* ── Ad list / empty state ─────────────────────────────────────── */}
       {ads.length === 0 ? (
+        // Empty state: no ads have been created yet
         <Typography color="text.secondary">{t("ads.noAds")}</Typography>
       ) : (
+        /*
+         * AdList renders a table with columns:
+         *   Type | Title | URL | Thumbnail | Active | Created | Actions
+         * Each row has a toggle switch and a delete button.
+         */
         <AdList ads={ads} onToggle={handleToggle} onDelete={handleDelete} />
       )}
 
+      {/* ── Create ad modal ───────────────────────────────────────────── */}
+      {/*
+       * AddAdModal is always mounted (not conditionally) so MUI handles
+       * the open/close animation correctly via the `open` prop.
+       */}
       <AddAdModal
         open={modalOpen}
         onClose={() => setModalOpen(false)}
