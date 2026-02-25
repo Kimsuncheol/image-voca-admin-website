@@ -1,6 +1,7 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
+import { useTheme } from "@mui/material/styles";
 import Drawer from "@mui/material/Drawer";
 import List from "@mui/material/List";
 import ListItem from "@mui/material/ListItem";
@@ -18,11 +19,17 @@ import LocalOfferIcon from "@mui/icons-material/LocalOffer";
 import { useTranslation } from "react-i18next";
 
 const drawerWidth = 260;
+const miniDrawerWidth = 64;
 
-export default function AppNavSidebar() {
+interface AppNavSidebarProps {
+  open: boolean;
+}
+
+export default function AppNavSidebar({ open }: AppNavSidebarProps) {
   const router = useRouter();
   const pathname = usePathname();
   const { t } = useTranslation();
+  const theme = useTheme();
 
   const navItems = [
     {
@@ -57,21 +64,36 @@ export default function AppNavSidebar() {
     },
   ];
 
+  // ── Shared width transition ────────────────────────────────────────────
+  const widthTransition = theme.transitions.create("width", {
+    easing: theme.transitions.easing.sharp,
+    duration: open
+      ? theme.transitions.duration.enteringScreen
+      : theme.transitions.duration.leavingScreen,
+  });
+
   return (
     <Drawer
       variant="permanent"
       sx={{
-        width: drawerWidth,
+        width: open ? drawerWidth : miniDrawerWidth,
         flexShrink: 0,
+        whiteSpace: "nowrap",
+        boxSizing: "border-box",
+        overflowX: "hidden",
+        transition: widthTransition,
         [`& .MuiDrawer-paper`]: {
-          width: drawerWidth,
+          width: open ? drawerWidth : miniDrawerWidth,
           boxSizing: "border-box",
           backgroundColor: "background.paper",
           borderRight: 1,
           borderColor: "divider",
+          overflowX: "hidden",
+          transition: widthTransition,
         },
       }}
     >
+      {/* ── Header ────────────────────────────────────────────────────────── */}
       <Box
         sx={{
           p: 2,
@@ -88,14 +110,27 @@ export default function AppNavSidebar() {
           variant="h6"
           fontWeight="bold"
           color="primary.title"
-          sx={{ cursor: "pointer", textAlign: "center" }}
+          sx={{
+            cursor: "pointer",
+            textAlign: "center",
+            whiteSpace: "nowrap",
+            overflow: "hidden",
+            opacity: open ? 1 : 0,
+            transition: theme.transitions.create("opacity", {
+              duration: open
+                ? theme.transitions.duration.enteringScreen
+                : theme.transitions.duration.leavingScreen,
+            }),
+          }}
           onClick={() => router.push("/")}
         >
           Image Voca
         </Typography>
       </Box>
-      <Box sx={{ overflow: "auto", mt: 2 }}>
-        <List sx={{ px: 2 }}>
+
+      {/* ── Nav list ──────────────────────────────────────────────────────── */}
+      <Box sx={{ overflowX: "hidden", overflowY: "auto", mt: 2 }}>
+        <List sx={{ px: open ? 2 : 1 }}>
           {navItems.map((item) => {
             const isActive =
               pathname === item.href ||
@@ -107,6 +142,9 @@ export default function AppNavSidebar() {
                   onClick={() => router.push(item.href)}
                   sx={{
                     borderRadius: 2,
+                    // Centre the icon when collapsed, left-align when expanded
+                    justifyContent: open ? "initial" : "center",
+                    px: open ? 2 : 2.5,
                     ...(isActive && {
                       bgcolor: (theme) =>
                         theme.palette.mode === "dark"
@@ -124,7 +162,10 @@ export default function AppNavSidebar() {
                 >
                   <ListItemIcon
                     sx={{
-                      minWidth: 40,
+                      minWidth: 0,
+                      // mr: "auto" collapses to 0 under justify-content:center
+                      mr: open ? 2 : "auto",
+                      justifyContent: "center",
                       color: isActive ? "primary.main" : "text.secondary",
                     }}
                   >
@@ -136,6 +177,14 @@ export default function AppNavSidebar() {
                       fontWeight: isActive ? 600 : 500,
                       color: isActive ? "primary.main" : "text.primary",
                       fontSize: "0.95rem",
+                    }}
+                    sx={{
+                      opacity: open ? 1 : 0,
+                      transition: theme.transitions.create("opacity", {
+                        duration: open
+                          ? theme.transitions.duration.enteringScreen
+                          : theme.transitions.duration.leavingScreen,
+                      }),
                     }}
                   />
                 </ListItemButton>

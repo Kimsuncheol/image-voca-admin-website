@@ -11,12 +11,19 @@ import Menu from "@mui/material/Menu";
 import MenuItem from "@mui/material/MenuItem";
 import IconButton from "@mui/material/IconButton";
 import Button from "@mui/material/Button";
+import MenuIcon from "@mui/icons-material/Menu";
+import ChevronLeftIcon from "@mui/icons-material/ChevronLeft";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "@/context/AuthContext";
 import ThemeToggle from "./ThemeToggle";
 import LanguageToggle from "./LanguageToggle";
 
-export default function AppNav() {
+interface AppNavProps {
+  open: boolean;
+  onToggle: () => void;
+}
+
+export default function AppNav({ open, onToggle }: AppNavProps) {
   const { user, signOut } = useAuth();
   const { t } = useTranslation();
   const router = useRouter();
@@ -45,6 +52,17 @@ export default function AppNav() {
       }}
     >
       <Toolbar>
+        {/* ── Drawer toggle: hamburger when closed, chevron-left when open ── */}
+        <IconButton
+          onClick={onToggle}
+          edge="start"
+          color="inherit"
+          aria-label={open ? "collapse sidebar" : "expand sidebar"}
+          sx={{ mr: 1 }}
+        >
+          {open ? <ChevronLeftIcon /> : <MenuIcon />}
+        </IconButton>
+
         <Box sx={{ flexGrow: 1 }} />
         <ThemeToggle />
         <LanguageToggle />
