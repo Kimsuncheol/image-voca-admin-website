@@ -4,10 +4,12 @@ import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Typography from "@mui/material/Typography";
 import Alert from "@mui/material/Alert";
-import CircularProgress from "@mui/material/CircularProgress";
-import Box from "@mui/material/Box";
 import Tabs from "@mui/material/Tabs";
 import Tab from "@mui/material/Tab";
+import Card from "@mui/material/Card";
+import Divider from "@mui/material/Divider";
+import Skeleton from "@mui/material/Skeleton";
+import Stack from "@mui/material/Stack";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "@/context/AuthContext";
 import PageLayout from "@/components/layout/PageLayout";
@@ -15,6 +17,55 @@ import GenerateTab from "@/components/promotion-codes/GenerateTab";
 import ActiveCodesTab from "@/components/promotion-codes/ActiveCodesTab";
 import GeneratedCodesModal from "@/components/promotion-codes/GeneratedCodesModal";
 import type { PromotionCode, CodeGenerationResponse } from "@/types/promotionCode";
+
+function PromotionCodesPageSkeleton({ title }: { title: string }) {
+  return (
+    <PageLayout>
+      <Typography variant="h4" gutterBottom fontWeight={600}>
+        {title}
+      </Typography>
+
+      <Stack
+        direction="row"
+        spacing={2}
+        sx={{ mb: 3, pb: 1, borderBottom: 1, borderColor: "divider" }}
+      >
+        <Skeleton variant="rounded" width={120} height={40} />
+        <Skeleton variant="rounded" width={140} height={40} />
+      </Stack>
+
+      <Stack spacing={3} maxWidth={560}>
+        <Stack spacing={1.5}>
+          <Skeleton variant="text" width={180} height={38} />
+          <Divider />
+        </Stack>
+
+        <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
+          <Skeleton variant="rounded" height={56} sx={{ flex: 1 }} />
+          <Skeleton variant="rounded" height={56} sx={{ flex: 1 }} />
+        </Stack>
+
+        <Skeleton variant="rounded" height={56} />
+
+        <Card variant="outlined" sx={{ p: 2 }}>
+          <Stack spacing={2}>
+            <Skeleton variant="text" width={160} />
+            <Skeleton variant="rounded" height={56} />
+          </Stack>
+        </Card>
+
+        <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
+          <Skeleton variant="rounded" height={56} sx={{ flex: 1 }} />
+          <Skeleton variant="rounded" height={56} sx={{ flex: 1 }} />
+        </Stack>
+
+        <Skeleton variant="rounded" height={88} />
+        <Skeleton variant="rounded" height={56} />
+        <Skeleton variant="rounded" height={44} width={220} />
+      </Stack>
+    </PageLayout>
+  );
+}
 
 export default function PromotionCodesPage() {
   const { t } = useTranslation();
@@ -67,13 +118,7 @@ export default function PromotionCodesPage() {
   };
 
   if (authLoading || (loading && codes.length === 0)) {
-    return (
-      <PageLayout>
-        <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}>
-          <CircularProgress />
-        </Box>
-      </PageLayout>
-    );
+    return <PromotionCodesPageSkeleton title={t("promotionCodes.title")} />;
   }
 
   if (user?.role === "user") return null;
