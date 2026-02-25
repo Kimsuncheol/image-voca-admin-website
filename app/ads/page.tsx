@@ -5,7 +5,9 @@ import Typography from "@mui/material/Typography";
 import Alert from "@mui/material/Alert";
 import Button from "@mui/material/Button";
 import Box from "@mui/material/Box";
-import CircularProgress from "@mui/material/CircularProgress";
+import Paper from "@mui/material/Paper";
+import Skeleton from "@mui/material/Skeleton";
+import Stack from "@mui/material/Stack";
 import AddIcon from "@mui/icons-material/Add";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import { useTranslation } from "react-i18next";
@@ -20,6 +22,83 @@ import {
 } from "@/lib/firebase/ads";
 import AdList from "@/components/ads/AdList";
 import AddAdModal from "@/components/ads/AddAdModal";
+
+function AdsPageSkeleton({ title }: { title: string }) {
+  return (
+    <PageLayout>
+      <Box
+        sx={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          mb: 3,
+          gap: 2,
+        }}
+      >
+        <Skeleton variant="text" width={200} height={48} />
+        <Stack direction="row" spacing={1}>
+          <Skeleton variant="rounded" width={110} height={36} />
+          <Skeleton variant="rounded" width={120} height={36} />
+        </Stack>
+      </Box>
+
+      <Typography
+        variant="h4"
+        fontWeight={600}
+        sx={{
+          position: "absolute",
+          width: "1px",
+          height: "1px",
+          p: 0,
+          m: -1,
+          overflow: "hidden",
+          clip: "rect(0 0 0 0)",
+          whiteSpace: "nowrap",
+          border: 0,
+        }}
+      >
+        {title}
+      </Typography>
+
+      <Skeleton variant="text" width={150} sx={{ mb: 1 }} />
+
+      <Paper variant="outlined" sx={{ p: 2 }}>
+        <Stack spacing={1.5}>
+          <Stack direction="row" spacing={2}>
+            <Skeleton variant="text" width="12%" />
+            <Skeleton variant="text" width="16%" />
+            <Skeleton variant="text" width="20%" />
+            <Skeleton variant="text" width="16%" />
+            <Skeleton variant="text" width="10%" />
+            <Skeleton variant="text" width="14%" />
+            <Skeleton variant="text" width="10%" />
+          </Stack>
+
+          {Array.from({ length: 5 }).map((_, idx) => (
+            <Box
+              key={idx}
+              sx={{
+                display: "grid",
+                gridTemplateColumns:
+                  "minmax(90px, 0.9fr) minmax(120px, 1.2fr) minmax(140px, 1.8fr) minmax(120px, 1.2fr) 90px 120px 70px",
+                gap: 2,
+                alignItems: "center",
+              }}
+            >
+              <Skeleton variant="rounded" height={28} width={84} />
+              <Skeleton variant="text" width="80%" />
+              <Skeleton variant="text" width="95%" />
+              <Skeleton variant="rounded" height={40} width={80} />
+              <Skeleton variant="circular" width={36} height={36} />
+              <Skeleton variant="text" width="85%" />
+              <Skeleton variant="circular" width={32} height={32} />
+            </Box>
+          ))}
+        </Stack>
+      </Paper>
+    </PageLayout>
+  );
+}
 
 export default function AdsPage() {
   const { t } = useTranslation();
@@ -78,6 +157,10 @@ export default function AdsPage() {
     }
   };
 
+  if (loading) {
+    return <AdsPageSkeleton title={t("ads.title")} />;
+  }
+
   return (
     <PageLayout>
       <Box
@@ -120,11 +203,7 @@ export default function AdsPage() {
         </Alert>
       )}
 
-      {loading ? (
-        <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}>
-          <CircularProgress />
-        </Box>
-      ) : ads.length === 0 ? (
+      {ads.length === 0 ? (
         <Typography color="text.secondary">{t("ads.noAds")}</Typography>
       ) : (
         <AdList ads={ads} onToggle={handleToggle} onDelete={handleDelete} />
