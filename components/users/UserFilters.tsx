@@ -40,7 +40,12 @@ export default function UserFilters({
             ),
           },
         }}
-        sx={{ maxWidth: 360 }}
+        sx={{
+          maxWidth: 360,
+          "& .MuiOutlinedInput-root": {
+            borderRadius: "10px",
+          },
+        }}
       />
       <Stack
         direction="row"

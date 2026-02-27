@@ -3,7 +3,6 @@
  *
  * A simple full-height centered spinner rendered inside PageLayout.
  * Used as the loading state for:
- *   - app/courses/[courseId]/page.tsx  (fetching days for a course)
  *   - app/courses/[courseId]/[dayId]/page.tsx (fetching words for a day)
  *
  * Renders immediately (before Firestore responds) to give the user visual

@@ -54,7 +54,11 @@ export default function UsersPageSkeleton({ title }: UsersPageSkeletonProps) {
       {/* ── Search + filter controls ──────────────────────────────── */}
       <Stack spacing={1.5} sx={{ mb: 2 }}>
         {/* Search text field */}
-        <Skeleton variant="rounded" height={40} sx={{ maxWidth: 360 }} />
+        <Skeleton
+          variant="rounded"
+          height={40}
+          sx={{ maxWidth: 360, borderRadius: "10px" }}
+        />
         {/* Toggle button groups (Plan filter + Role filter) */}
         <Stack
           direction="row"

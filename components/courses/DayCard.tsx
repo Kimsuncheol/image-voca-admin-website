@@ -18,11 +18,35 @@ export default function DayCard({ day, courseId }: DayCardProps) {
   const router = useRouter();
 
   return (
-    <Card>
-      <CardActionArea onClick={() => router.push(`/courses/${courseId}/${day.id}`)}>
-        <CardContent>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Typography variant="h6">{day.name}</Typography>
+    <Card sx={{ height: "100%", aspectRatio: "1 / 1" }}>
+      <CardActionArea
+        onClick={() => router.push(`/courses/${courseId}/${day.id}`)}
+        sx={{ height: "100%" }}
+      >
+        <CardContent
+          sx={{
+            height: "100%",
+            display: "flex",
+            alignItems: "center",
+          }}
+        >
+          <Box
+            sx={{
+              display: "flex",
+              width: "100%",
+              justifyContent: "space-between",
+              alignItems: "center",
+              gap: 1,
+            }}
+          >
+            <Typography
+              variant="h6"
+              noWrap
+              title={day.name}
+              sx={{ minWidth: 0, flex: 1 }}
+            >
+              {day.name}
+            </Typography>
             {day.wordCount !== undefined && (
               <Chip
                 label={`${day.wordCount} words`}

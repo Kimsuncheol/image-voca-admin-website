@@ -14,20 +14,20 @@
  *     Firestore and stores them in local state.
  *
  * ── States ───────────────────────────────────────────────────────────
- *  loading  → CourseLoadingView (spinner)
+ *  loading  → CourseDaysLoadingSkeleton (responsive day-grid placeholders)
  *  error    → MUI Alert with translated error message
  *  empty    → translated "no data" text
  *  success  → responsive grid of DayCard components
  *
  * ── Shared components used ───────────────────────────────────────────
- *  CourseLoadingView  — centered spinner inside PageLayout
+ *  CourseDaysLoadingSkeleton — responsive day-grid skeleton inside PageLayout
  *  CourseBreadcrumbs  — Courses › [Course Label]
  *  DayCard            — single tile showing day ID and link to /[dayId]
  */
 
 import { useState, useEffect, use } from "react";
 import Typography from "@mui/material/Typography";
-import Grid from "@mui/material/Grid";
+import Box from "@mui/material/Box";
 import Alert from "@mui/material/Alert";
 import { useTranslation } from "react-i18next";
 
@@ -41,8 +41,9 @@ import { getCourseDays } from "@/lib/firebase/firestore";
 
 // ── Feature-specific components ───────────────────────────────────────
 import DayCard from "@/components/courses/DayCard";
-import CourseLoadingView from "@/components/courses/CourseLoadingView";
+import CourseDaysLoadingSkeleton from "@/components/courses/CourseDaysLoadingSkeleton";
 import CourseBreadcrumbs from "@/components/courses/CourseBreadcrumbs";
+import { dayGridTemplateColumns } from "@/components/courses/dayGridConfig";
 
 export default function CourseDaysPage({
   params,
@@ -64,15 +65,12 @@ export default function CourseDaysPage({
   // ── Resolve course metadata from static list ──────────────────────
   // Returns undefined when the courseId doesn't match any known course.
   const course = getCourseById(courseId);
+  const isLoading = course ? loading : false;
+  const resolvedError = course ? error : "Course not found";
 
   // ── Firestore data fetch ──────────────────────────────────────────
   useEffect(() => {
-    // Guard: if the course ID is unknown, surface an error immediately
-    if (!course) {
-      setError("Course not found");
-      setLoading(false);
-      return;
-    }
+    if (!course) return;
 
     getCourseDays(course.path)
       .then((data) => {
@@ -84,8 +82,8 @@ export default function CourseDaysPage({
   }, [course, t]);
 
   // ── Loading state ─────────────────────────────────────────────────
-  if (loading) {
-    return <CourseLoadingView />;
+  if (isLoading) {
+    return <CourseDaysLoadingSkeleton />;
   }
 
   // ── Resolved state (error / empty / success) ──────────────────────
@@ -104,25 +102,29 @@ export default function CourseDaysPage({
       </Typography>
 
       {/* ── Error banner ─────────────────────────────────────────────── */}
-      {error && (
+      {resolvedError && (
         <Alert severity="error" sx={{ mb: 2 }}>
-          {error}
+          {resolvedError}
         </Alert>
       )}
 
       {/* ── Day cards grid ───────────────────────────────────────────── */}
-      {days.length === 0 && !error ? (
+      {days.length === 0 && !resolvedError ? (
         // Empty state: no days uploaded yet for this course
         <Typography color="text.secondary">{t("courses.noData")}</Typography>
       ) : (
-        <Grid container spacing={2}>
+        <Box
+          sx={{
+            display: "grid",
+            gap: 2,
+            gridTemplateColumns: dayGridTemplateColumns,
+          }}
+        >
           {days.map((day) => (
-            <Grid key={day.id} size={{ xs: 12, sm: 6, md: 4 }}>
-              {/* DayCard links to /courses/[courseId]/[dayId] */}
-              <DayCard day={day} courseId={courseId} />
-            </Grid>
+            // DayCard links to /courses/[courseId]/[dayId]
+            <DayCard key={day.id} day={day} courseId={courseId} />
           ))}
-        </Grid>
+        </Box>
       )}
     </PageLayout>
   );
