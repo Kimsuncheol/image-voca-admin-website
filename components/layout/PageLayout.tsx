@@ -14,9 +14,9 @@ export default function PageLayout({
   // ── Sidebar open/close state ───────────────────────────────────────────
   // Initialise from localStorage so the preference survives page navigation.
   const [open, setOpen] = useState(() => {
-    if (typeof window === "undefined") return true;
+    if (typeof window === "undefined") return false;
     const stored = localStorage.getItem("sidebar-open");
-    return stored === null ? true : stored === "true";
+    return stored === null ? false : stored === "true";
   });
 
   const toggleDrawer = () =>
