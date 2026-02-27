@@ -38,7 +38,7 @@
  *  UploadProgressModal — live status list shown during / after upload
  */
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import Typography from "@mui/material/Typography";
 import Box from "@mui/material/Box";
 import Tabs from "@mui/material/Tabs";
@@ -124,6 +124,25 @@ export default function AddVocaPage() {
 
   // Prevents re-entrant calls to handleUpload while an upload is in progress
   const uploadingRef = useRef(false);
+
+  // ── Browser unload guard ───────────────────────────────────────────
+  // Show a native "Leave site?" prompt when the user tries to refresh or
+  // close the tab while items are queued or an upload is in progress.
+  useEffect(() => {
+    const hasUnsaved =
+      csvItems.length > 0 || urlItems.length > 0 || progressOpen;
+
+    if (!hasUnsaved) return;
+
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      // returnValue is required for legacy browsers; modern ones ignore the string.
+      e.returnValue = "";
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [csvItems.length, urlItems.length, progressOpen]);
 
   // ── Derived state ──────────────────────────────────────────────────
   // `isCollocation` skips IPA lookup + OpenAI enrichment (different schema)
