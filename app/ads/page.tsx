@@ -32,10 +32,6 @@
 import { useState, useEffect, useCallback } from "react";
 import Typography from "@mui/material/Typography";
 import Alert from "@mui/material/Alert";
-import Button from "@mui/material/Button";
-import Box from "@mui/material/Box";
-import AddIcon from "@mui/icons-material/Add";
-import RefreshIcon from "@mui/icons-material/Refresh";
 import { useTranslation } from "react-i18next";
 
 // ── Layout ────────────────────────────────────────────────────────────
@@ -56,6 +52,7 @@ import {
 // ── Feature-specific components ───────────────────────────────────────
 import AdList from "@/components/ads/AdList";
 import AddAdModal from "@/components/ads/AddAdModal";
+import AdsHeader from "@/components/ads/AdsHeader";
 import AdsPageSkeleton from "@/components/ads/AdsPageSkeleton";
 
 export default function AdsPage() {
@@ -152,39 +149,11 @@ export default function AdsPage() {
   return (
     <PageLayout>
       {/* ── Header row: title + action buttons ───────────────────────── */}
-      <Box
-        sx={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          mb: 3,
-        }}
-      >
-        <Typography variant="h4" fontWeight={600}>
-          {t("ads.title")}
-        </Typography>
-
-        <Box sx={{ display: "flex", gap: 1 }}>
-          {/* Refresh: re-fetches ads from Firestore */}
-          <Button
-            variant="outlined"
-            startIcon={<RefreshIcon />}
-            onClick={fetchAds}
-            disabled={loading}
-          >
-            {t("ads.refresh")}
-          </Button>
-
-          {/* Add Ad: opens the AddAdModal creation form */}
-          <Button
-            variant="contained"
-            startIcon={<AddIcon />}
-            onClick={() => setModalOpen(true)}
-          >
-            {t("ads.addAd")}
-          </Button>
-        </Box>
-      </Box>
+      <AdsHeader
+        onRefresh={fetchAds}
+        onAddClick={() => setModalOpen(true)}
+        loading={loading}
+      />
 
       {/* ── Mutation feedback alert ───────────────────────────────────── */}
       {message && (

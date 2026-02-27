@@ -151,7 +151,11 @@
     "deleteConfirm": "Are you sure you want to delete this advertisement?",
     "deleteSuccess": "Advertisement deleted",
     "deleteError": "Failed to delete advertisement",
-    "fetchError": "Failed to load advertisements"
+    "fetchError": "Failed to load advertisements",
+    "discardTitle": "Discard changes?",
+    "discardMessage": "You have unsaved changes. Are you sure you want to leave?",
+    "keep": "Keep editing",
+    "leave": "Leave"
   },
   "promotionCodes": {
     "title": "Promotion Codes",
