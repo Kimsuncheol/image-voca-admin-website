@@ -47,24 +47,41 @@ export default function CsvUploadTab({ items, onItemsChange, isCollocation }: Cs
 
   const handleModalConfirm = (dayName: string, data: ParseResult, file?: File) => {
     if (activeIndex === -1) {
-      // Adding a new item from the modal
-      const newItem: CsvItem = {
-        id: crypto.randomUUID(),
-        fileName: file?.name ?? (data.words.length > 0 ? `${dayName}.csv` : 'Untitled.csv'),
-        file: file ?? null,
-        dayName,
-        data,
-      };
-      onItemsChange([...items, newItem]);
+      // Adding a new item. If user confirmed Replace, overwrite the existing entry.
+      const existingIndex = items.findIndex((i) => i.dayName === dayName);
+      if (existingIndex !== -1) {
+        const updated = [...items];
+        updated[existingIndex] = {
+          ...updated[existingIndex],
+          fileName: file?.name ?? updated[existingIndex].fileName,
+          file: file ?? updated[existingIndex].file,
+          dayName,
+          data,
+        };
+        onItemsChange(updated);
+      } else {
+        onItemsChange([
+          ...items,
+          {
+            id: crypto.randomUUID(),
+            fileName: file?.name ?? (data.words.length > 0 ? `${dayName}.csv` : 'Untitled.csv'),
+            file: file ?? null,
+            dayName,
+            data,
+          },
+        ]);
+      }
     } else {
-      // Editing an existing item; keep the previous file if no new one was selected
-      const updated = [...items];
+      // Editing an existing item; keep the previous file if no new one was selected.
+      // Also drop any other item that now shares the same day name (Replace confirmed).
+      let updated = [...items];
       updated[activeIndex] = {
         ...updated[activeIndex],
         dayName,
         data,
         file: file ?? updated[activeIndex].file,
       };
+      updated = updated.filter((item, i) => i === activeIndex || item.dayName !== dayName);
       onItemsChange(updated);
     }
   };
@@ -101,6 +118,10 @@ export default function CsvUploadTab({ items, onItemsChange, isCollocation }: Cs
         initialDayName={activeIndex >= 0 ? items[activeIndex]?.dayName : ''}
         initialData={activeIndex >= 0 ? items[activeIndex]?.data : null}
         isCollocation={isCollocation}
+        existingDayNames={items
+          .filter((_, i) => i !== activeIndex)
+          .map((i) => i.dayName)
+          .filter(Boolean)}
       />
     </Box>
   );

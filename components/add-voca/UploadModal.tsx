@@ -32,6 +32,11 @@ interface UploadModalProps {
   initialData?: ParseResult | null;
   /** Derived from the selected course; overrides CSV header auto-detection. */
   isCollocation?: boolean;
+  /**
+   * Day names already present in the queue (excluding the item being edited).
+   * Used to detect duplicates before confirming.
+   */
+  existingDayNames?: string[];
 }
 
 export default function UploadModal({
@@ -41,6 +46,7 @@ export default function UploadModal({
   initialDayName = "",
   initialData = null,
   isCollocation,
+  existingDayNames = [],
 }: UploadModalProps) {
   const { t } = useTranslation();
   const [dayName, setDayName] = useState(initialDayName);
@@ -69,10 +75,24 @@ export default function UploadModal({
   });
 
   const handleConfirm = () => {
-    if (dayName && parseResult && parseResult.words.length > 0) {
-      onConfirm(dayName, parseResult, selectedFile ?? undefined);
-      onClose();
+    if (!dayName || !parseResult || parseResult.words.length === 0) return;
+
+    // Duplicate check — ask before overwriting an existing queue item.
+    if (existingDayNames.includes(dayName)) {
+      if (
+        !window.confirm(
+          t(
+            "addVoca.duplicateDayConfirm",
+            `"${dayName}" is already in the queue. Replace it?`
+          )
+        )
+      ) {
+        return;
+      }
     }
+
+    onConfirm(dayName, parseResult, selectedFile ?? undefined);
+    onClose();
   };
 
   // Guard close when words have already been parsed — ask before discarding.

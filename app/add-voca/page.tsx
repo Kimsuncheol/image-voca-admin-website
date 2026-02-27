@@ -142,8 +142,6 @@ export default function AddVocaPage() {
 
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
       e.preventDefault();
-      // returnValue is required for legacy browsers; modern ones ignore the string.
-      e.returnValue = "";
     };
 
     window.addEventListener("beforeunload", handleBeforeUnload);
@@ -488,12 +486,20 @@ export default function AddVocaPage() {
   const handleCourseChange = (courseId: CourseId) => {
     if (courseId === selectedCourse) return;
     const hasQueuedItems = csvItems.length > 0 || urlItems.length > 0;
+    if (
+      hasQueuedItems &&
+      !window.confirm(
+        t(
+          "addVoca.courseSwitchConfirm",
+          "Switching courses will clear the queue. Continue?"
+        )
+      )
+    ) {
+      return; // user cancelled — leave course and queue unchanged
+    }
     setSelectedCourse(courseId);
     setCsvItems([]);
     setUrlItems([]);
-    setCourseSwitchNotice(
-      hasQueuedItems ? t("addVoca.queueClearedOnCourseChange") : ""
-    );
   };
 
   // ── Render ─────────────────────────────────────────────────────────

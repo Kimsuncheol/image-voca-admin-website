@@ -95,8 +95,11 @@ export default function UrlUploadTab({ items, onItemsChange, isCollocation }: Ur
   };
 
   const handleModalConfirm = (dayName: string, data: ParseResult) => {
-    const updated = [...items];
+    // Update the active item first, then remove any other item that now shares
+    // the same day name (the user confirmed Replace in the modal).
+    let updated = [...items];
     updated[activeIndex] = { ...updated[activeIndex], dayName, data };
+    updated = updated.filter((item, i) => i === activeIndex || item.dayName !== dayName);
     onItemsChange(updated);
   };
 
@@ -214,6 +217,10 @@ export default function UrlUploadTab({ items, onItemsChange, isCollocation }: Ur
         initialDayName={activeIndex >= 0 ? items[activeIndex]?.dayName : ''}
         initialData={activeIndex >= 0 ? items[activeIndex]?.data : null}
         isCollocation={isCollocation}
+        existingDayNames={items
+          .filter((_, i) => i !== activeIndex)
+          .map((i) => i.dayName)
+          .filter(Boolean)}
       />
     </Box>
   );
