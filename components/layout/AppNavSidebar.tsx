@@ -24,6 +24,7 @@ import { useTheme } from "@mui/material/styles";
 import Drawer from "@mui/material/Drawer";
 import SidebarHeader from "./sidebar/SidebarHeader";
 import SidebarNavList from "./sidebar/SidebarNavList";
+import { checkNavigationGuard } from "@/lib/navigationGuard";
 
 // ── Drawer width constants ─────────────────────────────────────────────────
 const drawerWidth = 260;
@@ -70,13 +71,20 @@ export default function AppNavSidebar({ open }: AppNavSidebarProps) {
       }}
     >
       {/* ── Header: logo + click-to-home ───────────────────────────────── */}
-      <SidebarHeader open={open} onHome={() => router.push("/")} />
+      <SidebarHeader
+        open={open}
+        onHome={() => {
+          if (checkNavigationGuard()) router.push("/");
+        }}
+      />
 
       {/* ── Nav list: all route links ───────────────────────────────────── */}
       <SidebarNavList
         open={open}
         pathname={pathname}
-        onNavigate={(href) => router.push(href)}
+        onNavigate={(href) => {
+          if (checkNavigationGuard()) router.push(href);
+        }}
       />
     </Drawer>
   );

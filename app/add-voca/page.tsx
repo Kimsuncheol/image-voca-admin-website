@@ -60,6 +60,12 @@ import PageLayout from "@/components/layout/PageLayout";
 import { getCourseById, type CourseId } from "@/types/course";
 import type { StandardWordInput } from "@/lib/schemas/vocaSchemas";
 
+// ── Navigation guard ──────────────────────────────────────────────────
+import {
+  setNavigationGuard,
+  clearNavigationGuard,
+} from "@/lib/navigationGuard";
+
 // ── Firebase / data helpers ───────────────────────────────────────────
 import { checkDayExists } from "@/lib/firebase/firestore";
 import { uploadCsvBackup } from "@/lib/firebase/storage";
@@ -143,6 +149,36 @@ export default function AddVocaPage() {
     window.addEventListener("beforeunload", handleBeforeUnload);
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, [csvItems.length, urlItems.length, progressOpen]);
+
+  // ── Client-side navigation guard ──────────────────────────────────────
+  // Patching window.history.pushState is unreliable in Next.js App Router:
+  // router.push() starts a React transition that renders the new page
+  // *before* pushState is called to sync the URL, so blocking pushState
+  // only prevents the URL update — the page content has already changed.
+  //
+  // Instead, we register a synchronous guard function via the module-level
+  // singleton in lib/navigationGuard.ts. AppNavSidebar calls
+  // checkNavigationGuard() before invoking router.push(), so navigation
+  // is blocked at the call-site, before any React transition begins.
+  useEffect(() => {
+    const hasUnsaved =
+      csvItems.length > 0 || urlItems.length > 0 || progressOpen;
+
+    if (hasUnsaved) {
+      setNavigationGuard(() =>
+        window.confirm(
+          t(
+            "addVoca.leaveConfirm",
+            "You have items waiting to upload. If you leave, they will be lost."
+          )
+        )
+      );
+    } else {
+      clearNavigationGuard();
+    }
+
+    return () => clearNavigationGuard();
+  }, [csvItems.length, urlItems.length, progressOpen, t]);
 
   // ── Derived state ──────────────────────────────────────────────────
   // `isCollocation` skips IPA lookup + OpenAI enrichment (different schema)

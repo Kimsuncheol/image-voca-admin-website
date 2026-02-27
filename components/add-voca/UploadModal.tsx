@@ -75,6 +75,20 @@ export default function UploadModal({
     }
   };
 
+  // Guard close when words have already been parsed — ask before discarding.
+  const handleClose = () => {
+    if (parseResult && parseResult.words.length > 0) {
+      if (
+        !window.confirm(
+          t("addVoca.discardConfirm", "Discard parsed data and close?")
+        )
+      ) {
+        return;
+      }
+    }
+    onClose();
+  };
+
   const handleReset = () => {
     setDayName(initialDayName);
     setParseResult(initialData ?? null);
@@ -93,7 +107,7 @@ export default function UploadModal({
   return (
     <Dialog
       open={open}
-      onClose={onClose}
+      onClose={handleClose}
       maxWidth="md"
       fullWidth
       TransitionProps={{ onExited: handleReset }}
@@ -237,7 +251,7 @@ export default function UploadModal({
           })()}
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose}>{t("common.cancel")}</Button>
+        <Button onClick={handleClose}>{t("common.cancel")}</Button>
         <Button
           onClick={handleConfirm}
           variant="contained"
