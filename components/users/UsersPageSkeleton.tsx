@@ -56,9 +56,47 @@ export default function UsersPageSkeleton({ title }: UsersPageSkeletonProps) {
         {/* Search text field */}
         <Skeleton variant="rounded" height={40} sx={{ maxWidth: 360 }} />
         {/* Toggle button groups (Plan filter + Role filter) */}
-        <Stack direction="row" spacing={2} flexWrap="wrap" useFlexGap>
-          <Skeleton variant="rounded" width={360} height={36} />
-          <Skeleton variant="rounded" width={180} height={36} />
+        <Stack
+          direction="row"
+          spacing={3}
+          flexWrap="wrap"
+          useFlexGap
+          alignItems="center"
+        >
+          <Stack direction="row" spacing={1} alignItems="center">
+            <Skeleton
+              variant="rounded"
+              width={60}
+              height={24}
+              sx={{ borderRadius: 12 }}
+            />
+            <Skeleton
+              variant="rounded"
+              width={50}
+              height={24}
+              sx={{ borderRadius: 12 }}
+            />
+            <Skeleton
+              variant="rounded"
+              width={110}
+              height={24}
+              sx={{ borderRadius: 12 }}
+            />
+          </Stack>
+          <Stack direction="row" spacing={1} alignItems="center">
+            <Skeleton
+              variant="rounded"
+              width={60}
+              height={24}
+              sx={{ borderRadius: 12 }}
+            />
+            <Skeleton
+              variant="rounded"
+              width={80}
+              height={24}
+              sx={{ borderRadius: 12 }}
+            />
+          </Stack>
         </Stack>
       </Stack>
 
