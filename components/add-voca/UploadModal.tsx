@@ -83,8 +83,10 @@ export default function UploadModal({
 
   const getBlockingErrorMessage = (code?: ParseResult["blockingError"]) => {
     if (!code) return "";
-    if (code === "HEADER_REQUIRED") return t("addVoca.validationHeaderRequired");
-    if (code === "HEADER_MISMATCH") return t("addVoca.validationHeaderMismatch");
+    if (code === "HEADER_REQUIRED")
+      return t("addVoca.validationHeaderRequired");
+    if (code === "HEADER_MISMATCH")
+      return t("addVoca.validationHeaderMismatch");
     return t("addVoca.validationCrossHeaderRow");
   };
 
@@ -140,14 +142,17 @@ export default function UploadModal({
 
         {parseResult?.blockingError ? (
           <Alert severity="error" sx={{ mb: 2 }}>
-            <Typography variant="body2">{getBlockingErrorMessage(parseResult.blockingError)}</Typography>
-            {parseResult.expectedHeaders && parseResult.expectedHeaders.length > 0 && (
-              <Typography variant="body2" sx={{ mt: 0.5 }}>
-                {t("addVoca.expectedKeys", {
-                  keys: parseResult.expectedHeaders.join(", "),
-                })}
-              </Typography>
-            )}
+            <Typography variant="body2">
+              {getBlockingErrorMessage(parseResult.blockingError)}
+            </Typography>
+            {parseResult.expectedHeaders &&
+              parseResult.expectedHeaders.length > 0 && (
+                <Typography variant="body2" sx={{ mt: 0.5 }}>
+                  {t("addVoca.expectedKeys", {
+                    keys: parseResult.expectedHeaders.join(", "),
+                  })}
+                </Typography>
+              )}
             {parseResult.detectedHeaders.length > 0 && (
               <Typography variant="body2" sx={{ mt: 0.5 }}>
                 {t("addVoca.detectedKeys", {
@@ -192,7 +197,14 @@ export default function UploadModal({
                     "translation",
                   ];
             return (
-              <TableContainer component={Paper} sx={{ maxHeight: 300 }}>
+              <TableContainer
+                component={Paper}
+                sx={{
+                  maxHeight: 300,
+                  scrollbarWidth: "none",
+                  "&::-webkit-scrollbar": { display: "none" },
+                }}
+              >
                 <Table size="small" stickyHeader>
                   <TableHead>
                     <TableRow>
