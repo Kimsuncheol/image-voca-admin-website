@@ -192,7 +192,11 @@
     "usage": "Usage",
     "expires": "Expires",
     "descriptionRequired": "Description is required",
-    "invalidCount": "Count must be between 1 and 100"
+    "invalidCount": "Count must be between 1 and 100",
+    "discardTitle": "Discard changes?",
+    "discardMessage": "You have unsaved changes. Are you sure you want to leave?",
+    "keep": "Keep editing",
+    "leave": "Leave"
   },
   "common": {
     "loading": "Loading...",

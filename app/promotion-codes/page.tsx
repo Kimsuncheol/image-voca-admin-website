@@ -33,12 +33,17 @@
  *  GeneratedCodesModal        — shows newly generated codes for copy/export
  */
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Typography from "@mui/material/Typography";
 import Alert from "@mui/material/Alert";
 import Tabs from "@mui/material/Tabs";
 import Tab from "@mui/material/Tab";
+import Dialog from "@mui/material/Dialog";
+import DialogTitle from "@mui/material/DialogTitle";
+import DialogContent from "@mui/material/DialogContent";
+import DialogActions from "@mui/material/DialogActions";
+import Button from "@mui/material/Button";
 import { useTranslation } from "react-i18next";
 
 // ── Layout ────────────────────────────────────────────────────────────
@@ -56,6 +61,10 @@ import ActiveCodesTab from "@/components/promotion-codes/ActiveCodesTab";
 import GeneratedCodesModal from "@/components/promotion-codes/GeneratedCodesModal";
 import PromotionCodesPageSkeleton from "@/components/promotion-codes/PromotionCodesPageSkeleton";
 import { useAdminGuard } from "@/hooks/useAdminGuard";
+import {
+  setNavigationInterceptor,
+  clearNavigationInterceptor,
+} from "@/lib/navigationGuard";
 
 export default function PromotionCodesPage() {
   const { t } = useTranslation();
@@ -68,6 +77,13 @@ export default function PromotionCodesPage() {
   // ── Local state ───────────────────────────────────────────────────
   const [codes, setCodes] = useState<PromotionCode[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Dirty state forwarded from GenerateTab; drives the navigation guard
+  const [isFormDirty, setIsFormDirty] = useState(false);
+
+  // Navigation-guard confirm dialog
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const pendingProceed = useRef<(() => void) | null>(null);
 
   // Index of the currently active tab (0 = Generate, 1 = Active Codes)
   const [tabIndex, setTabIndex] = useState(0);
@@ -107,6 +123,21 @@ export default function PromotionCodesPage() {
   useEffect(() => {
     fetchCodes();
   }, [fetchCodes]);
+
+  // ── Navigation guard ──────────────────────────────────────────────
+  // Register an async interceptor while the generate form has unsaved data.
+  // On cleanup (unmount or dirty→false) the interceptor is removed.
+  useEffect(() => {
+    if (isFormDirty) {
+      setNavigationInterceptor((_, proceed) => {
+        pendingProceed.current = proceed;
+        setConfirmOpen(true);
+      });
+    } else {
+      clearNavigationInterceptor();
+    }
+    return () => clearNavigationInterceptor();
+  }, [isFormDirty]);
 
   // ── Event handlers ────────────────────────────────────────────────
 
@@ -190,6 +221,7 @@ export default function PromotionCodesPage() {
         <GenerateTab
           onGenerated={handleGenerated}
           onError={(msg) => setMessage({ type: "error", text: msg })}
+          onDirtyChange={setIsFormDirty}
         />
       )}
 
@@ -221,6 +253,28 @@ export default function PromotionCodesPage() {
         codes={generatedCodes}
         onClose={() => setGeneratedModalOpen(false)}
       />
+
+      {/* ── Navigation-guard confirm dialog ───────────────────────────── */}
+      <Dialog open={confirmOpen} onClose={() => setConfirmOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle>{t("promotionCodes.discardTitle")}</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2">{t("promotionCodes.discardMessage")}</Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setConfirmOpen(false)}>{t("promotionCodes.keep")}</Button>
+          <Button
+            color="error"
+            variant="contained"
+            onClick={() => {
+              setConfirmOpen(false);
+              pendingProceed.current?.();
+              pendingProceed.current = null;
+            }}
+          >
+            {t("promotionCodes.leave")}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </PageLayout>
   );
 }

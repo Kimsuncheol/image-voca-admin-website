@@ -1,41 +1,80 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Box from "@mui/material/Box";
 import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
-import Select from "@mui/material/Select";
-import MenuItem from "@mui/material/MenuItem";
-import FormControl from "@mui/material/FormControl";
-import InputLabel from "@mui/material/InputLabel";
-import FormControlLabel from "@mui/material/FormControlLabel";
-import Switch from "@mui/material/Switch";
-import Button from "@mui/material/Button";
+import InputAdornment from "@mui/material/InputAdornment";
+import IconButton from "@mui/material/IconButton";
 import Typography from "@mui/material/Typography";
 import Divider from "@mui/material/Divider";
-import CircularProgress from "@mui/material/CircularProgress";
+import RemoveIcon from "@mui/icons-material/Remove";
+import AddIcon from "@mui/icons-material/Add";
+import { type Dayjs } from "dayjs";
 import { useTranslation } from "react-i18next";
 import type { CodeGenerationResponse, PlanType } from "@/types/promotionCode";
+
+// ── Section sub-components ────────────────────────────────────────────
+import EventPeriodFields from "./EventPeriodFields";
+import PlanSelect from "./PlanSelect";
+import DurationFields from "./DurationFields";
+import UsageLimitFields from "./UsageLimitFields";
+import GenerateSubmitButton from "./GenerateSubmitButton";
 
 interface GenerateTabProps {
   onGenerated: (response: CodeGenerationResponse) => void;
   onError: (message: string) => void;
+  onDirtyChange?: (isDirty: boolean) => void;
 }
 
-export default function GenerateTab({ onGenerated, onError }: GenerateTabProps) {
+const DEFAULTS = {
+  startDate: null as Dayjs | null,
+  endDate: null as Dayjs | null,
+  plan: "voca_unlimited" as PlanType,
+  isPermanent: true,
+  durationDays: "30",
+  maxUses: "100",
+  maxUsesPerUser: "1",
+  description: "",
+  count: "1",
+};
+
+export default function GenerateTab({
+  onGenerated,
+  onError,
+  onDirtyChange,
+}: GenerateTabProps) {
   const { t } = useTranslation();
   const [loading, setLoading] = useState(false);
 
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
-  const [plan, setPlan] = useState<PlanType>("voca_unlimited");
-  const [isPermanent, setIsPermanent] = useState(true);
-  const [durationDays, setDurationDays] = useState("30");
-  const [maxUses, setMaxUses] = useState("100");
-  const [maxUsesPerUser, setMaxUsesPerUser] = useState("1");
-  const [description, setDescription] = useState("");
-  const [count, setCount] = useState("1");
+  // ── Form state ────────────────────────────────────────────────────
+  const [startDate, setStartDate] = useState<Dayjs | null>(DEFAULTS.startDate);
+  const [endDate, setEndDate] = useState<Dayjs | null>(DEFAULTS.endDate);
+  const [plan, setPlan] = useState<PlanType>(DEFAULTS.plan);
+  const [isPermanent, setIsPermanent] = useState(DEFAULTS.isPermanent);
+  const [durationDays, setDurationDays] = useState(DEFAULTS.durationDays);
+  const [maxUses, setMaxUses] = useState(DEFAULTS.maxUses);
+  const [maxUsesPerUser, setMaxUsesPerUser] = useState(DEFAULTS.maxUsesPerUser);
+  const [description, setDescription] = useState(DEFAULTS.description);
+  const [count, setCount] = useState(DEFAULTS.count);
 
+  // ── Dirty tracking ────────────────────────────────────────────────
+  const isDirty =
+    startDate !== null ||
+    endDate !== null ||
+    plan !== DEFAULTS.plan ||
+    isPermanent !== DEFAULTS.isPermanent ||
+    durationDays !== DEFAULTS.durationDays ||
+    maxUses !== DEFAULTS.maxUses ||
+    maxUsesPerUser !== DEFAULTS.maxUsesPerUser ||
+    description !== DEFAULTS.description ||
+    count !== DEFAULTS.count;
+
+  useEffect(() => {
+    onDirtyChange?.(isDirty);
+  }, [isDirty, onDirtyChange]);
+
+  // ── Submit ────────────────────────────────────────────────────────
   const handleSubmit = async () => {
     if (!description.trim()) {
       onError(t("promotionCodes.descriptionRequired"));
@@ -53,12 +92,17 @@ export default function GenerateTab({ onGenerated, onError }: GenerateTabProps) 
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          eventPeriod: { startDate, endDate },
+          eventPeriod: {
+            startDate: startDate?.format("YYYY-MM-DD") ?? "",
+            endDate: endDate?.format("YYYY-MM-DD") ?? "",
+          },
           benefit: {
             type: "subscription",
             planId: plan,
             isPermanent,
-            ...(isPermanent ? {} : { durationDays: parseInt(durationDays, 10) }),
+            ...(isPermanent
+              ? {}
+              : { durationDays: parseInt(durationDays, 10) }),
           },
           maxUses: parseInt(maxUses, 10),
           maxUsesPerUser: parseInt(maxUsesPerUser, 10),
@@ -77,7 +121,9 @@ export default function GenerateTab({ onGenerated, onError }: GenerateTabProps) 
       setDescription("");
       setCount("1");
     } catch (err: unknown) {
-      onError(err instanceof Error ? err.message : t("promotionCodes.generateError"));
+      onError(
+        err instanceof Error ? err.message : t("promotionCodes.generateError"),
+      );
     } finally {
       setLoading(false);
     }
@@ -91,82 +137,32 @@ export default function GenerateTab({ onGenerated, onError }: GenerateTabProps) 
       <Divider sx={{ mb: 3 }} />
 
       <Stack spacing={3} maxWidth={560}>
-        {/* Event Period */}
-        <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
-          <TextField
-            label={t("promotionCodes.startDate")}
-            type="date"
-            value={startDate}
-            onChange={(e) => setStartDate(e.target.value)}
-            InputLabelProps={{ shrink: true }}
-            fullWidth
-          />
-          <TextField
-            label={t("promotionCodes.endDate")}
-            type="date"
-            value={endDate}
-            onChange={(e) => setEndDate(e.target.value)}
-            InputLabelProps={{ shrink: true }}
-            fullWidth
-          />
-        </Stack>
+        {/* Event Period — start/end date pickers */}
+        <EventPeriodFields
+          startDate={startDate}
+          endDate={endDate}
+          onStartDateChange={setStartDate}
+          onEndDateChange={setEndDate}
+        />
 
-        {/* Plan */}
-        <FormControl fullWidth>
-          <InputLabel>{t("promotionCodes.plan")}</InputLabel>
-          <Select
-            value={plan}
-            label={t("promotionCodes.plan")}
-            onChange={(e) => setPlan(e.target.value as PlanType)}
-          >
-            <MenuItem value="voca_unlimited">Voca Unlimited</MenuItem>
-            <MenuItem value="voca_speaking">Voca Speaking</MenuItem>
-          </Select>
-        </FormControl>
+        {/* Plan — subscription plan selector */}
+        <PlanSelect value={plan} onChange={setPlan} />
 
-        {/* Duration */}
-        <Box>
-          <FormControlLabel
-            control={
-              <Switch
-                checked={isPermanent}
-                onChange={(e) => setIsPermanent(e.target.checked)}
-              />
-            }
-            label={t("promotionCodes.permanent")}
-          />
-          {!isPermanent && (
-            <TextField
-              label={t("promotionCodes.durationDays")}
-              type="number"
-              value={durationDays}
-              onChange={(e) => setDurationDays(e.target.value)}
-              inputProps={{ min: 1 }}
-              fullWidth
-              sx={{ mt: 2 }}
-            />
-          )}
-        </Box>
+        {/* Duration — permanent toggle + conditional days input */}
+        <DurationFields
+          isPermanent={isPermanent}
+          durationDays={durationDays}
+          onIsPermanentChange={setIsPermanent}
+          onDurationDaysChange={setDurationDays}
+        />
 
-        {/* Usage Limits */}
-        <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
-          <TextField
-            label={t("promotionCodes.maxUses")}
-            type="number"
-            value={maxUses}
-            onChange={(e) => setMaxUses(e.target.value)}
-            inputProps={{ min: 0 }}
-            fullWidth
-          />
-          <TextField
-            label={t("promotionCodes.maxUsesPerUser")}
-            type="number"
-            value={maxUsesPerUser}
-            onChange={(e) => setMaxUsesPerUser(e.target.value)}
-            inputProps={{ min: 1 }}
-            fullWidth
-          />
-        </Stack>
+        {/* Usage Limits — max uses + max uses per user */}
+        <UsageLimitFields
+          maxUses={maxUses}
+          maxUsesPerUser={maxUsesPerUser}
+          onMaxUsesChange={setMaxUses}
+          onMaxUsesPerUserChange={setMaxUsesPerUser}
+        />
 
         {/* Description */}
         <TextField
@@ -185,19 +181,38 @@ export default function GenerateTab({ onGenerated, onError }: GenerateTabProps) 
           type="number"
           value={count}
           onChange={(e) => setCount(e.target.value)}
-          inputProps={{ min: 1, max: 100 }}
           fullWidth
+          slotProps={{
+            htmlInput: { min: 1, max: 100, style: { textAlign: "center", MozAppearance: "textfield" } },
+            input: {
+              endAdornment: (
+                <InputAdornment position="end">
+                  <IconButton
+                    size="small"
+                    onClick={() => setCount(String(Math.max(1, Number(count) - 1)))}
+                    disabled={Number(count) <= 1}
+                  >
+                    <RemoveIcon fontSize="small" />
+                  </IconButton>
+                  <IconButton
+                    size="small"
+                    onClick={() => setCount(String(Math.min(100, Number(count) + 1)))}
+                    disabled={Number(count) >= 100}
+                  >
+                    <AddIcon fontSize="small" />
+                  </IconButton>
+                </InputAdornment>
+              ),
+            },
+          }}
+          sx={{
+            "& input[type=number]::-webkit-outer-spin-button": { display: "none" },
+            "& input[type=number]::-webkit-inner-spin-button": { display: "none" },
+          }}
         />
 
-        <Button
-          variant="contained"
-          size="large"
-          onClick={handleSubmit}
-          disabled={loading}
-          startIcon={loading ? <CircularProgress size={18} color="inherit" /> : undefined}
-        >
-          {loading ? t("promotionCodes.generating") : t("promotionCodes.generateCodes")}
-        </Button>
+        {/* Submit */}
+        <GenerateSubmitButton loading={loading} onClick={handleSubmit} />
       </Stack>
     </Box>
   );

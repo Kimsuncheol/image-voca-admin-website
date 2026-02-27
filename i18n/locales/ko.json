@@ -192,7 +192,11 @@
     "usage": "사용",
     "expires": "만료일",
     "descriptionRequired": "설명을 입력해주세요",
-    "invalidCount": "코드 수량은 1에서 100 사이여야 합니다"
+    "invalidCount": "코드 수량은 1에서 100 사이여야 합니다",
+    "discardTitle": "변경 사항을 취소할까요?",
+    "discardMessage": "입력한 내용이 있습니다. 정말 나가시겠습니까?",
+    "keep": "계속 작성",
+    "leave": "나가기"
   },
   "common": {
     "loading": "로딩 중...",
