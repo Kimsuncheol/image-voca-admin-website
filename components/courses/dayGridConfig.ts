@@ -1,9 +1,9 @@
 export const DAY_GRID_COLUMNS = {
   xs: 1,
-  sm: 2,
-  md: 3,
-  lg: 4,
-  xl: 5,
+  sm: 4,
+  md: 5,
+  lg: 6,
+  xl: 8,
 } as const;
 
 export const dayGridTemplateColumns = {

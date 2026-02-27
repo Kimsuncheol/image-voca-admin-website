@@ -16,10 +16,10 @@ const SKELETON_ROWS = 2;
 
 export default function CourseDaysLoadingSkeleton() {
   const theme = useTheme();
-  const isSmUp = useMediaQuery(theme.breakpoints.up("sm"), { noSsr: true });
-  const isMdUp = useMediaQuery(theme.breakpoints.up("md"), { noSsr: true });
-  const isLgUp = useMediaQuery(theme.breakpoints.up("lg"), { noSsr: true });
-  const isXlUp = useMediaQuery(theme.breakpoints.up("xl"), { noSsr: true });
+  const isSmUp = useMediaQuery(theme.breakpoints.up("sm"));
+  const isMdUp = useMediaQuery(theme.breakpoints.up("md"));
+  const isLgUp = useMediaQuery(theme.breakpoints.up("lg"));
+  const isXlUp = useMediaQuery(theme.breakpoints.up("xl"));
 
   const columns = getDayGridColumnCount({
     sm: isSmUp,
