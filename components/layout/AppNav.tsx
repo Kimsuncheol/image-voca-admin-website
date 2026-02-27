@@ -1,48 +1,37 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+/**
+ * AppNav  —  sticky top AppBar
+ *
+ * Thin orchestrator: owns the AppBar/Toolbar shell and delegates each
+ * functional section to a focused sub-component.
+ *
+ * ── Sub-components ────────────────────────────────────────────────────────
+ *  navbar/SidebarToggleButton — hamburger / chevron-left icon button
+ *  navbar/UserMenu            — avatar + sign-out dropdown (or sign-in link)
+ *  ThemeToggle                — light/dark mode switcher
+ *  LanguageToggle             — language switcher
+ *
+ * ── Related files ─────────────────────────────────────────────────────────
+ *  components/layout/AppNavSidebar.tsx — the collapsible sidebar drawer
+ */
+
 import AppBar from "@mui/material/AppBar";
-import Toolbar from "@mui/material/Toolbar";
-import Typography from "@mui/material/Typography";
 import Box from "@mui/material/Box";
-import Avatar from "@mui/material/Avatar";
-import Menu from "@mui/material/Menu";
-import MenuItem from "@mui/material/MenuItem";
-import IconButton from "@mui/material/IconButton";
-import Button from "@mui/material/Button";
-import MenuIcon from "@mui/icons-material/Menu";
-import ChevronLeftIcon from "@mui/icons-material/ChevronLeft";
-import { useTranslation } from "react-i18next";
-import { useAuth } from "@/context/AuthContext";
+import Toolbar from "@mui/material/Toolbar";
+import SidebarToggleButton from "./navbar/SidebarToggleButton";
+import UserMenu from "./navbar/UserMenu";
 import ThemeToggle from "./ThemeToggle";
 import LanguageToggle from "./LanguageToggle";
 
 interface AppNavProps {
+  /** Whether the sidebar is currently expanded. Used by the toggle button icon. */
   open: boolean;
+  /** Callback to flip the sidebar open/closed state in the parent layout. */
   onToggle: () => void;
 }
 
 export default function AppNav({ open, onToggle }: AppNavProps) {
-  const { user, signOut } = useAuth();
-  const { t } = useTranslation();
-  const router = useRouter();
-  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
-
-  const handleMenuOpen = (e: React.MouseEvent<HTMLElement>) => {
-    setAnchorEl(e.currentTarget);
-  };
-
-  const handleMenuClose = () => {
-    setAnchorEl(null);
-  };
-
-  const handleSignOut = async () => {
-    handleMenuClose();
-    await signOut();
-    router.push("/sign-in");
-  };
-
   return (
     <AppBar
       position="sticky"
@@ -52,51 +41,16 @@ export default function AppNav({ open, onToggle }: AppNavProps) {
       }}
     >
       <Toolbar>
-        {/* ── Drawer toggle: hamburger when closed, chevron-left when open ── */}
-        <IconButton
-          onClick={onToggle}
-          edge="start"
-          color="inherit"
-          aria-label={open ? "collapse sidebar" : "expand sidebar"}
-          sx={{ mr: 1 }}
-        >
-          {open ? <ChevronLeftIcon /> : <MenuIcon />}
-        </IconButton>
+        {/* ── Left: sidebar toggle ────────────────────────────────────── */}
+        <SidebarToggleButton open={open} onToggle={onToggle} />
 
+        {/* ── Centre spacer: pushes right-side actions to the far right ─ */}
         <Box sx={{ flexGrow: 1 }} />
+
+        {/* ── Right: theme, language, user ────────────────────────────── */}
         <ThemeToggle />
         <LanguageToggle />
-        {user ? (
-          <>
-            <IconButton onClick={handleMenuOpen} sx={{ ml: 1 }}>
-              <Avatar
-                src={user.photoURL}
-                alt={user.displayName}
-                sx={{ width: 32, height: 32 }}
-              >
-                {user.displayName?.[0]?.toUpperCase()}
-              </Avatar>
-            </IconButton>
-            <Menu
-              anchorEl={anchorEl}
-              open={Boolean(anchorEl)}
-              onClose={handleMenuClose}
-            >
-              <MenuItem disabled>
-                <Typography variant="body2">{user.displayName}</Typography>
-              </MenuItem>
-              <MenuItem onClick={handleSignOut}>{t("common.signOut")}</MenuItem>
-            </Menu>
-          </>
-        ) : (
-          <Button
-            color="inherit"
-            onClick={() => router.push("/sign-in")}
-            sx={{ ml: 1 }}
-          >
-            {t("auth.signIn")}
-          </Button>
-        )}
+        <UserMenu />
       </Toolbar>
     </AppBar>
   );
