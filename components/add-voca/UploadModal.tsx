@@ -10,6 +10,7 @@ import TextField from "@mui/material/TextField";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import Alert from "@mui/material/Alert";
+import Stack from "@mui/material/Stack";
 import Table from "@mui/material/Table";
 import TableBody from "@mui/material/TableBody";
 import TableCell from "@mui/material/TableCell";
@@ -38,6 +39,20 @@ interface UploadModalProps {
    */
   existingDayNames?: string[];
 }
+
+const dayFieldSx = {
+  "& .MuiOutlinedInput-root": {
+    height: 40,
+    borderRadius: 2.5,
+    backgroundColor: "background.default",
+    "& fieldset": {
+      borderColor: "divider",
+    },
+    "&:hover fieldset": {
+      borderColor: "text.disabled",
+    },
+  },
+};
 
 export default function UploadModal({
   open,
@@ -130,152 +145,168 @@ export default function UploadModal({
       onClose={handleClose}
       maxWidth="md"
       fullWidth
+      PaperProps={{
+        sx: {
+          borderRadius: 3,
+          border: "1px solid",
+          borderColor: "divider",
+        },
+      }}
       TransitionProps={{ onExited: handleReset }}
     >
-      <DialogTitle>{t("addVoca.csvUpload")}</DialogTitle>
-      <DialogContent>
-        <TextField
-          label={t("addVoca.day")}
-          value={dayName.replace(/^Day/i, "")}
-          onChange={(e) => {
-            const val = e.target.value.replace(/\s+/g, "");
-            setDayName(val ? `Day${val}` : "");
-          }}
-          InputProps={{
-            startAdornment: (
-              <InputAdornment position="start">Day</InputAdornment>
-            ),
-          }}
-          fullWidth
-          margin="normal"
-          placeholder="1"
-        />
-
-        <Box
-          {...getRootProps()}
-          sx={{
-            border: "2px dashed",
-            borderColor: isDragActive ? "primary.main" : "divider",
-            borderRadius: 2,
-            p: 4,
-            textAlign: "center",
-            cursor: "pointer",
-            bgcolor: isDragActive ? "action.hover" : "transparent",
-            mt: 2,
-            mb: 2,
-          }}
-        >
-          <input {...getInputProps()} />
-          <CloudUploadIcon
-            sx={{ fontSize: 48, color: "text.secondary", mb: 1 }}
+      <DialogTitle sx={{ pb: 1, fontWeight: 600 }}>
+        {t("addVoca.csvUpload")}
+      </DialogTitle>
+      <DialogContent sx={{ pt: "12px !important" }}>
+        <Stack spacing={2}>
+          <TextField
+            label={t("addVoca.day")}
+            value={dayName.replace(/^Day/i, "")}
+            onChange={(e) => {
+              const val = e.target.value.replace(/\s+/g, "");
+              setDayName(val ? `Day${val}` : "");
+            }}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">Day</InputAdornment>
+              ),
+            }}
+            fullWidth
+            placeholder="1"
+            sx={dayFieldSx}
           />
-          <Typography color="text.secondary">
-            {selectedFile ? selectedFile.name : t("addVoca.dropzone")}
-          </Typography>
-        </Box>
 
-        {parseResult?.blockingError ? (
-          <Alert severity="error" sx={{ mb: 2 }}>
-            <Typography variant="body2">
-              {getBlockingErrorMessage(parseResult.blockingError)}
+          <Box
+            {...getRootProps()}
+            sx={{
+              border: "1px dashed",
+              borderColor: isDragActive ? "primary.main" : "divider",
+              borderRadius: 2.5,
+              p: { xs: 3, sm: 4 },
+              textAlign: "center",
+              cursor: "pointer",
+              bgcolor: isDragActive ? "action.hover" : "background.default",
+              transition: "background-color 120ms ease, border-color 120ms ease",
+            }}
+          >
+            <input {...getInputProps()} />
+            <CloudUploadIcon
+              sx={{ fontSize: 42, color: "text.secondary", mb: 1 }}
+            />
+            <Typography color="text.secondary" variant="body2">
+              {selectedFile ? selectedFile.name : t("addVoca.dropzone")}
             </Typography>
-            {parseResult.expectedHeaders &&
-              parseResult.expectedHeaders.length > 0 && (
+          </Box>
+
+          {parseResult?.blockingError ? (
+            <Alert severity="error">
+              <Typography variant="body2">
+                {getBlockingErrorMessage(parseResult.blockingError)}
+              </Typography>
+              {parseResult.expectedHeaders &&
+                parseResult.expectedHeaders.length > 0 && (
+                  <Typography variant="body2" sx={{ mt: 0.5 }}>
+                    {t("addVoca.expectedKeys", {
+                      keys: parseResult.expectedHeaders.join(", "),
+                    })}
+                  </Typography>
+                )}
+              {parseResult.detectedHeaders.length > 0 && (
                 <Typography variant="body2" sx={{ mt: 0.5 }}>
-                  {t("addVoca.expectedKeys", {
-                    keys: parseResult.expectedHeaders.join(", "),
+                  {t("addVoca.detectedKeys", {
+                    keys: parseResult.detectedHeaders.join(", "),
                   })}
                 </Typography>
               )}
-            {parseResult.detectedHeaders.length > 0 && (
-              <Typography variant="body2" sx={{ mt: 0.5 }}>
-                {t("addVoca.detectedKeys", {
-                  keys: parseResult.detectedHeaders.join(", "),
-                })}
-              </Typography>
-            )}
-          </Alert>
-        ) : parseResult?.errors.length ? (
-          <Alert severity="warning" sx={{ mb: 2 }}>
-            {parseResult.detectedHeaders.length > 0 && (
-              <Typography variant="body2" sx={{ mb: 0.5 }}>
-                <strong>Detected columns:</strong>{" "}
-                {parseResult.detectedHeaders.join(", ")}
-              </Typography>
-            )}
-            {parseResult.errors.slice(0, 5).map((err, i) => (
-              <Typography key={i} variant="body2">
-                {err}
-              </Typography>
-            ))}
-          </Alert>
-        ) : null}
+            </Alert>
+          ) : parseResult?.errors.length ? (
+            <Alert severity="warning">
+              {parseResult.detectedHeaders.length > 0 && (
+                <Typography variant="body2" sx={{ mb: 0.5 }}>
+                  <strong>Detected columns:</strong>{" "}
+                  {parseResult.detectedHeaders.join(", ")}
+                </Typography>
+              )}
+              {parseResult.errors.slice(0, 5).map((err, i) => (
+                <Typography key={i} variant="body2">
+                  {err}
+                </Typography>
+              ))}
+            </Alert>
+          ) : null}
 
-        {parseResult &&
-          parseResult.words.length > 0 &&
-          (() => {
-            const columns: string[] =
-              (isCollocation ?? parseResult.isCollocation)
-                ? [
-                    "collocation",
-                    "meaning",
-                    "explanation",
-                    "example",
-                    "translation",
-                  ]
-                : [
-                    "word",
-                    "meaning",
-                    "pronunciation",
-                    "example",
-                    "translation",
-                  ];
-            return (
-              <TableContainer
-                component={Paper}
-                sx={{
-                  maxHeight: 300,
-                  scrollbarWidth: "none",
-                  "&::-webkit-scrollbar": { display: "none" },
-                }}
-              >
-                <Table size="small" stickyHeader>
-                  <TableHead>
-                    <TableRow>
-                      {columns.map((col) => (
-                        <TableCell key={col}>{col}</TableCell>
-                      ))}
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {parseResult.words.slice(0, 10).map((word, i) => (
-                      <TableRow key={i}>
+          {parseResult &&
+            parseResult.words.length > 0 &&
+            (() => {
+              const columns: string[] =
+                (isCollocation ?? parseResult.isCollocation)
+                  ? [
+                      "collocation",
+                      "meaning",
+                      "explanation",
+                      "example",
+                      "translation",
+                    ]
+                  : [
+                      "word",
+                      "meaning",
+                      "pronunciation",
+                      "example",
+                      "translation",
+                    ];
+              return (
+                <TableContainer
+                  component={Paper}
+                  variant="outlined"
+                  sx={{
+                    maxHeight: 300,
+                    borderRadius: 2,
+                    borderColor: "divider",
+                    scrollbarWidth: "none",
+                    "&::-webkit-scrollbar": { display: "none" },
+                  }}
+                >
+                  <Table size="small" stickyHeader>
+                    <TableHead>
+                      <TableRow>
                         {columns.map((col) => (
-                          <TableCell key={col}>
-                            {String(
-                              (word as Record<string, unknown>)[col] ?? "",
-                            )}
-                          </TableCell>
+                          <TableCell key={col}>{col}</TableCell>
                         ))}
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-                {parseResult.words.length > 10 && (
-                  <Typography variant="caption" sx={{ p: 1, display: "block" }}>
-                    ...and {parseResult.words.length - 10} more rows
-                  </Typography>
-                )}
-              </TableContainer>
-            );
-          })()}
+                    </TableHead>
+                    <TableBody>
+                      {parseResult.words.slice(0, 10).map((word, i) => (
+                        <TableRow key={i}>
+                          {columns.map((col) => (
+                            <TableCell key={col}>
+                              {String(
+                                (word as Record<string, unknown>)[col] ?? "",
+                              )}
+                            </TableCell>
+                          ))}
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                  {parseResult.words.length > 10 && (
+                    <Typography variant="caption" sx={{ p: 1, display: "block" }}>
+                      ...and {parseResult.words.length - 10} more rows
+                    </Typography>
+                  )}
+                </TableContainer>
+              );
+            })()}
+        </Stack>
       </DialogContent>
-      <DialogActions>
-        <Button onClick={handleClose}>{t("common.cancel")}</Button>
+      <DialogActions sx={{ px: 3, pb: 2, pt: 1.5 }}>
+        <Button onClick={handleClose} sx={{ borderRadius: 2 }}>
+          {t("common.cancel")}
+        </Button>
         <Button
           onClick={handleConfirm}
           variant="contained"
           disabled={!dayName || !parseResult || parseResult.words.length === 0}
+          sx={{ borderRadius: 2 }}
         >
           {t("common.confirm")}
         </Button>

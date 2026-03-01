@@ -5,6 +5,10 @@ import List from '@mui/material/List';
 import Button from '@mui/material/Button';
 import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
+import Stack from '@mui/material/Stack';
+import Paper from '@mui/material/Paper';
+import Divider from '@mui/material/Divider';
+import Chip from '@mui/material/Chip';
 import AddIcon from '@mui/icons-material/Add';
 import { useTranslation } from 'react-i18next';
 import FileListItem from './FileListItem';
@@ -25,6 +29,14 @@ interface CsvUploadTabProps {
   onItemsChange: (items: CsvItem[]) => void;
   isCollocation?: boolean;
 }
+
+const sectionSx = {
+  borderRadius: 3,
+  px: { xs: 1.75, sm: 2.25 },
+  py: { xs: 1.75, sm: 2.25 },
+  borderColor: 'divider',
+  backgroundColor: 'background.paper',
+};
 
 export default function CsvUploadTab({ items, onItemsChange, isCollocation }: CsvUploadTabProps) {
   const { t } = useTranslation();
@@ -88,28 +100,61 @@ export default function CsvUploadTab({ items, onItemsChange, isCollocation }: Cs
 
   return (
     <Box>
-      <Button startIcon={<AddIcon />} variant="outlined" onClick={handleAddFile} sx={{ mb: 2 }}>
-        {t('addVoca.addFile')}
-      </Button>
-
-      {items.length === 0 ? (
-        <Typography color="text.secondary" sx={{ py: 2 }}>
-          {t('addVoca.noItems')}
-        </Typography>
-      ) : (
-        <List>
-          {items.map((item, index) => (
-            <FileListItem
-              key={item.id}
-              label={item.fileName}
-              dayName={item.dayName}
-              hasData={!!item.data && item.data.words.length > 0}
-              onClick={() => handleItemClick(index)}
-              onDelete={() => handleDelete(index)}
+      <Paper variant="outlined" sx={sectionSx}>
+        <Stack
+          direction={{ xs: 'column', sm: 'row' }}
+          spacing={1}
+          alignItems={{ xs: 'stretch', sm: 'center' }}
+          justifyContent="space-between"
+          sx={{ mb: 1.5 }}
+        >
+          <Stack direction="row" spacing={1} alignItems="center">
+            <Typography variant="subtitle2" fontWeight={600}>
+              {t('addVoca.csvUpload')}
+            </Typography>
+            <Chip
+              size="small"
+              label={items.length}
+              color={items.length > 0 ? 'primary' : 'default'}
+              variant={items.length > 0 ? 'outlined' : 'filled'}
             />
-          ))}
-        </List>
-      )}
+          </Stack>
+          <Button
+            startIcon={<AddIcon />}
+            variant="outlined"
+            size="small"
+            onClick={handleAddFile}
+            sx={{
+              borderRadius: 2,
+              whiteSpace: 'nowrap',
+              minWidth: { xs: '100%', sm: 138 },
+            }}
+          >
+            {t('addVoca.addFile')}
+          </Button>
+        </Stack>
+
+        <Divider sx={{ mb: items.length > 0 ? 1 : 0 }} />
+
+        {items.length === 0 ? (
+          <Typography color="text.secondary" sx={{ py: 3, textAlign: 'center' }}>
+            {t('addVoca.noItems')}
+          </Typography>
+        ) : (
+          <List sx={{ py: 0 }}>
+            {items.map((item, index) => (
+              <FileListItem
+                key={item.id}
+                label={item.fileName}
+                dayName={item.dayName}
+                hasData={!!item.data && item.data.words.length > 0}
+                onClick={() => handleItemClick(index)}
+                onDelete={() => handleDelete(index)}
+              />
+            ))}
+          </List>
+        )}
+      </Paper>
 
       <UploadModal
         open={modalOpen}

@@ -20,19 +20,42 @@ export default function FileListItem({ label, dayName, hasData, onClick, onDelet
   return (
     <ListItem
       disablePadding
+      sx={{ mb: 1, '&:last-of-type': { mb: 0 } }}
       secondaryAction={
-        <IconButton edge="end" aria-label="delete" onClick={onDelete}>
+        <IconButton edge="end" aria-label="delete" onClick={onDelete} size="small" sx={{ mr: 0.5 }}>
           <DeleteIcon />
         </IconButton>
       }
     >
-      <ListItemButton onClick={onClick}>
-        {hasData && <CheckCircleIcon color="success" sx={{ mr: 1 }} />}
+      <ListItemButton
+        onClick={onClick}
+        sx={{
+          border: '1px solid',
+          borderColor: 'divider',
+          borderRadius: 2.5,
+          py: 1.1,
+          pr: 7,
+          transition: 'border-color 120ms ease, background-color 120ms ease',
+          '&:hover': {
+            borderColor: 'text.disabled',
+            bgcolor: 'action.hover',
+          },
+        }}
+      >
+        {hasData && <CheckCircleIcon color="success" sx={{ mr: 1, fontSize: 20 }} />}
         <ListItemText
           primary={label}
-          secondary={dayName || undefined}
+          primaryTypographyProps={{ variant: 'body2', fontWeight: 500, noWrap: true }}
         />
-        {dayName && <Chip label={dayName} size="small" sx={{ mr: 4 }} />}
+        {dayName && (
+          <Chip
+            label={dayName}
+            size="small"
+            color="primary"
+            variant="outlined"
+            sx={{ mr: 4.5, height: 24, borderRadius: 1.5 }}
+          />
+        )}
       </ListItemButton>
     </ListItem>
   );
