@@ -194,7 +194,7 @@ export default function UrlUploadTab({
       <Stack spacing={2}>
         {/* 1) Google 인증 섹션: 연결 상태 표시 및 연결 버튼 */}
         <GoogleAuthSection
-          token={token}
+          token={token ?? undefined}
           loading={tokenLoading}
           configured={configured}
           onConnect={handleConnectGoogle}
@@ -215,7 +215,7 @@ export default function UrlUploadTab({
           urlInput={urlInput}
           dayInput={dayInput}
           fetchingUrl={fetchingUrl}
-          token={token}
+          token={token ?? undefined}
           onUrlChange={handleUrlChange}
           onDayChange={setDayInput}
           onAddUrl={handleAddUrl}
