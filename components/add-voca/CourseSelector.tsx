@@ -2,9 +2,13 @@
 
 import Box from "@mui/material/Box";
 import Chip from "@mui/material/Chip";
+import Divider from "@mui/material/Divider";
 import Typography from "@mui/material/Typography";
 import { useTranslation } from "react-i18next";
 import { COURSES, type CourseId } from "@/types/course";
+
+const COURSE_CHIPS = COURSES.filter((c) => c.id !== "FAMOUS_QUOTE");
+const FAMOUS_QUOTE_COURSE = COURSES.find((c) => c.id === "FAMOUS_QUOTE")!;
 
 interface CourseSelectorProps {
   value: CourseId | "";
@@ -23,7 +27,7 @@ export default function CourseSelector({
         {t("addVoca.selectCourse")}
       </Typography>
       <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1 }}>
-        {COURSES.map((course) => (
+        {COURSE_CHIPS.map((course) => (
           <Chip
             key={course.id}
             label={course.label}
@@ -33,6 +37,14 @@ export default function CourseSelector({
             sx={{ fontWeight: value === course.id ? 600 : 400 }}
           />
         ))}
+        <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
+        <Chip
+          label={FAMOUS_QUOTE_COURSE.label}
+          onClick={() => onChange(FAMOUS_QUOTE_COURSE.id)}
+          color={value === FAMOUS_QUOTE_COURSE.id ? "secondary" : "default"}
+          variant={value === FAMOUS_QUOTE_COURSE.id ? "filled" : "outlined"}
+          sx={{ fontWeight: value === FAMOUS_QUOTE_COURSE.id ? 600 : 400 }}
+        />
       </Box>
     </Box>
   );

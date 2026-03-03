@@ -38,6 +38,11 @@ interface UploadModalProps {
    * Used to detect duplicates before confirming.
    */
   existingDayNames?: string[];
+  /**
+   * When true, hides the day name input and auto-assigns a UUID.
+   * Used for Famous Quote uploads which have no day concept.
+   */
+  hideDayInput?: boolean;
 }
 
 const dayFieldSx = {
@@ -62,9 +67,12 @@ export default function UploadModal({
   initialData = null,
   schemaType,
   existingDayNames = [],
+  hideDayInput = false,
 }: UploadModalProps) {
   const { t } = useTranslation();
-  const [dayName, setDayName] = useState(initialDayName);
+  const [dayName, setDayName] = useState(
+    hideDayInput ? (initialDayName || crypto.randomUUID()) : initialDayName
+  );
   const [parseResult, setParseResult] = useState<ParseResult | null>(
     initialData,
   );
@@ -90,15 +98,21 @@ export default function UploadModal({
   });
 
   const handleConfirm = () => {
-    if (!dayName || !parseResult || parseResult.words.length === 0) return;
+    // When day input is hidden (Famous Quote), fall back to a UUID if dayName
+    // was never set (e.g. component mounted before hideDayInput became true).
+    const effectiveDayName = hideDayInput
+      ? (dayName || initialDayName || crypto.randomUUID())
+      : dayName;
+
+    if ((!hideDayInput && !effectiveDayName) || !parseResult || parseResult.words.length === 0) return;
 
     // Duplicate check — ask before overwriting an existing queue item.
-    if (existingDayNames.includes(dayName)) {
+    if (existingDayNames.includes(effectiveDayName)) {
       if (
         !window.confirm(
           t(
             "addVoca.duplicateDayConfirm",
-            `"${dayName}" is already in the queue. Replace it?`
+            `"${effectiveDayName}" is already in the queue. Replace it?`
           )
         )
       ) {
@@ -106,7 +120,7 @@ export default function UploadModal({
       }
     }
 
-    onConfirm(dayName, parseResult, selectedFile ?? undefined);
+    onConfirm(effectiveDayName, parseResult, selectedFile ?? undefined);
     onClose();
   };
 
@@ -125,7 +139,7 @@ export default function UploadModal({
   };
 
   const handleReset = () => {
-    setDayName(initialDayName);
+    setDayName(hideDayInput ? (initialDayName || crypto.randomUUID()) : initialDayName);
     setParseResult(initialData ?? null);
     setSelectedFile(null);
   };
@@ -159,22 +173,24 @@ export default function UploadModal({
       </DialogTitle>
       <DialogContent sx={{ pt: "12px !important" }}>
         <Stack spacing={2}>
-          <TextField
-            label={t("addVoca.day")}
-            value={dayName.replace(/^Day/i, "")}
-            onChange={(e) => {
-              const val = e.target.value.replace(/\s+/g, "");
-              setDayName(val ? `Day${val}` : "");
-            }}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">Day</InputAdornment>
-              ),
-            }}
-            fullWidth
-            placeholder="1"
-            sx={dayFieldSx}
-          />
+          {!hideDayInput && (
+            <TextField
+              label={t("addVoca.day")}
+              value={dayName.replace(/^Day/i, "")}
+              onChange={(e) => {
+                const val = e.target.value.replace(/\s+/g, "");
+                setDayName(val ? `Day${val}` : "");
+              }}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">Day</InputAdornment>
+                ),
+              }}
+              fullWidth
+              placeholder="1"
+              sx={dayFieldSx}
+            />
+          )}
 
           <Box
             {...getRootProps()}
@@ -296,7 +312,7 @@ export default function UploadModal({
         <Button
           onClick={handleConfirm}
           variant="contained"
-          disabled={!dayName || !parseResult || parseResult.words.length === 0}
+          disabled={(!hideDayInput && !dayName) || !parseResult || parseResult.words.length === 0}
           sx={{ borderRadius: 2 }}
         >
           {t("common.confirm")}

@@ -108,6 +108,7 @@ export default function AddVocaPage() {
   // Shown briefly when the user switches courses while items are already queued
   const [courseSwitchNotice, setCourseSwitchNotice] = useState("");
 
+
   // ── Progress modal state (FR-14) ──────────────────────────────────
   // These are mutated throughout the two-phase upload to give live feedback.
   const [progressOpen, setProgressOpen] = useState(false);
@@ -181,12 +182,11 @@ export default function AddVocaPage() {
 
   // ── Derived state ──────────────────────────────────────────────────
   // `schemaType` drives CSV header validation and word field mapping.
-  // Non-standard schemas skip IPA lookup + OpenAI enrichment.
   const schemaType: SchemaType =
     selectedCourse === "COLLOCATIONS" ? "collocation"
     : selectedCourse === "FAMOUS_QUOTE" ? "famousQuote"
     : "standard";
-  const isCollocation = schemaType === "collocation";
+  const isFamousQuote = selectedCourse === "FAMOUS_QUOTE";
 
   // Items visible in the currently selected tab
   const currentItems = tabIndex === 0 ? csvItems : urlItems;
@@ -549,7 +549,7 @@ export default function AddVocaPage() {
 
       {/* ── Tab panels ─────────────────────────────────────────────────── */}
       {tabIndex === 0 && (
-        <CsvUploadTab items={csvItems} onItemsChange={setCsvItems} schemaType={schemaType} />
+        <CsvUploadTab items={csvItems} onItemsChange={setCsvItems} schemaType={schemaType} hideDayInput={isFamousQuote} />
       )}
       {tabIndex === 1 && (
         <UrlUploadTab items={urlItems} onItemsChange={setUrlItems} schemaType={schemaType} />
@@ -634,6 +634,7 @@ export default function AddVocaPage() {
         statusText={statusText}
         onClose={handleProgressClose}
       />
+
     </PageLayout>
   );
 }

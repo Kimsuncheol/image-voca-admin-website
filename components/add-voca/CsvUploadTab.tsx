@@ -28,6 +28,7 @@ interface CsvUploadTabProps {
   items: CsvItem[];
   onItemsChange: (items: CsvItem[]) => void;
   schemaType?: SchemaType;
+  hideDayInput?: boolean;
 }
 
 const sectionSx = {
@@ -38,7 +39,7 @@ const sectionSx = {
   backgroundColor: 'background.paper',
 };
 
-export default function CsvUploadTab({ items, onItemsChange, schemaType }: CsvUploadTabProps) {
+export default function CsvUploadTab({ items, onItemsChange, schemaType, hideDayInput }: CsvUploadTabProps) {
   const { t } = useTranslation();
   const [modalOpen, setModalOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState<number>(-1);
@@ -146,7 +147,7 @@ export default function CsvUploadTab({ items, onItemsChange, schemaType }: CsvUp
               <FileListItem
                 key={item.id}
                 label={item.fileName}
-                dayName={item.dayName}
+                dayName={hideDayInput ? undefined : item.dayName}
                 hasData={!!item.data && item.data.words.length > 0}
                 onClick={() => handleItemClick(index)}
                 onDelete={() => handleDelete(index)}
@@ -163,6 +164,7 @@ export default function CsvUploadTab({ items, onItemsChange, schemaType }: CsvUp
         initialDayName={activeIndex >= 0 ? items[activeIndex]?.dayName : ''}
         initialData={activeIndex >= 0 ? items[activeIndex]?.data : null}
         schemaType={schemaType}
+        hideDayInput={hideDayInput}
         existingDayNames={items
           .filter((_, i) => i !== activeIndex)
           .map((i) => i.dayName)
