@@ -91,7 +91,9 @@
     "example": "Example",
     "translation": "Translation",
     "collocation": "Collocation",
-    "explanation": "Explanation"
+    "explanation": "Explanation",
+    "quote": "Quote",
+    "author": "Author"
   },
   "users": {
     "title": "User Management",

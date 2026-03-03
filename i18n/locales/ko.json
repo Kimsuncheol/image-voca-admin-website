@@ -91,7 +91,9 @@
     "example": "예문",
     "translation": "번역",
     "collocation": "연어",
-    "explanation": "설명"
+    "explanation": "설명",
+    "quote": "명언",
+    "author": "작가"
   },
   "users": {
     "title": "사용자 관리",

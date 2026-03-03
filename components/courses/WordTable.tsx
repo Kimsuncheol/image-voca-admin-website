@@ -11,7 +11,7 @@ import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import { useTranslation } from "react-i18next";
 import type { Word } from "@/types/word";
-import { isCollocationWord } from "@/types/word";
+import { isCollocationWord, isFamousQuoteWord } from "@/types/word";
 
 // Detects "Name: text. Name: text" dialogue formatting.
 // Supports plain names (Layne:) and numbered names (Neighbor 1:).
@@ -80,9 +80,10 @@ function ExampleCell({ text }: { text: string | undefined }) {
 interface WordTableProps {
   words: Word[];
   isCollocation: boolean;
+  isFamousQuote?: boolean;
 }
 
-export default function WordTable({ words, isCollocation }: WordTableProps) {
+export default function WordTable({ words, isCollocation, isFamousQuote }: WordTableProps) {
   const { t } = useTranslation();
 
   return (
@@ -96,6 +97,12 @@ export default function WordTable({ words, isCollocation }: WordTableProps) {
                 <TableCell>{t("courses.meaning")}</TableCell>
                 <TableCell>{t("courses.explanation")}</TableCell>
                 <TableCell>{t("courses.example")}</TableCell>
+                <TableCell>{t("courses.translation")}</TableCell>
+              </>
+            ) : isFamousQuote ? (
+              <>
+                <TableCell>{t("courses.quote")}</TableCell>
+                <TableCell>{t("courses.author")}</TableCell>
                 <TableCell>{t("courses.translation")}</TableCell>
               </>
             ) : (
@@ -119,6 +126,12 @@ export default function WordTable({ words, isCollocation }: WordTableProps) {
                   <TableCell>{word.explanation}</TableCell>
                   <ExampleCell text={word.example} />
                   <ExampleCell text={word.translation} />
+                </>
+              ) : isFamousQuoteWord(word) ? (
+                <>
+                  <TableCell>{word.quote}</TableCell>
+                  <TableCell>{word.author}</TableCell>
+                  <TableCell>{word.translation}</TableCell>
                 </>
               ) : (
                 <>

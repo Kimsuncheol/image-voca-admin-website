@@ -66,10 +66,10 @@ export default function DayWordsPage({
   // ── Resolve course metadata from static list ──────────────────────
   const course = getCourseById(courseId);
 
-  // ── Collocation detection ─────────────────────────────────────────
-  // The COLLOCATIONS course stores phrase-pairs rather than single words.
-  // WordTable switches its column layout based on this flag.
+  // ── Course type detection ─────────────────────────────────────────
+  // WordTable switches its column layout based on these flags.
   const isCollocation = courseId === "COLLOCATIONS";
+  const isFamousQuote = courseId === "FAMOUS_QUOTE";
 
   // ── Firestore data fetch ──────────────────────────────────────────
   useEffect(() => {
@@ -124,7 +124,7 @@ export default function DayWordsPage({
         // WordTable renders differently depending on isCollocation:
         //   false → standard columns: word, pronunciation, meaning, example
         //   true  → collocation columns: phrase, meaning, explanation, example
-        <WordTable words={words} isCollocation={isCollocation} />
+        <WordTable words={words} isCollocation={isCollocation} isFamousQuote={isFamousQuote} />
       )}
     </PageLayout>
   );
