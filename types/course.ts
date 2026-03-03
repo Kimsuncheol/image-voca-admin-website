@@ -1,4 +1,4 @@
-export type CourseId = 'CSAT' | 'IELTS' | 'TOEFL' | 'TOEIC' | 'COLLOCATIONS';
+export type CourseId = 'CSAT' | 'IELTS' | 'TOEFL' | 'TOEIC' | 'COLLOCATIONS' | 'FAMOUS_QUOTE';
 
 export interface Course {
   id: CourseId;
@@ -18,6 +18,7 @@ export const COURSES: Course[] = [
   { id: 'TOEFL', label: 'TOEFL', path: process.env.NEXT_PUBLIC_COURSE_PATH_TOEFL || '' },
   { id: 'TOEIC', label: 'TOEIC', path: process.env.NEXT_PUBLIC_COURSE_PATH_TOEIC || '' },
   { id: 'COLLOCATIONS', label: 'Collocations', path: process.env.NEXT_PUBLIC_COURSE_PATH_COLLOCATION || '' },
+  { id: 'FAMOUS_QUOTE', label: 'Famous Quote', path: process.env.NEXT_PUBLIC_COURSE_PATH_FAMOUS_QUOTE || '' },
 ];
 
 export function getCourseById(id: string): Course | undefined {

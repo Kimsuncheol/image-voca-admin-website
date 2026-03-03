@@ -59,6 +59,7 @@ import PageLayout from "@/components/layout/PageLayout";
 // ── Types ─────────────────────────────────────────────────────────────
 import { getCourseById, type CourseId } from "@/types/course";
 import type { StandardWordInput } from "@/lib/schemas/vocaSchemas";
+import type { SchemaType } from "@/lib/utils/csvParser";
 
 // ── Navigation guard ──────────────────────────────────────────────────
 import {
@@ -179,8 +180,13 @@ export default function AddVocaPage() {
   }, [csvItems.length, urlItems.length, progressOpen, t]);
 
   // ── Derived state ──────────────────────────────────────────────────
-  // `isCollocation` skips IPA lookup + OpenAI enrichment (different schema)
-  const isCollocation = selectedCourse === "COLLOCATIONS";
+  // `schemaType` drives CSV header validation and word field mapping.
+  // Non-standard schemas skip IPA lookup + OpenAI enrichment.
+  const schemaType: SchemaType =
+    selectedCourse === "COLLOCATIONS" ? "collocation"
+    : selectedCourse === "FAMOUS_QUOTE" ? "famousQuote"
+    : "standard";
+  const isCollocation = schemaType === "collocation";
 
   // Items visible in the currently selected tab
   const currentItems = tabIndex === 0 ? csvItems : urlItems;
@@ -324,7 +330,7 @@ export default function AddVocaPage() {
         // FR-9: Words arrive pre-normalised by extractVocaFields in csvParser
         let words = item.data!.words;
 
-        if (!isCollocation) {
+        if (schemaType === "standard") {
           // FR-10: Auto-fill pronunciation for simple (single-word) entries.
           // Multi-word phrases are skipped because IPA lookup is word-level.
           words = await Promise.all(
@@ -543,10 +549,10 @@ export default function AddVocaPage() {
 
       {/* ── Tab panels ─────────────────────────────────────────────────── */}
       {tabIndex === 0 && (
-        <CsvUploadTab items={csvItems} onItemsChange={setCsvItems} isCollocation={isCollocation} />
+        <CsvUploadTab items={csvItems} onItemsChange={setCsvItems} schemaType={schemaType} />
       )}
       {tabIndex === 1 && (
-        <UrlUploadTab items={urlItems} onItemsChange={setUrlItems} isCollocation={isCollocation} />
+        <UrlUploadTab items={urlItems} onItemsChange={setUrlItems} schemaType={schemaType} />
       )}
 
       {/* ── Validation notice ──────────────────────────────────────────── */}

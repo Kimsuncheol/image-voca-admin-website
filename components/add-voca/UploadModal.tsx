@@ -22,7 +22,7 @@ import InputAdornment from "@mui/material/InputAdornment";
 import CloudUploadIcon from "@mui/icons-material/CloudUpload";
 import { useDropzone } from "react-dropzone";
 import { useTranslation } from "react-i18next";
-import { parseCsvFile, type ParseResult } from "@/lib/utils/csvParser";
+import { parseCsvFile, type ParseResult, type SchemaType } from "@/lib/utils/csvParser";
 
 interface UploadModalProps {
   open: boolean;
@@ -32,7 +32,7 @@ interface UploadModalProps {
   initialDayName?: string;
   initialData?: ParseResult | null;
   /** Derived from the selected course; overrides CSV header auto-detection. */
-  isCollocation?: boolean;
+  schemaType?: SchemaType;
   /**
    * Day names already present in the queue (excluding the item being edited).
    * Used to detect duplicates before confirming.
@@ -60,7 +60,7 @@ export default function UploadModal({
   onConfirm,
   initialDayName = "",
   initialData = null,
-  isCollocation,
+  schemaType,
   existingDayNames = [],
 }: UploadModalProps) {
   const { t } = useTranslation();
@@ -75,12 +75,12 @@ export default function UploadModal({
       if (acceptedFiles.length > 0) {
         const file = acceptedFiles[0];
         setSelectedFile(file);
-        const result = await parseCsvFile(file, isCollocation);
+        const result = await parseCsvFile(file, schemaType);
         console.log("[UploadModal] parsed words:", result.words);
         setParseResult(result);
       }
     },
-    [isCollocation],
+    [schemaType],
   );
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
@@ -238,22 +238,13 @@ export default function UploadModal({
           {parseResult &&
             parseResult.words.length > 0 &&
             (() => {
+              const resolvedSchema = schemaType ?? parseResult.schemaType;
               const columns: string[] =
-                (isCollocation ?? parseResult.isCollocation)
-                  ? [
-                      "collocation",
-                      "meaning",
-                      "explanation",
-                      "example",
-                      "translation",
-                    ]
-                  : [
-                      "word",
-                      "meaning",
-                      "pronunciation",
-                      "example",
-                      "translation",
-                    ];
+                resolvedSchema === 'collocation'
+                  ? ["collocation", "meaning", "explanation", "example", "translation"]
+                  : resolvedSchema === 'famousQuote'
+                  ? ["quote", "author", "translation"]
+                  : ["word", "meaning", "pronunciation", "example", "translation"];
               return (
                 <TableContainer
                   component={Paper}

@@ -13,7 +13,7 @@ import AddIcon from '@mui/icons-material/Add';
 import { useTranslation } from 'react-i18next';
 import FileListItem from './FileListItem';
 import UploadModal from './UploadModal';
-import { type ParseResult } from '@/lib/utils/csvParser';
+import { type ParseResult, type SchemaType } from '@/lib/utils/csvParser';
 
 export interface CsvItem {
   id: string;
@@ -27,7 +27,7 @@ export interface CsvItem {
 interface CsvUploadTabProps {
   items: CsvItem[];
   onItemsChange: (items: CsvItem[]) => void;
-  isCollocation?: boolean;
+  schemaType?: SchemaType;
 }
 
 const sectionSx = {
@@ -38,7 +38,7 @@ const sectionSx = {
   backgroundColor: 'background.paper',
 };
 
-export default function CsvUploadTab({ items, onItemsChange, isCollocation }: CsvUploadTabProps) {
+export default function CsvUploadTab({ items, onItemsChange, schemaType }: CsvUploadTabProps) {
   const { t } = useTranslation();
   const [modalOpen, setModalOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState<number>(-1);
@@ -162,7 +162,7 @@ export default function CsvUploadTab({ items, onItemsChange, isCollocation }: Cs
         onConfirm={handleModalConfirm}
         initialDayName={activeIndex >= 0 ? items[activeIndex]?.dayName : ''}
         initialData={activeIndex >= 0 ? items[activeIndex]?.data : null}
-        isCollocation={isCollocation}
+        schemaType={schemaType}
         existingDayNames={items
           .filter((_, i) => i !== activeIndex)
           .map((i) => i.dayName)

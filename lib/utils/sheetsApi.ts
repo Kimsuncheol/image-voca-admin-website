@@ -1,4 +1,4 @@
-import { parseRowArrays, type ParseResult } from './csvParser';
+import { parseRowArrays, type ParseResult, type SchemaType } from './csvParser';
 
 /** Extracts spreadsheet ID and optional gid from a Google Sheets URL. */
 function extractSheetInfo(url: string): { id: string; gid?: string } | null {
@@ -12,8 +12,8 @@ function extractSheetInfo(url: string): { id: string; gid?: string } | null {
  * Converts a 2-D string array from the Sheets API values response into a ParseResult.
  * Reuses the same header-detection and schema-validation logic as the CSV parser.
  */
-export function parseSheetValues(values: string[][], isCollocation?: boolean): ParseResult {
-  return parseRowArrays(values, isCollocation);
+export function parseSheetValues(values: string[][], schemaType?: SchemaType): ParseResult {
+  return parseRowArrays(values, schemaType);
 }
 
 /**
@@ -23,7 +23,7 @@ export function parseSheetValues(values: string[][], isCollocation?: boolean): P
 export async function fetchSheetWithToken(
   url: string,
   token: string,
-  isCollocation?: boolean,
+  schemaType?: SchemaType,
 ): Promise<ParseResult> {
   const info = extractSheetInfo(url);
   if (!info) throw new Error('Invalid Google Sheets URL');
@@ -51,5 +51,5 @@ export async function fetchSheetWithToken(
 
   const data = await resp.json();
   const values: string[][] = data.values ?? [];
-  return parseSheetValues(values, isCollocation);
+  return parseSheetValues(values, schemaType);
 }

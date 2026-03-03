@@ -30,7 +30,7 @@ import Box from "@mui/material/Box";
 import Stack from "@mui/material/Stack";
 import { useGoogleSheetsAuth } from "@/lib/hooks/useGoogleSheetsAuth";
 import { fetchSheetWithToken } from "@/lib/utils/sheetsApi";
-import type { ParseResult } from "@/lib/utils/csvParser";
+import type { ParseResult, SchemaType } from "@/lib/utils/csvParser";
 import UploadModal from "./UploadModal";
 
 // ─── 서브 컴포넌트 ─────────────────────────────────────────────────────────
@@ -55,15 +55,15 @@ interface UrlUploadTabProps {
   items: UrlItem[];
   /** 항목 배열 변경 시 부모에 알리는 콜백 */
   onItemsChange: (items: UrlItem[]) => void;
-  /** 콜로케이션 모드 여부 (헤더 검증 기준이 달라짐) */
-  isCollocation?: boolean;
+  /** 선택된 코스 스키마 타입 (헤더 검증 기준이 달라짐) */
+  schemaType?: SchemaType;
 }
 
 // ─── 컴포넌트 ──────────────────────────────────────────────────────────────
 export default function UrlUploadTab({
   items,
   onItemsChange,
-  isCollocation,
+  schemaType,
 }: UrlUploadTabProps) {
   // Google Sheets OAuth 훅
   const {
@@ -117,7 +117,7 @@ export default function UrlUploadTab({
     setUrlValidationError(null);
     setFetchingUrl(true);
     try {
-      const data = await fetchSheetWithToken(urlInput, token, isCollocation);
+      const data = await fetchSheetWithToken(urlInput, token, schemaType);
       // 검증 에러가 있으면 항목 추가 없이 에러만 표시
       if (data.blockingError) {
         setUrlValidationError(data);
@@ -236,7 +236,7 @@ export default function UrlUploadTab({
         onConfirm={handleModalConfirm}
         initialDayName={activeIndex >= 0 ? items[activeIndex]?.dayName : ""}
         initialData={activeIndex >= 0 ? items[activeIndex]?.data : null}
-        isCollocation={isCollocation}
+        schemaType={schemaType}
         existingDayNames={items
           .filter((_, i) => i !== activeIndex)
           .map((i) => i.dayName)

@@ -2,12 +2,18 @@ import Papa from 'papaparse';
 import {
   standardWordSchema,
   collocationWordSchema,
+  famousQuoteWordSchema,
   type StandardWordInput,
   type CollocationWordInput,
+  type FamousQuoteWordInput,
 } from '@/lib/schemas/vocaSchemas';
 
+export type SchemaType = 'standard' | 'collocation' | 'famousQuote';
+
 export interface ParseResult {
-  words: (StandardWordInput | CollocationWordInput)[];
+  words: (StandardWordInput | CollocationWordInput | FamousQuoteWordInput)[];
+  schemaType: SchemaType;
+  /** @deprecated use schemaType === 'collocation' */
   isCollocation: boolean;
   errors: string[];
   detectedHeaders: string[];
@@ -17,6 +23,7 @@ export interface ParseResult {
 
 const STANDARD_HEADERS = ['word', 'meaning', 'pronunciation', 'example', 'translation'] as const;
 const COLLOCATION_HEADERS = ['collocation', 'meaning', 'explanation', 'example', 'translation'] as const;
+const FAMOUS_QUOTE_HEADERS = ['quote', 'author', 'translation'] as const;
 const STANDARD_THIRD_HEADER_SET = new Set(['pronunciation', 'pronounciation']);
 const STANDARD_FOURTH_HEADER_SET = new Set(['example', 'example sentence']);
 
@@ -25,11 +32,32 @@ export function extractVocaFields(
   row: Record<string, unknown>,
   isCollocation: boolean
 ): Record<string, unknown> {
-  return normalizeRow(row, isCollocation);
+  return normalizeRow(row, isCollocation ? 'collocation' : 'standard');
 }
 
-function normalizeRow(row: Record<string, unknown>, isCollocation: boolean): Record<string, unknown> {
+function normalizeRow(row: Record<string, unknown>, schemaType: SchemaType): Record<string, unknown> {
   const normalized: Record<string, unknown> = {};
+
+  if (schemaType === 'famousQuote') {
+    const quoteAliases = ['quote', '_1'];
+    const authorAliases = ['author', '_2'];
+    const translationAliases = ['translation', '_3'];
+
+    for (const [key, value] of Object.entries(row)) {
+      const cleanKey = key.trim().toLowerCase();
+      const cleanValue = typeof value === 'string' ? value.trim() : value;
+
+      if (quoteAliases.includes(cleanKey)) normalized['quote'] = cleanValue;
+      else if (authorAliases.includes(cleanKey)) normalized['author'] = cleanValue;
+      else if (translationAliases.includes(cleanKey)) normalized['translation'] = cleanValue;
+      else normalized[cleanKey] = cleanValue;
+    }
+
+    normalized['quote'] = normalized['quote'] ?? '';
+    normalized['author'] = normalized['author'] ?? '';
+    normalized['translation'] = normalized['translation'] ?? '';
+    return normalized;
+  }
 
   // Alias mappings
   const wordAliases = ['word', '_1'];
@@ -39,6 +67,8 @@ function normalizeRow(row: Record<string, unknown>, isCollocation: boolean): Rec
   const explanationAliases = ['explanation', '_3']; // _3 is explanation for collocation, pronunciation for word
   const exampleAliases = ['example', 'example sentence', '_4'];
   const translationAliases = ['translation', '_5'];
+
+  const isCollocation = schemaType === 'collocation';
 
   for (const [key, value] of Object.entries(row)) {
     const cleanKey = key.trim().toLowerCase();
@@ -54,7 +84,7 @@ function normalizeRow(row: Record<string, unknown>, isCollocation: boolean): Rec
     else if (translationAliases.includes(cleanKey)) normalized['translation'] = cleanValue;
     else normalized[cleanKey] = cleanValue; // Fallback
   }
-  
+
   // Ensure required and optional keys exist as empty strings if completely missing from the row
   if (isCollocation) {
     normalized['collocation'] = normalized['collocation'] ?? '';
@@ -76,26 +106,43 @@ function normalizeRow(row: Record<string, unknown>, isCollocation: boolean): Rec
 function detectAndParse(
   data: Record<string, unknown>[],
   rawHeaders: string[],
-  forceIsCollocation?: boolean,
+  forceSchemaType?: SchemaType,
 ): ParseResult {
   const headers = rawHeaders.map((h) => h.trim().toLowerCase());
-  // forceIsCollocation (from the selected course) takes priority over header-based detection.
-  const isCollocation = forceIsCollocation ?? headers.includes('collocation');
-  const schema = isCollocation ? collocationWordSchema : standardWordSchema;
+  // forceSchemaType (from the selected course) takes priority over header-based detection.
+  let schemaType: SchemaType;
+  if (forceSchemaType) {
+    schemaType = forceSchemaType;
+  } else if (headers.includes('collocation')) {
+    schemaType = 'collocation';
+  } else if (headers.includes('quote')) {
+    schemaType = 'famousQuote';
+  } else {
+    schemaType = 'standard';
+  }
 
-  const words: (StandardWordInput | CollocationWordInput)[] = [];
+  const schema =
+    schemaType === 'collocation' ? collocationWordSchema
+    : schemaType === 'famousQuote' ? famousQuoteWordSchema
+    : standardWordSchema;
+
+  const words: (StandardWordInput | CollocationWordInput | FamousQuoteWordInput)[] = [];
   const errors: string[] = [];
 
   data.forEach((row, index) => {
-    const normalized = normalizeRow(row, isCollocation);
+    const normalized = normalizeRow(row, schemaType);
 
     // Guard: skip rows that look like a header row that slipped through detection.
-    // A header row has its primary field value equal to the field name itself (e.g. word='Word').
-    // Check both primary field and meaning to avoid false positives on real vocabulary.
-    const primaryKey = isCollocation ? 'collocation' : 'word';
-    const primaryVal = String(normalized[primaryKey] ?? '').toLowerCase();
-    const meaningVal = String(normalized['meaning'] ?? '').toLowerCase();
-    if (primaryVal === primaryKey && meaningVal === 'meaning') return;
+    if (schemaType === 'famousQuote') {
+      const quoteVal = String(normalized['quote'] ?? '').toLowerCase();
+      const translationVal = String(normalized['translation'] ?? '').toLowerCase();
+      if (quoteVal === 'quote' && translationVal === 'translation') return;
+    } else {
+      const primaryKey = schemaType === 'collocation' ? 'collocation' : 'word';
+      const primaryVal = String(normalized[primaryKey] ?? '').toLowerCase();
+      const meaningVal = String(normalized['meaning'] ?? '').toLowerCase();
+      if (primaryVal === primaryKey && meaningVal === 'meaning') return;
+    }
 
     const parsed = schema.safeParse(normalized);
     if (parsed.success) {
@@ -107,11 +154,13 @@ function detectAndParse(
     }
   });
 
-  return { words, isCollocation, errors, detectedHeaders: rawHeaders };
+  return { words, schemaType, isCollocation: schemaType === 'collocation', errors, detectedHeaders: rawHeaders };
 }
 
-function getExpectedHeaders(isCollocation: boolean): string[] {
-  return [...(isCollocation ? COLLOCATION_HEADERS : STANDARD_HEADERS)];
+function getExpectedHeaders(schemaType: SchemaType): string[] {
+  if (schemaType === 'collocation') return [...COLLOCATION_HEADERS];
+  if (schemaType === 'famousQuote') return [...FAMOUS_QUOTE_HEADERS];
+  return [...STANDARD_HEADERS];
 }
 
 function isExactHeaderSet(headers: string[], expectedHeaders: string[]): boolean {
@@ -126,14 +175,15 @@ function isNonEmptyRow(row: string[]): boolean {
 }
 
 function buildBlockingResult(
-  isCollocation: boolean,
+  schemaType: SchemaType,
   code: NonNullable<ParseResult['blockingError']>,
   expectedHeaders: string[],
   detectedHeaders: string[],
 ): ParseResult {
   return {
     words: [],
-    isCollocation,
+    schemaType,
+    isCollocation: schemaType === 'collocation',
     errors: [],
     detectedHeaders,
     blockingError: code,
@@ -143,12 +193,16 @@ function buildBlockingResult(
 
 function isCrossHeaderFirstRow(
   firstDataRow: string[],
-  targetIsCollocation: boolean,
+  targetSchemaType: SchemaType,
 ): boolean {
+  if (targetSchemaType === 'famousQuote') {
+    // Famous quote rows are sentences; cross-header detection not applicable
+    return false;
+  }
   if (firstDataRow.length < 5) return false;
   const norm = firstDataRow.map((cell) => (cell?.trim() ?? '').toLowerCase());
 
-  if (targetIsCollocation) {
+  if (targetSchemaType === 'collocation') {
     return (
       norm[0] === 'word' &&
       norm[1] === 'meaning' &&
@@ -173,31 +227,32 @@ const KNOWN_FIELDS = new Set([
   'word', 'collocation', 'meaning',
   'pronunciation', 'pronounciation',
   'explanation', 'example', 'example sentence', 'translation',
+  'quote', 'author',
 ]);
 
 /**
  * Public alias for processParsedArray — accepts a raw 2-D array of strings (e.g.
  * from the Google Sheets API values endpoint) and returns a ParseResult.
  */
-export function parseRowArrays(data: string[][], isCollocation?: boolean): ParseResult {
-  return processParsedArray(data, isCollocation);
+export function parseRowArrays(data: string[][], schemaType?: SchemaType): ParseResult {
+  return processParsedArray(data, schemaType);
 }
 
-function processParsedArray(data: string[][], isCollocation?: boolean): ParseResult {
-  if (data.length === 0) return { words: [], isCollocation: false, errors: [], detectedHeaders: [] };
+function processParsedArray(data: string[][], schemaType?: SchemaType): ParseResult {
+  if (data.length === 0) return { words: [], schemaType: 'standard', isCollocation: false, errors: [], detectedHeaders: [] };
 
   // Ignore leading blank rows so strict header checks evaluate the first real row.
   const firstNonEmptyRowIndex = data.findIndex(isNonEmptyRow);
   if (firstNonEmptyRowIndex < 0) {
-    if (typeof isCollocation === 'boolean') {
+    if (schemaType) {
       return buildBlockingResult(
-        isCollocation,
+        schemaType,
         'HEADER_REQUIRED',
-        getExpectedHeaders(isCollocation),
+        getExpectedHeaders(schemaType),
         [],
       );
     }
-    return { words: [], isCollocation: false, errors: [], detectedHeaders: [] };
+    return { words: [], schemaType: 'standard', isCollocation: false, errors: [], detectedHeaders: [] };
   }
 
   const rowsFromFirstNonEmpty = data.slice(firstNonEmptyRowIndex);
@@ -205,18 +260,29 @@ function processParsedArray(data: string[][], isCollocation?: boolean): ParseRes
     (h?.trim() ?? '').toLowerCase()
   );
   const firstRowNorm = firstRowNormAll.filter((h) => h.length > 0);
-  const targetIsCollocation = isCollocation ?? firstRowNormAll.includes('collocation');
+
+  // Determine target schema type from hint or header detection
+  let targetSchemaType: SchemaType;
+  if (schemaType) {
+    targetSchemaType = schemaType;
+  } else if (firstRowNormAll.includes('collocation')) {
+    targetSchemaType = 'collocation';
+  } else if (firstRowNormAll.includes('quote')) {
+    targetSchemaType = 'famousQuote';
+  } else {
+    targetSchemaType = 'standard';
+  }
 
   // Require ≥2 known field names to avoid false positives on data rows that
   // happen to contain a single common word like "example" or "meaning".
   const matchCount = firstRowNorm.filter(h => KNOWN_FIELDS.has(h)).length;
   const hasHeaders = matchCount >= 2;
 
-  if (typeof isCollocation === 'boolean') {
-    const expectedHeaders = getExpectedHeaders(targetIsCollocation);
+  if (schemaType) {
+    const expectedHeaders = getExpectedHeaders(targetSchemaType);
     if (!hasHeaders) {
       return buildBlockingResult(
-        targetIsCollocation,
+        targetSchemaType,
         'HEADER_REQUIRED',
         expectedHeaders,
         firstRowNorm,
@@ -224,7 +290,7 @@ function processParsedArray(data: string[][], isCollocation?: boolean): ParseRes
     }
     if (!isExactHeaderSet(firstRowNorm, expectedHeaders)) {
       return buildBlockingResult(
-        targetIsCollocation,
+        targetSchemaType,
         'HEADER_MISMATCH',
         expectedHeaders,
         firstRowNorm,
@@ -268,13 +334,13 @@ function processParsedArray(data: string[][], isCollocation?: boolean): ParseRes
     }
   }
 
-  if (typeof isCollocation === 'boolean') {
+  if (schemaType) {
     const firstDataRow = rows.find((row) => row.some((cell) => cell && cell.trim().length > 0));
-    if (firstDataRow && isCrossHeaderFirstRow(firstDataRow, targetIsCollocation)) {
+    if (firstDataRow && isCrossHeaderFirstRow(firstDataRow, targetSchemaType)) {
       return buildBlockingResult(
-        targetIsCollocation,
+        targetSchemaType,
         'CROSS_HEADER_ROW',
-        getExpectedHeaders(targetIsCollocation),
+        getExpectedHeaders(targetSchemaType),
         firstRowNorm,
       );
     }
@@ -296,10 +362,10 @@ function processParsedArray(data: string[][], isCollocation?: boolean): ParseRes
       return obj;
     });
 
-  return detectAndParse(objects, headers, isCollocation);
+  return detectAndParse(objects, headers, schemaType);
 }
 
-export async function parseCsvFile(file: File, isCollocation?: boolean): Promise<ParseResult> {
+export async function parseCsvFile(file: File, schemaType?: SchemaType): Promise<ParseResult> {
   try {
     // Read text first to sniff the delimiter — the same logic used in parseCsvString.
     // .csv files exported from Google Sheets / Excel are often tab-separated despite
@@ -321,15 +387,15 @@ export async function parseCsvFile(file: File, isCollocation?: boolean): Promise
         skipEmptyLines: true,
         delimiter,
         complete(results) {
-          resolve(processParsedArray(results.data as string[][], isCollocation));
+          resolve(processParsedArray(results.data as string[][], schemaType));
         },
         error(err) {
-          resolve({ words: [], isCollocation: isCollocation ?? false, errors: [err.message], detectedHeaders: [] });
+          resolve({ words: [], schemaType: schemaType ?? 'standard', isCollocation: schemaType === 'collocation', errors: [err.message], detectedHeaders: [] });
         },
       });
     });
   } catch (err) {
-    return { words: [], isCollocation: false, errors: [String(err)], detectedHeaders: [] };
+    return { words: [], schemaType: 'standard', isCollocation: false, errors: [String(err)], detectedHeaders: [] };
   }
 }
 

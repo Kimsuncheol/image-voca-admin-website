@@ -16,8 +16,19 @@ export interface CollocationWord {
   translation: string;
 }
 
-export type Word = StandardWord | CollocationWord;
+export interface FamousQuoteWord {
+  id: string;
+  quote: string;
+  author: string;
+  translation: string;
+}
+
+export type Word = StandardWord | CollocationWord | FamousQuoteWord;
 
 export function isCollocationWord(w: Word): w is CollocationWord {
   return 'collocation' in w;
+}
+
+export function isFamousQuoteWord(w: Word): w is FamousQuoteWord {
+  return 'quote' in w;
 }
