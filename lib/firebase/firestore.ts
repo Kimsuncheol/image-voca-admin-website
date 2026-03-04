@@ -11,6 +11,7 @@ import {
 import { db } from './config';
 import type { Day } from '@/types/course';
 import type { Word } from '@/types/word';
+import type { FamousQuoteWord } from '@/types/word';
 
 /**
  * Firestore structure:
@@ -40,6 +41,26 @@ export async function getCourseDays(coursePath: string): Promise<Day[]> {
     id: `Day${i + 1}`,
     name: `Day ${i + 1}`,
   }));
+}
+
+/**
+ * Fetches all famous-quote documents that live **flat** in the course collection
+ * (no DayN subcollection). `coursePath` is the Firestore collection path, e.g.
+ * "famous_quotes" — NOT a document path.
+ *
+ * Firestore structure for FAMOUS_QUOTE:
+ *   {collectionPath}/
+ *     {quoteDocId}: { quote, author, translation }
+ */
+export async function getFamousQuotes(collectionPath: string): Promise<FamousQuoteWord[]> {
+  console.log('[Firestore] getFamousQuotes path:', collectionPath);
+  const col = collection(db, collectionPath);
+  const snapshot = await getDocs(col);
+  console.log('[Firestore] getFamousQuotes snapshot size:', snapshot.size);
+  return snapshot.docs.map((d) => ({
+    id: d.id,
+    ...d.data(),
+  })) as FamousQuoteWord[];
 }
 
 export async function getDayWords(coursePath: string, dayId: string): Promise<Word[]> {

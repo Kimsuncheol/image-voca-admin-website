@@ -4,6 +4,11 @@ export interface Course {
   id: CourseId;
   label: string;
   path: string;
+  /**
+   * When true the course has no DayN subcollections.
+   * Words / quotes live directly inside the collection root.
+   */
+  flat?: true;
 }
 
 export interface Day {
@@ -18,7 +23,7 @@ export const COURSES: Course[] = [
   { id: 'TOEFL', label: 'TOEFL', path: process.env.NEXT_PUBLIC_COURSE_PATH_TOEFL || '' },
   { id: 'TOEIC', label: 'TOEIC', path: process.env.NEXT_PUBLIC_COURSE_PATH_TOEIC || '' },
   { id: 'COLLOCATIONS', label: 'Collocations', path: process.env.NEXT_PUBLIC_COURSE_PATH_COLLOCATION || '' },
-  { id: 'FAMOUS_QUOTE', label: 'Famous Quote', path: process.env.NEXT_PUBLIC_COURSE_PATH_FAMOUS_QUOTE || '' },
+  { id: 'FAMOUS_QUOTE', label: 'Famous Quote', path: process.env.NEXT_PUBLIC_COURSE_PATH_FAMOUS_QUOTE || '', flat: true },
 ];
 
 export function getCourseById(id: string): Course | undefined {

@@ -108,7 +108,6 @@ export default function AddVocaPage() {
   // Shown briefly when the user switches courses while items are already queued
   const [courseSwitchNotice, setCourseSwitchNotice] = useState("");
 
-
   // ── Progress modal state (FR-14) ──────────────────────────────────
   // These are mutated throughout the two-phase upload to give live feedback.
   const [progressOpen, setProgressOpen] = useState(false);
@@ -169,9 +168,9 @@ export default function AddVocaPage() {
         window.confirm(
           t(
             "addVoca.leaveConfirm",
-            "You have items waiting to upload. If you leave, they will be lost."
-          )
-        )
+            "You have items waiting to upload. If you leave, they will be lost.",
+          ),
+        ),
       );
     } else {
       clearNavigationGuard();
@@ -183,9 +182,11 @@ export default function AddVocaPage() {
   // ── Derived state ──────────────────────────────────────────────────
   // `schemaType` drives CSV header validation and word field mapping.
   const schemaType: SchemaType =
-    selectedCourse === "COLLOCATIONS" ? "collocation"
-    : selectedCourse === "FAMOUS_QUOTE" ? "famousQuote"
-    : "standard";
+    selectedCourse === "COLLOCATIONS"
+      ? "collocation"
+      : selectedCourse === "FAMOUS_QUOTE"
+        ? "famousQuote"
+        : "standard";
   const isFamousQuote = selectedCourse === "FAMOUS_QUOTE";
 
   // Items visible in the currently selected tab
@@ -194,7 +195,7 @@ export default function AddVocaPage() {
   // Only items that have both a day name and at least one parsed word are
   // eligible for upload — the rest are silently excluded.
   const readyItems = currentItems.filter(
-    (item) => item.dayName && item.data && item.data.words.length > 0
+    (item) => item.dayName && item.data && item.data.words.length > 0,
   );
 
   // ── Overwrite dialog helpers ───────────────────────────────────────
@@ -205,7 +206,7 @@ export default function AddVocaPage() {
    * `handleUpload` awaits this promise to pause the upload pipeline.
    */
   const showOverwriteConfirm = (
-    existingDays: string[]
+    existingDays: string[],
   ): Promise<"overwrite" | "skip" | "cancel"> =>
     new Promise((resolve) => setOverwriteDialog({ existingDays, resolve }));
 
@@ -228,7 +229,7 @@ export default function AddVocaPage() {
    */
   const updateProgressItem = (id: string, patch: Partial<ProgressItem>) => {
     setProgressItems((prev) =>
-      prev.map((p) => (p.id === id ? { ...p, ...patch } : p))
+      prev.map((p) => (p.id === id ? { ...p, ...patch } : p)),
     );
   };
 
@@ -263,10 +264,16 @@ export default function AddVocaPage() {
 
     uploadingRef.current = true;
 
-    // FR-4: Check which day names already exist in Firestore (parallel)
-    const existsFlags = await Promise.all(
-      readyItems.map((item) => checkDayExists(course.path, item.dayName))
-    );
+    // FR-4: Check which day names already exist in Firestore (parallel).
+    // Flat courses (e.g. FAMOUS_QUOTE) skip this — the batch-upload API always
+    // clears and rewrites their collection, and their day IDs are UUIDs that
+    // will never exist. checkDayExists also requires a document path (even
+    // segments) which flat courses don't have.
+    const existsFlags = course.flat
+      ? readyItems.map(() => false)
+      : await Promise.all(
+          readyItems.map((item) => checkDayExists(course.path, item.dayName)),
+        );
     const existingDays: string[] = readyItems
       .filter((_, i) => existsFlags[i])
       .map((item) => item.dayName);
@@ -339,7 +346,7 @@ export default function AddVocaPage() {
               if (sw.pronunciation || sw.word.includes(" ")) return w;
               const ipa = await getIpaUSUK(sw.word);
               return ipa ? { ...w, pronunciation: ipa.us } : w;
-            })
+            }),
           );
 
           // FR-11: Send words to OpenAI for linguistic enrichment.
@@ -377,7 +384,9 @@ export default function AddVocaPage() {
       const total = pool.length;
       let done = 0;
       let resolveAll!: () => void;
-      const allDone = new Promise<void>((res) => { resolveAll = res; });
+      const allDone = new Promise<void>((res) => {
+        resolveAll = res;
+      });
       const inFlight = new Set<Promise<void>>();
 
       const launchNext = () => {
@@ -418,7 +427,11 @@ export default function AddVocaPage() {
         const batchResp = await fetch("/api/admin/batch-upload", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ coursePath: course.path, days: daysToUpload }),
+          body: JSON.stringify({
+            coursePath: course.path,
+            days: daysToUpload,
+            flat: course.flat ?? false,
+          }),
         });
         if (!batchResp.ok) throw new Error("Batch upload failed");
 
@@ -436,7 +449,10 @@ export default function AddVocaPage() {
             updateProgressItem(item.id, { status: "failed", error: r.error });
             failCount++;
           } else {
-            updateProgressItem(item.id, { status: "success", wordCount: r.count });
+            updateProgressItem(item.id, {
+              status: "success",
+              wordCount: r.count,
+            });
             successCount++;
           }
         }
@@ -474,9 +490,7 @@ export default function AddVocaPage() {
    */
   const handleProgressClose = () => {
     const succeededDays = new Set(
-      progressItems
-        .filter((p) => p.status === "success")
-        .map((p) => p.dayName)
+      progressItems.filter((p) => p.status === "success").map((p) => p.dayName),
     );
     setCsvItems((prev) => prev.filter((i) => !succeededDays.has(i.dayName)));
     setUrlItems((prev) => prev.filter((i) => !succeededDays.has(i.dayName)));
@@ -497,8 +511,8 @@ export default function AddVocaPage() {
       !window.confirm(
         t(
           "addVoca.courseSwitchConfirm",
-          "Switching courses will clear the queue. Continue?"
-        )
+          "Switching courses will clear the queue. Continue?",
+        ),
       )
     ) {
       return; // user cancelled — leave course and queue unchanged
@@ -549,10 +563,19 @@ export default function AddVocaPage() {
 
       {/* ── Tab panels ─────────────────────────────────────────────────── */}
       {tabIndex === 0 && (
-        <CsvUploadTab items={csvItems} onItemsChange={setCsvItems} schemaType={schemaType} hideDayInput={isFamousQuote} />
+        <CsvUploadTab
+          items={csvItems}
+          onItemsChange={setCsvItems}
+          schemaType={schemaType}
+          hideDayInput={isFamousQuote}
+        />
       )}
       {tabIndex === 1 && (
-        <UrlUploadTab items={urlItems} onItemsChange={setUrlItems} schemaType={schemaType} />
+        <UrlUploadTab
+          items={urlItems}
+          onItemsChange={setUrlItems}
+          schemaType={schemaType}
+        />
       )}
 
       {/* ── Validation notice ──────────────────────────────────────────── */}
@@ -634,7 +657,6 @@ export default function AddVocaPage() {
         statusText={statusText}
         onClose={handleProgressClose}
       />
-
     </PageLayout>
   );
 }
