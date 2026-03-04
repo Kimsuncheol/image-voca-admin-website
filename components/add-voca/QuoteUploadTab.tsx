@@ -13,7 +13,7 @@ import FormatQuoteIcon from "@mui/icons-material/FormatQuote";
 import AddIcon from "@mui/icons-material/Add";
 import { useTranslation } from "react-i18next";
 import type { ParseResult } from "@/lib/utils/csvParser";
-import FileListItem from "./FileListItem";
+import QuoteListItem from "./QuoteListItem";
 import QuoteUploadModal, { type QuoteSetInput } from "./QuoteUploadModal";
 
 export interface QuoteItem {
@@ -64,13 +64,6 @@ function toParseResult(quoteSet: QuoteSetInput): ParseResult {
   };
 }
 
-function toLabel(quoteSet: QuoteSetInput): string {
-  const preview =
-    quoteSet.quote.length > 72
-      ? `${quoteSet.quote.slice(0, 69)}...`
-      : quoteSet.quote;
-  return `${preview} - ${quoteSet.author}`;
-}
 
 export default function QuoteUploadTab({
   items,
@@ -185,10 +178,11 @@ export default function QuoteUploadTab({
         ) : (
           <List sx={{ py: 0 }}>
             {items.map((item, index) => (
-              <FileListItem
+              <QuoteListItem
                 key={item.id}
-                label={toLabel(item.quoteSet)}
-                hasData={!!item.data && item.data.words.length > 0}
+                quote={item.quoteSet.quote}
+                author={item.quoteSet.author}
+                translation={item.quoteSet.translation}
                 onClick={() => handleItemClick(index)}
                 onDelete={() => handleDelete(index)}
               />
