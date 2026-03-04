@@ -336,7 +336,7 @@ export default function UploadModal({
         <Button onClick={handleClose} sx={{ borderRadius: 2 }}>
           {t("common.cancel")}
         </Button>
-        {parseResult && (
+        {parseResult?.blockingError && (
           <Button
             onClick={handleReset}
             color="warning"
