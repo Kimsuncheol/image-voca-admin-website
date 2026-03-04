@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import * as XLSX from "xlsx";
 import Box from "@mui/material/Box";
 import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
@@ -8,10 +9,20 @@ import Typography from "@mui/material/Typography";
 import Chip from "@mui/material/Chip";
 import Divider from "@mui/material/Divider";
 import Button from "@mui/material/Button";
+import IconButton from "@mui/material/IconButton";
 import List from "@mui/material/List";
+import Menu from "@mui/material/Menu";
+import MenuItem from "@mui/material/MenuItem";
+import ListItemIcon from "@mui/material/ListItemIcon";
+import ListItemText from "@mui/material/ListItemText";
 import FormatQuoteIcon from "@mui/icons-material/FormatQuote";
 import AddIcon from "@mui/icons-material/Add";
+import DownloadIcon from "@mui/icons-material/Download";
+import TableChartIcon from "@mui/icons-material/TableChart";
+import ArticleIcon from "@mui/icons-material/Article";
+import CloseIcon from "@mui/icons-material/Close";
 import { useTranslation } from "react-i18next";
+import { getFamousQuotes } from "@/lib/firebase/firestore";
 import type { ParseResult } from "@/lib/utils/csvParser";
 import QuoteListItem from "./QuoteListItem";
 import QuoteUploadModal, { type QuoteSetInput } from "./QuoteUploadModal";
@@ -26,6 +37,7 @@ export interface QuoteItem {
 interface QuoteUploadTabProps {
   items: QuoteItem[];
   onItemsChange: (items: QuoteItem[]) => void;
+  coursePath: string;
 }
 
 const sectionSx = {
@@ -65,13 +77,65 @@ function toParseResult(quoteSet: QuoteSetInput): ParseResult {
 }
 
 
+function escapeCsvCell(value: string): string {
+  if (/[",\n\r]/.test(value)) return `"${value.replace(/"/g, '""')}"`;
+  return value;
+}
+
 export default function QuoteUploadTab({
   items,
   onItemsChange,
+  coursePath,
 }: QuoteUploadTabProps) {
   const { t } = useTranslation();
   const [modalOpen, setModalOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState<number>(-1);
+  const [downloadAnchor, setDownloadAnchor] = useState<HTMLButtonElement | null>(null);
+  const [downloading, setDownloading] = useState(false);
+
+  const fetchQuotes = async () => {
+    if (!coursePath) return [];
+    return getFamousQuotes(coursePath);
+  };
+
+  const handleDownloadCsv = async () => {
+    setDownloadAnchor(null);
+    setDownloading(true);
+    try {
+      const quotes = await fetchQuotes();
+      const rows = quotes.map((q) =>
+        [q.quote, q.author, q.translation].map(escapeCsvCell).join(","),
+      );
+      const csv = ["quote,author,translation", ...rows].join("\n");
+      const blob = new Blob(["\uFEFF", csv], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "quotes.csv";
+      a.click();
+      URL.revokeObjectURL(url);
+    } finally {
+      setDownloading(false);
+    }
+  };
+
+  const handleDownloadXlsx = async () => {
+    setDownloadAnchor(null);
+    setDownloading(true);
+    try {
+      const quotes = await fetchQuotes();
+      const data = [
+        ["quote", "author", "translation"],
+        ...quotes.map((q) => [q.quote, q.author, q.translation]),
+      ];
+      const ws = XLSX.utils.aoa_to_sheet(data);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Quotes");
+      XLSX.writeFile(wb, "quotes.xlsx");
+    } finally {
+      setDownloading(false);
+    }
+  };
 
   const handleAdd = () => {
     setActiveIndex(-1);
@@ -154,19 +218,51 @@ export default function QuoteUploadTab({
               variant={items.length > 0 ? "outlined" : "filled"}
             />
           </Stack>
-          <Button
-            startIcon={<AddIcon />}
-            variant="outlined"
-            size="small"
-            onClick={handleAdd}
-            sx={{
-              borderRadius: 2,
-              whiteSpace: "nowrap",
-              minWidth: { xs: "100%", sm: 164 },
-            }}
+          <Stack direction="row" spacing={1} alignItems="center" sx={{ width: { xs: "100%", sm: "auto" } }}>
+            <IconButton
+              size="small"
+              disabled={downloading}
+              onClick={(e) => setDownloadAnchor(e.currentTarget)}
+              sx={{ border: "1px solid", borderColor: "divider", borderRadius: 2 }}
+            >
+              <DownloadIcon fontSize="small" />
+            </IconButton>
+            <Button
+              startIcon={<AddIcon />}
+              variant="outlined"
+              size="small"
+              onClick={handleAdd}
+              sx={{
+                borderRadius: 2,
+                whiteSpace: "nowrap",
+                minWidth: { xs: "100%", sm: 164 },
+                flex: { xs: 1, sm: "none" },
+              }}
+            >
+              {t("addVoca.addQuoteSet")}
+            </Button>
+          </Stack>
+
+          <Menu
+            anchorEl={downloadAnchor}
+            open={Boolean(downloadAnchor)}
+            onClose={() => setDownloadAnchor(null)}
+            slotProps={{ paper: { sx: { borderRadius: 2, minWidth: 160 } } }}
           >
-            {t("addVoca.addQuoteSet")}
-          </Button>
+            <MenuItem onClick={handleDownloadCsv}>
+              <ListItemIcon><ArticleIcon fontSize="small" /></ListItemIcon>
+              <ListItemText>CSV</ListItemText>
+            </MenuItem>
+            <MenuItem onClick={handleDownloadXlsx}>
+              <ListItemIcon><TableChartIcon fontSize="small" /></ListItemIcon>
+              <ListItemText>XLSX</ListItemText>
+            </MenuItem>
+            <Divider />
+            <MenuItem onClick={() => setDownloadAnchor(null)}>
+              <ListItemIcon><CloseIcon fontSize="small" /></ListItemIcon>
+              <ListItemText>{t("common.cancel")}</ListItemText>
+            </MenuItem>
+          </Menu>
         </Stack>
 
         <Divider sx={{ mb: items.length > 0 ? 1 : 0 }} />
@@ -192,6 +288,7 @@ export default function QuoteUploadTab({
       </Paper>
 
       <QuoteUploadModal
+        key={activeIndex}
         open={modalOpen}
         onClose={() => setModalOpen(false)}
         onConfirm={handleModalConfirm}

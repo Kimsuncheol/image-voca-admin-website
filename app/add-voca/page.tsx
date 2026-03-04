@@ -601,6 +601,7 @@ export default function AddVocaPage() {
           onItemsChange={setCsvItems}
           schemaType={schemaType}
           hideDayInput={isFamousQuote}
+          coursePath={isFamousQuote ? (getCourseById(selectedCourse)?.path ?? '') : undefined}
         />
       )}
       {tabIndex === 1 && (
@@ -612,7 +613,11 @@ export default function AddVocaPage() {
         />
       )}
       {isFamousQuote && tabIndex === 2 && (
-        <QuoteUploadTab items={quoteItems} onItemsChange={setQuoteItems} />
+        <QuoteUploadTab
+          items={quoteItems}
+          onItemsChange={setQuoteItems}
+          coursePath={getCourseById(selectedCourse)?.path ?? ""}
+        />
       )}
 
       {/* ── Validation notice ──────────────────────────────────────────── */}
