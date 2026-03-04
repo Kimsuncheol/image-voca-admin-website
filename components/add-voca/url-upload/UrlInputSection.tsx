@@ -90,6 +90,8 @@ interface UrlInputSectionProps {
   onDayChange: (value: string) => void;
   /** "URL 추가" 버튼 / Enter 키 제출 핸들러 */
   onAddUrl: () => void;
+  /** Day 입력 필드를 숨기고 UUID를 자동 할당합니다 (Famous Quote용) */
+  hideDayInput?: boolean;
 }
 
 export default function UrlInputSection({
@@ -100,6 +102,7 @@ export default function UrlInputSection({
   onUrlChange,
   onDayChange,
   onAddUrl,
+  hideDayInput,
 }: UrlInputSectionProps) {
   const { t } = useTranslation();
 
@@ -118,10 +121,10 @@ export default function UrlInputSection({
 
   /**
    * URL 입력 시 Enter 키 처리
-   * - token / urlInput / dayInput 모두 있어야 제출
+   * - hideDayInput 시 dayInput 조건 면제
    */
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter" && token && urlInput.trim() && dayInput) {
+    if (e.key === "Enter" && token && urlInput.trim() && (hideDayInput || dayInput)) {
       onAddUrl();
     }
   };
@@ -138,21 +141,23 @@ export default function UrlInputSection({
 
       {/* 입력 필드 행: 반응형 (xs→column, sm→row) */}
       <Stack direction={{ xs: "column", sm: "row" }} spacing={1.25}>
-        {/* Day 번호 입력 */}
-        <TextField
-          label={t("addVoca.day")}
-          value={dayDisplayValue}
-          onChange={handleDayChange}
-          size="small"
-          sx={{ width: { sm: 128 }, ...fieldSx }}
-          InputProps={{
-            // "Day" 텍스트를 prefix adornment로 표시
-            startAdornment: (
-              <InputAdornment position="start">Day</InputAdornment>
-            ),
-          }}
-          placeholder="1"
-        />
+        {/* Day 번호 입력 — Famous Quote 선택 시 숨김 */}
+        {!hideDayInput && (
+          <TextField
+            label={t("addVoca.day")}
+            value={dayDisplayValue}
+            onChange={handleDayChange}
+            size="small"
+            sx={{ width: { sm: 128 }, ...fieldSx }}
+            InputProps={{
+              // "Day" 텍스트를 prefix adornment로 표시
+              startAdornment: (
+                <InputAdornment position="start">Day</InputAdornment>
+              ),
+            }}
+            placeholder="1"
+          />
+        )}
 
         {/* Google Sheets URL 입력 */}
         <TextField
@@ -180,7 +185,7 @@ export default function UrlInputSection({
           variant="outlined"
           onClick={onAddUrl}
           // fetch 중이거나 필수 입력값 미충족 시 비활성화
-          disabled={fetchingUrl || !urlInput.trim() || !token || !dayInput}
+          disabled={fetchingUrl || !urlInput.trim() || !token || (!hideDayInput && !dayInput)}
           sx={addButtonSx}
         >
           {fetchingUrl ? t("addVoca.fetchingSheets") : t("addVoca.addUrl")}

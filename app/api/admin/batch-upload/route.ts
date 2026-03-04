@@ -20,6 +20,44 @@ interface DayPayload {
   words: unknown[];
 }
 
+interface FamousQuotePayload {
+  quote: string;
+  author: string;
+  translation: string;
+}
+
+function normalizeKeyPart(value: string): string {
+  return value.trim().replace(/\s+/g, ' ').toLowerCase();
+}
+
+function buildQuoteKey(quote: string, author: string, translation: string): string {
+  return `${normalizeKeyPart(quote)}||${normalizeKeyPart(author)}||${normalizeKeyPart(translation)}`;
+}
+
+function parseQuotePayload(raw: unknown): FamousQuotePayload | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const item = raw as Record<string, unknown>;
+  const quote = item.quote;
+  const author = item.author;
+  const translation = item.translation;
+  if (
+    typeof quote !== 'string' ||
+    typeof author !== 'string' ||
+    typeof translation !== 'string'
+  ) {
+    return null;
+  }
+
+  const parsed: FamousQuotePayload = {
+    quote: quote.trim(),
+    author: author.trim(),
+    translation: translation.trim(),
+  };
+
+  if (!parsed.quote || !parsed.author || !parsed.translation) return null;
+  return parsed;
+}
+
 export async function POST(request: NextRequest) {
   const sessionCookie = request.cookies.get('__session')?.value;
   if (!sessionCookie) {
@@ -49,6 +87,24 @@ export async function POST(request: NextRequest) {
   const results: { dayName: string; count: number; error?: string }[] = [];
   let maxDayNumber = 0;
   let lastSuccessfulDayName = '';
+  const existingQuoteKeys = new Set<string>();
+  const quoteCollection = flat ? adminDb.collection(coursePath) : null;
+
+  if (flat && quoteCollection) {
+    try {
+      const existingSnap = await quoteCollection.get();
+      existingSnap.docs.forEach((docSnap) => {
+        const existing = parseQuotePayload(docSnap.data());
+        if (!existing) return;
+        existingQuoteKeys.add(
+          buildQuoteKey(existing.quote, existing.author, existing.translation)
+        );
+      });
+    } catch (err) {
+      console.error('[batch-upload] Failed to read existing famous quotes:', err);
+      return NextResponse.json({ error: 'Upload failed' }, { status: 500 });
+    }
+  }
 
   for (const { dayName, words } of days) {
     if (!dayName || !Array.isArray(words) || words.length === 0) {
@@ -58,35 +114,34 @@ export async function POST(request: NextRequest) {
 
     try {
       if (flat) {
-        // ── Flat course (e.g. FAMOUS_QUOTE) ─────────────────────────────
-        // The new CSV is treated as the authoritative list: delete all existing
-        // documents first, then write the incoming set fresh (overwrite semantics).
-        const col = adminDb.collection(coursePath);
+        // ── Flat course (FAMOUS_QUOTE): append mode with deduplication ──
+        if (!quoteCollection) throw new Error('Invalid course path');
 
-        // Step 1 — clear existing documents (chunked to stay under batch limit)
-        const existingSnap = await col.get();
-        if (!existingSnap.empty) {
-          for (let i = 0; i < existingSnap.docs.length; i += BATCH_LIMIT) {
-            const deleteBatch = adminDb.batch();
-            existingSnap.docs
-              .slice(i, i + BATCH_LIMIT)
-              .forEach((d) => deleteBatch.delete(d.ref));
-            await deleteBatch.commit();
+        const uniqueQuotes: FamousQuotePayload[] = [];
+        for (const raw of words) {
+          const parsed = parseQuotePayload(raw);
+          if (!parsed) {
+            throw new Error('Invalid famous quote payload');
           }
-          console.log(`[batch-upload] Cleared ${existingSnap.size} existing doc(s) from ${coursePath}`);
+          const key = buildQuoteKey(
+            parsed.quote,
+            parsed.author,
+            parsed.translation,
+          );
+          if (existingQuoteKeys.has(key)) continue;
+          existingQuoteKeys.add(key);
+          uniqueQuotes.push(parsed);
         }
 
-        // Step 2 — write all incoming words
-        for (let i = 0; i < words.length; i += BATCH_LIMIT) {
+        for (let i = 0; i < uniqueQuotes.length; i += BATCH_LIMIT) {
           const writeBatch = adminDb.batch();
-          (words as Record<string, unknown>[]).slice(i, i + BATCH_LIMIT).forEach((word) => {
-            writeBatch.set(col.doc(), word);
+          uniqueQuotes.slice(i, i + BATCH_LIMIT).forEach((quote) => {
+            writeBatch.set(quoteCollection.doc(), quote);
           });
           await writeBatch.commit();
         }
 
-        // Report the written count back to the client
-        results.push({ dayName, count: words.length });
+        results.push({ dayName, count: uniqueQuotes.length });
         continue;
       } else {
         // ── Standard course (DayN subcollection pattern) ─────────────────

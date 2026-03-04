@@ -39,6 +39,8 @@
     "selectCourse": "Select Course",
     "addFile": "Add CSV File",
     "addUrl": "Add URL",
+    "quoteUpload": "Upload Quotes",
+    "addQuoteSet": "Add Quote Set",
     "upload": "Upload",
     "day": "Day",
     "dropzone": "Drag & drop a CSV file here, or click to select",

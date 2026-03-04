@@ -57,6 +57,8 @@ interface UrlUploadTabProps {
   onItemsChange: (items: UrlItem[]) => void;
   /** 선택된 코스 스키마 타입 (헤더 검증 기준이 달라짐) */
   schemaType?: SchemaType;
+  /** Day 입력 필드를 숨기고 UUID를 자동 할당합니다 (Famous Quote용) */
+  hideDayInput?: boolean;
 }
 
 // ─── 컴포넌트 ──────────────────────────────────────────────────────────────
@@ -64,6 +66,7 @@ export default function UrlUploadTab({
   items,
   onItemsChange,
   schemaType,
+  hideDayInput,
 }: UrlUploadTabProps) {
   // Google Sheets OAuth 훅
   const {
@@ -112,7 +115,8 @@ export default function UrlUploadTab({
    * - 성공 시 항목을 추가하고 입력 필드를 초기화합니다.
    */
   const handleAddUrl = async () => {
-    if (!urlInput.trim() || !token || !dayInput) return;
+    if (!urlInput.trim() || !token || (!hideDayInput && !dayInput)) return;
+    const effectiveDayName = hideDayInput ? crypto.randomUUID() : dayInput;
     setUrlFetchError("");
     setUrlValidationError(null);
     setFetchingUrl(true);
@@ -125,7 +129,7 @@ export default function UrlUploadTab({
       }
       onItemsChange([
         ...items,
-        { id: crypto.randomUUID(), url: urlInput, dayName: dayInput, data },
+        { id: crypto.randomUUID(), url: urlInput, dayName: effectiveDayName, data },
       ]);
       setUrlInput("");
       setDayInput("");
@@ -138,7 +142,7 @@ export default function UrlUploadTab({
         {
           id: crypto.randomUUID(),
           url: urlInput,
-          dayName: dayInput,
+          dayName: effectiveDayName,
           data: null,
         },
       ]);
@@ -219,6 +223,7 @@ export default function UrlUploadTab({
           onUrlChange={handleUrlChange}
           onDayChange={setDayInput}
           onAddUrl={handleAddUrl}
+          hideDayInput={hideDayInput}
         />
 
         {/* 4) URL 목록 섹션: 추가된 항목 표시, 클릭/삭제 가능 */}
@@ -237,6 +242,7 @@ export default function UrlUploadTab({
         initialDayName={activeIndex >= 0 ? items[activeIndex]?.dayName : ""}
         initialData={activeIndex >= 0 ? items[activeIndex]?.data : null}
         schemaType={schemaType}
+        hideDayInput={hideDayInput}
         existingDayNames={items
           .filter((_, i) => i !== activeIndex)
           .map((i) => i.dayName)

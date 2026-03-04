@@ -4,7 +4,8 @@
  * AddVocaPage  —  /add-voca
  *
  * Admin page for bulk-uploading vocabulary day data into Firestore.
- * Supports two input methods: CSV file upload and Google Sheets URL import.
+ * Supports CSV upload, Google Sheets URL import, and (for FAMOUS_QUOTE)
+ * manual quote-set entry.
  *
  * ── Upload pipeline ───────────────────────────────────────────────────
  *  Phase 0 — Queue       : user adds CSV files or Google Sheets URLs and
@@ -35,6 +36,7 @@
  *  CourseSelector      — dropdown for choosing the target course
  *  CsvUploadTab        — drag-and-drop CSV queue with day name inputs
  *  UrlUploadTab        — Google Sheets URL queue with day name inputs
+ *  QuoteUploadTab      — manual quote-set queue (quote/author/translation)
  *  UploadProgressModal — live status list shown during / after upload
  */
 
@@ -76,13 +78,16 @@ import { getIpaUSUK } from "@/lib/utils/ipaLookup";
 import CourseSelector from "@/components/add-voca/CourseSelector";
 import CsvUploadTab, { type CsvItem } from "@/components/add-voca/CsvUploadTab";
 import UrlUploadTab, { type UrlItem } from "@/components/add-voca/UrlUploadTab";
+import QuoteUploadTab, {
+  type QuoteItem,
+} from "@/components/add-voca/QuoteUploadTab";
 import UploadProgressModal, {
   type ProgressItem,
 } from "@/components/add-voca/UploadProgressModal";
 
 // ── Local type alias ───────────────────────────────────────────────────
 // An item in the upload queue is either a parsed CSV or a resolved URL entry.
-type QueueItem = CsvItem | UrlItem;
+type QueueItem = CsvItem | UrlItem | QuoteItem;
 
 /**
  * Type guard — returns true when `item` originated from a CSV file upload.
@@ -91,6 +96,10 @@ type QueueItem = CsvItem | UrlItem;
  */
 function isCsvItem(item: QueueItem): item is CsvItem {
   return "fileName" in item;
+}
+
+function isUrlItem(item: QueueItem): item is UrlItem {
+  return "url" in item;
 }
 
 export default function AddVocaPage() {
@@ -104,6 +113,7 @@ export default function AddVocaPage() {
   const [selectedCourse, setSelectedCourse] = useState<CourseId | "">("CSAT");
   const [csvItems, setCsvItems] = useState<CsvItem[]>([]);
   const [urlItems, setUrlItems] = useState<UrlItem[]>([]);
+  const [quoteItems, setQuoteItems] = useState<QuoteItem[]>([]);
 
   // Shown briefly when the user switches courses while items are already queued
   const [courseSwitchNotice, setCourseSwitchNotice] = useState("");
@@ -137,7 +147,10 @@ export default function AddVocaPage() {
   // close the tab while items are queued or an upload is in progress.
   useEffect(() => {
     const hasUnsaved =
-      csvItems.length > 0 || urlItems.length > 0 || progressOpen;
+      csvItems.length > 0 ||
+      urlItems.length > 0 ||
+      quoteItems.length > 0 ||
+      progressOpen;
 
     if (!hasUnsaved) return;
 
@@ -147,7 +160,7 @@ export default function AddVocaPage() {
 
     window.addEventListener("beforeunload", handleBeforeUnload);
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
-  }, [csvItems.length, urlItems.length, progressOpen]);
+  }, [csvItems.length, urlItems.length, quoteItems.length, progressOpen]);
 
   // ── Client-side navigation guard ──────────────────────────────────────
   // Patching window.history.pushState is unreliable in Next.js App Router:
@@ -161,7 +174,10 @@ export default function AddVocaPage() {
   // is blocked at the call-site, before any React transition begins.
   useEffect(() => {
     const hasUnsaved =
-      csvItems.length > 0 || urlItems.length > 0 || progressOpen;
+      csvItems.length > 0 ||
+      urlItems.length > 0 ||
+      quoteItems.length > 0 ||
+      progressOpen;
 
     if (hasUnsaved) {
       setNavigationGuard(() =>
@@ -177,7 +193,7 @@ export default function AddVocaPage() {
     }
 
     return () => clearNavigationGuard();
-  }, [csvItems.length, urlItems.length, progressOpen, t]);
+  }, [csvItems.length, urlItems.length, quoteItems.length, progressOpen, t]);
 
   // ── Derived state ──────────────────────────────────────────────────
   // `schemaType` drives CSV header validation and word field mapping.
@@ -190,7 +206,15 @@ export default function AddVocaPage() {
   const isFamousQuote = selectedCourse === "FAMOUS_QUOTE";
 
   // Items visible in the currently selected tab
-  const currentItems = tabIndex === 0 ? csvItems : urlItems;
+  const currentItems =
+    tabIndex === 0 ? csvItems : tabIndex === 1 ? urlItems : quoteItems;
+
+  useEffect(() => {
+    // The quote tab exists only for FAMOUS_QUOTE, so leave invalid tab index.
+    if (!isFamousQuote && tabIndex > 1) {
+      setTabIndex(0);
+    }
+  }, [isFamousQuote, tabIndex]);
 
   // Only items that have both a day name and at least one parsed word are
   // eligible for upload — the rest are silently excluded.
@@ -265,9 +289,9 @@ export default function AddVocaPage() {
     uploadingRef.current = true;
 
     // FR-4: Check which day names already exist in Firestore (parallel).
-    // Flat courses (e.g. FAMOUS_QUOTE) skip this — the batch-upload API always
-    // clears and rewrites their collection, and their day IDs are UUIDs that
-    // will never exist. checkDayExists also requires a document path (even
+    // Flat courses (e.g. FAMOUS_QUOTE) skip this — they have no DayN
+    // subcollections and use UUID day IDs for queue bookkeeping only.
+    // checkDayExists also requires a document path (even
     // segments) which flat courses don't have.
     const existsFlags = course.flat
       ? readyItems.map(() => false)
@@ -293,7 +317,11 @@ export default function AddVocaPage() {
     // Items in skipDays start as "skipped" immediately.
     const initial: ProgressItem[] = readyItems.map((item) => ({
       id: item.id,
-      label: isCsvItem(item) ? item.fileName : item.url,
+      label: isCsvItem(item)
+        ? item.fileName
+        : isUrlItem(item)
+          ? item.url
+          : `${item.quoteSet.quote.slice(0, 48)}${item.quoteSet.quote.length > 48 ? "..." : ""} - ${item.quoteSet.author}`,
       dayName: item.dayName,
       status: skipDays.has(item.dayName) ? "skipped" : "pending",
     }));
@@ -494,6 +522,7 @@ export default function AddVocaPage() {
     );
     setCsvItems((prev) => prev.filter((i) => !succeededDays.has(i.dayName)));
     setUrlItems((prev) => prev.filter((i) => !succeededDays.has(i.dayName)));
+    setQuoteItems((prev) => prev.filter((i) => !succeededDays.has(i.dayName)));
     setProgressOpen(false);
   };
 
@@ -505,7 +534,8 @@ export default function AddVocaPage() {
    */
   const handleCourseChange = (courseId: CourseId) => {
     if (courseId === selectedCourse) return;
-    const hasQueuedItems = csvItems.length > 0 || urlItems.length > 0;
+    const hasQueuedItems =
+      csvItems.length > 0 || urlItems.length > 0 || quoteItems.length > 0;
     if (
       hasQueuedItems &&
       !window.confirm(
@@ -518,8 +548,10 @@ export default function AddVocaPage() {
       return; // user cancelled — leave course and queue unchanged
     }
     setSelectedCourse(courseId);
+    setTabIndex(0);
     setCsvItems([]);
     setUrlItems([]);
+    setQuoteItems([]);
   };
 
   // ── Render ─────────────────────────────────────────────────────────
@@ -558,6 +590,7 @@ export default function AddVocaPage() {
         <Tabs value={tabIndex} onChange={(_, v) => setTabIndex(v)}>
           <Tab label={t("addVoca.csvUpload")} />
           <Tab label={t("addVoca.urlUpload")} />
+          {isFamousQuote && <Tab label={t("addVoca.quoteUpload")} />}
         </Tabs>
       </Box>
 
@@ -575,7 +608,11 @@ export default function AddVocaPage() {
           items={urlItems}
           onItemsChange={setUrlItems}
           schemaType={schemaType}
+          hideDayInput={isFamousQuote}
         />
+      )}
+      {isFamousQuote && tabIndex === 2 && (
+        <QuoteUploadTab items={quoteItems} onItemsChange={setQuoteItems} />
       )}
 
       {/* ── Validation notice ──────────────────────────────────────────── */}
