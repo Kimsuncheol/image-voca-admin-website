@@ -64,6 +64,7 @@ export function getFriendlyAuthError(code: string): string {
     'auth/email-already-in-use': 'An account with this email already exists.',
     'auth/weak-password': 'Password should be at least 6 characters.',
     'auth/too-many-requests': 'Too many failed attempts. Please try again later.',
+    'auth/insufficient-role': 'Access denied. Admin privileges required.',
   };
   return errorMap[code] || 'An unexpected error occurred. Please try again.';
 }

@@ -56,7 +56,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const signIn = async (email: string, password: string) => {
-    await firebaseSignIn(email, password);
+    const fbUser = await firebaseSignIn(email, password);
+    const appUser = await getUserById(fbUser.uid);
+    const role = appUser?.role;
+    if (role !== 'admin' && role !== 'super-admin') {
+      await firebaseSignOut();
+      throw Object.assign(new Error('Insufficient role'), { code: 'auth/insufficient-role' });
+    }
   };
 
   const signUp = async (
