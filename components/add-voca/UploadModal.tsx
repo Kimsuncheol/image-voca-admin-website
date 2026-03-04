@@ -22,7 +22,11 @@ import InputAdornment from "@mui/material/InputAdornment";
 import CloudUploadIcon from "@mui/icons-material/CloudUpload";
 import { useDropzone } from "react-dropzone";
 import { useTranslation } from "react-i18next";
-import { parseCsvFile, type ParseResult, type SchemaType } from "@/lib/utils/csvParser";
+import {
+  parseCsvFile,
+  type ParseResult,
+  type SchemaType,
+} from "@/lib/utils/csvParser";
 
 interface UploadModalProps {
   open: boolean;
@@ -71,7 +75,7 @@ export default function UploadModal({
 }: UploadModalProps) {
   const { t } = useTranslation();
   const [dayName, setDayName] = useState(
-    hideDayInput ? (initialDayName || crypto.randomUUID()) : initialDayName
+    hideDayInput ? initialDayName || crypto.randomUUID() : initialDayName,
   );
   const [parseResult, setParseResult] = useState<ParseResult | null>(
     initialData,
@@ -101,10 +105,15 @@ export default function UploadModal({
     // When day input is hidden (Famous Quote), fall back to a UUID if dayName
     // was never set (e.g. component mounted before hideDayInput became true).
     const effectiveDayName = hideDayInput
-      ? (dayName || initialDayName || crypto.randomUUID())
+      ? dayName || initialDayName || crypto.randomUUID()
       : dayName;
 
-    if ((!hideDayInput && !effectiveDayName) || !parseResult || parseResult.words.length === 0) return;
+    if (
+      (!hideDayInput && !effectiveDayName) ||
+      !parseResult ||
+      parseResult.words.length === 0
+    )
+      return;
 
     // Duplicate check — ask before overwriting an existing queue item.
     if (existingDayNames.includes(effectiveDayName)) {
@@ -112,8 +121,8 @@ export default function UploadModal({
         !window.confirm(
           t(
             "addVoca.duplicateDayConfirm",
-            `"${effectiveDayName}" is already in the queue. Replace it?`
-          )
+            `"${effectiveDayName}" is already in the queue. Replace it?`,
+          ),
         )
       ) {
         return;
@@ -129,7 +138,7 @@ export default function UploadModal({
     if (parseResult && parseResult.words.length > 0) {
       if (
         !window.confirm(
-          t("addVoca.discardConfirm", "Discard parsed data and close?")
+          t("addVoca.discardConfirm", "Discard parsed data and close?"),
         )
       ) {
         return;
@@ -139,7 +148,9 @@ export default function UploadModal({
   };
 
   const handleReset = () => {
-    setDayName(hideDayInput ? (initialDayName || crypto.randomUUID()) : initialDayName);
+    setDayName(
+      hideDayInput ? initialDayName || crypto.randomUUID() : initialDayName,
+    );
     setParseResult(initialData ?? null);
     setSelectedFile(null);
   };
@@ -202,7 +213,8 @@ export default function UploadModal({
               textAlign: "center",
               cursor: "pointer",
               bgcolor: isDragActive ? "action.hover" : "background.default",
-              transition: "background-color 120ms ease, border-color 120ms ease",
+              transition:
+                "background-color 120ms ease, border-color 120ms ease",
             }}
           >
             <input {...getInputProps()} />
@@ -256,11 +268,23 @@ export default function UploadModal({
             (() => {
               const resolvedSchema = schemaType ?? parseResult.schemaType;
               const columns: string[] =
-                resolvedSchema === 'collocation'
-                  ? ["collocation", "meaning", "explanation", "example", "translation"]
-                  : resolvedSchema === 'famousQuote'
-                  ? ["quote", "author", "translation"]
-                  : ["word", "meaning", "pronunciation", "example", "translation"];
+                resolvedSchema === "collocation"
+                  ? [
+                      "collocation",
+                      "meaning",
+                      "explanation",
+                      "example",
+                      "translation",
+                    ]
+                  : resolvedSchema === "famousQuote"
+                    ? ["quote", "author", "translation"]
+                    : [
+                        "word",
+                        "meaning",
+                        "pronunciation",
+                        "example",
+                        "translation",
+                      ];
               return (
                 <TableContainer
                   component={Paper}
@@ -296,7 +320,10 @@ export default function UploadModal({
                     </TableBody>
                   </Table>
                   {parseResult.words.length > 10 && (
-                    <Typography variant="caption" sx={{ p: 1, display: "block" }}>
+                    <Typography
+                      variant="caption"
+                      sx={{ p: 1, display: "block" }}
+                    >
                       ...and {parseResult.words.length - 10} more rows
                     </Typography>
                   )}
@@ -309,10 +336,23 @@ export default function UploadModal({
         <Button onClick={handleClose} sx={{ borderRadius: 2 }}>
           {t("common.cancel")}
         </Button>
+        {parseResult && (
+          <Button
+            onClick={handleReset}
+            color="warning"
+            sx={{ borderRadius: 2 }}
+          >
+            {t("common.retry", "Retry")}
+          </Button>
+        )}
         <Button
           onClick={handleConfirm}
           variant="contained"
-          disabled={(!hideDayInput && !dayName) || !parseResult || parseResult.words.length === 0}
+          disabled={
+            (!hideDayInput && !dayName) ||
+            !parseResult ||
+            parseResult.words.length === 0
+          }
           sx={{ borderRadius: 2 }}
         >
           {t("common.confirm")}
