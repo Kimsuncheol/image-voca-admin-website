@@ -53,7 +53,7 @@ function ExampleCell({ text }: { text: string | undefined }) {
                 <Typography
                   component="span"
                   variant="body2"
-                  sx={{ fontStyle: "italic", ml: 0.5 }}
+                  sx={{ fontStyle: "normal", ml: 0.5 }}
                 >
                   {match[2].trim()}
                 </Typography>
@@ -66,7 +66,7 @@ function ExampleCell({ text }: { text: string | undefined }) {
             <Typography
               key={i}
               variant="body2"
-              sx={{ fontStyle: "italic", mb: i < lines.length - 1 ? 1 : 0 }}
+              sx={{ fontStyle: "normal", mb: i < lines.length - 1 ? 1 : 0 }}
             >
               {line}
             </Typography>
