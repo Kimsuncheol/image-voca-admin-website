@@ -20,6 +20,60 @@ const DIALOGUE_SPLIT_REGEX =
 
 // Matches the speaker name at the start of a dialogue line
 const SPEAKER_LINE_REGEX = /^([A-Z][A-Za-z]+(?:\s+\d+)?):(.+)$/;
+const ORDERED_ITEM_MARKER_REGEX = /(^|\s)(\d+\.)\s/g;
+
+interface OrderedItem {
+  marker: string;
+  content: string;
+}
+
+function parseOrderedItems(text: string): OrderedItem[] | null {
+  const trimmed = text.trim();
+  if (!trimmed) return null;
+
+  const markers = Array.from(trimmed.matchAll(ORDERED_ITEM_MARKER_REGEX), (match) => {
+    const start = match.index ?? 0;
+    const leadingWhitespace = match[1] ?? "";
+    const marker = match[2] ?? "";
+    return {
+      marker,
+      markerStart: start + leadingWhitespace.length,
+    };
+  }).filter((item) => item.marker.length > 0);
+
+  if (markers.length === 0 || markers[0].markerStart !== 0) {
+    return null;
+  }
+
+  return markers.map((item, index) => {
+    const contentStart = item.markerStart + item.marker.length + 1;
+    const nextMarkerStart =
+      index < markers.length - 1 ? markers[index + 1].markerStart : trimmed.length;
+    return {
+      marker: item.marker,
+      content: trimmed.slice(contentStart, nextMarkerStart).trim(),
+    };
+  });
+}
+
+function OrderedItemRow({ item }: { item: OrderedItem }) {
+  return (
+    <Box
+      sx={{
+        display: "grid",
+        gridTemplateColumns: "2ch 1fr",
+        columnGap: "0.5ch",
+      }}
+    >
+      <Typography variant="body2" sx={{ fontStyle: "normal" }}>
+        {item.marker}
+      </Typography>
+      <Typography variant="body2" sx={{ fontStyle: "normal" }}>
+        {item.content}
+      </Typography>
+    </Box>
+  );
+}
 
 function ExampleCell({ text }: { text: string | undefined }) {
   if (!text) return <TableCell />;
@@ -40,36 +94,73 @@ function ExampleCell({ text }: { text: string | undefined }) {
           // If the line has "Name: text", split and style it
           const match = line.match(SPEAKER_LINE_REGEX);
           if (match) {
+            const dialogueText = match[2].trim();
+            const orderedDialogueItems = parseOrderedItems(dialogueText);
+
             return (
               <Box key={i} sx={{ mb: i < lines.length - 1 ? 1 : 0 }}>
-                <Typography
-                  component="span"
-                  variant="body2"
-                  color="primary.main"
-                  fontWeight={600}
-                >
-                  {match[1]}:
-                </Typography>
-                <Typography
-                  component="span"
-                  variant="body2"
-                  sx={{ fontStyle: "normal", ml: 0.5 }}
-                >
-                  {match[2].trim()}
-                </Typography>
+                {orderedDialogueItems ? (
+                  <Box sx={{ display: "flex", alignItems: "flex-start" }}>
+                    <Typography
+                      component="span"
+                      variant="body2"
+                      color="primary.main"
+                      fontWeight={600}
+                    >
+                      {match[1]}:
+                    </Typography>
+                    <Box sx={{ ml: 0.5, flex: 1 }}>
+                      {orderedDialogueItems.map((item, orderedIndex) => (
+                        <OrderedItemRow
+                          key={`${i}-ordered-${orderedIndex}`}
+                          item={item}
+                        />
+                      ))}
+                    </Box>
+                  </Box>
+                ) : (
+                  <Box>
+                    <Typography
+                      component="span"
+                      variant="body2"
+                      color="primary.main"
+                      fontWeight={600}
+                    >
+                      {match[1]}:
+                    </Typography>
+                    <Typography
+                      component="span"
+                      variant="body2"
+                      sx={{ fontStyle: "normal", ml: 0.5 }}
+                    >
+                      {dialogueText}
+                    </Typography>
+                  </Box>
+                )}
               </Box>
             );
           }
 
           // Fallback for normal sentences
+          const orderedItems = parseOrderedItems(line);
+          if (!orderedItems) {
+            return (
+              <Typography
+                key={i}
+                variant="body2"
+                sx={{ fontStyle: "normal", mb: i < lines.length - 1 ? 1 : 0 }}
+              >
+                {line}
+              </Typography>
+            );
+          }
+
           return (
-            <Typography
-              key={i}
-              variant="body2"
-              sx={{ fontStyle: "normal", mb: i < lines.length - 1 ? 1 : 0 }}
-            >
-              {line}
-            </Typography>
+            <Box key={i} sx={{ mb: i < lines.length - 1 ? 1 : 0 }}>
+              {orderedItems.map((item, orderedIndex) => (
+                <OrderedItemRow key={`${i}-${orderedIndex}`} item={item} />
+              ))}
+            </Box>
           );
         })}
       </Box>
