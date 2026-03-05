@@ -64,6 +64,7 @@ export default function DayWordsPage({
   const [error, setError] = useState("");
 
   // ── Resolve course metadata from static list ──────────────────────
+  // This is a synchronous lookup — no effect needed to detect a missing course.
   const course = getCourseById(courseId);
 
   // ── Course type detection ─────────────────────────────────────────
@@ -72,12 +73,11 @@ export default function DayWordsPage({
   const isFamousQuote = courseId === "FAMOUS_QUOTE";
 
   // ── Firestore data fetch ──────────────────────────────────────────
+  // The effect only runs when `course` is resolved; the missing-course case
+  // is handled synchronously in the render path below, avoiding cascading
+  // renders caused by calling setState directly inside an effect body.
   useEffect(() => {
-    if (!course) {
-      setError("Course not found");
-      setLoading(false);
-      return;
-    }
+    if (!course) return; // guard — render path below shows the error
 
     getDayWords(course.path, dayId)
       .then((data) => {
@@ -87,6 +87,16 @@ export default function DayWordsPage({
       .catch(() => setError(t("courses.fetchError")))
       .finally(() => setLoading(false));
   }, [course, dayId, t]);
+
+  // ── Missing course (synchronous guard) ───────────────────────────
+  // Handled here (not in the effect) to avoid synchronous setState in effects.
+  if (!course) {
+    return (
+      <PageLayout>
+        <Alert severity="error">{"Course not found"}</Alert>
+      </PageLayout>
+    );
+  }
 
   // ── Loading state ─────────────────────────────────────────────────
   if (loading) {
@@ -124,7 +134,11 @@ export default function DayWordsPage({
         // WordTable renders differently depending on isCollocation:
         //   false → standard columns: word, pronunciation, meaning, example
         //   true  → collocation columns: phrase, meaning, explanation, example
-        <WordTable words={words} isCollocation={isCollocation} isFamousQuote={isFamousQuote} />
+        <WordTable
+          words={words}
+          isCollocation={isCollocation}
+          isFamousQuote={isFamousQuote}
+        />
       )}
     </PageLayout>
   );
