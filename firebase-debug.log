@@ -1,0 +1,120 @@
+[debug] [2026-03-05T16:39:53.487Z] ----------------------------------------------------------------------
+[debug] [2026-03-05T16:39:53.492Z] Command:       /usr/local/bin/node /Users/gimseoncheol/.npm/_npx/ba4f1959e38407b5/node_modules/.bin/firebase init dataconnect --project demo-no-project
+[debug] [2026-03-05T16:39:53.492Z] CLI Version:   15.8.0
+[debug] [2026-03-05T16:39:53.492Z] Platform:      darwin
+[debug] [2026-03-05T16:39:53.492Z] Node Version:  v20.18.0
+[debug] [2026-03-05T16:39:53.492Z] Time:          Fri Mar 06 2026 01:39:53 GMT+0900 (Korean Standard Time)
+[debug] [2026-03-05T16:39:53.493Z] ----------------------------------------------------------------------
+[debug] 
+[debug] [2026-03-05T16:39:53.494Z] >>> [apiv2][query] GET https://firebase-public.firebaseio.com/cli.json [none]
+[info] 
+     ######## #### ########  ######## ########     ###     ######  ########
+     ##        ##  ##     ## ##       ##     ##  ##   ##  ##       ##
+     ######    ##  ########  ######   ########  #########  ######  ######
+     ##        ##  ##    ##  ##       ##     ## ##     ##       ## ##
+     ##       #### ##     ## ######## ########  ##     ##  ######  ########
+
+You're about to initialize a Firebase project in this directory:
+
+  /Users/gimseoncheol
+
+Before we get started, keep in mind:
+
+  * You are initializing within an existing Firebase project directory
+
+[info] 
+=== Project Setup
+[info] 
+[info] First, let's associate this project directory with a Firebase project.
+[info] You can create multiple project aliases by running firebase use --add, 
+[info] 
+[info] Skipping Firebase project setup because a demo project is provided
+[info] 
+=== Dataconnect Setup
+[info] ✔  dataconnect: Detected existing apps . (admin_node), . (web) 
+[debug] [2026-03-05T16:39:55.298Z] <<< [apiv2][status] GET https://firebase-public.firebaseio.com/cli.json 200
+[debug] [2026-03-05T16:39:55.299Z] <<< [apiv2][body] GET https://firebase-public.firebaseio.com/cli.json {"cloudBuildErrorAfter":1594252800000,"cloudBuildWarnAfter":1590019200000,"defaultNode10After":1594252800000,"minVersion":"3.0.5","node8DeploysDisabledAfter":1613390400000,"node8RuntimeDisabledAfter":1615809600000,"node8WarnAfter":1600128000000}
+[debug] [2026-03-05T16:40:06.028Z] ----------------------------------------------------------------------
+[debug] [2026-03-05T16:40:06.031Z] Command:       /usr/local/bin/node /Users/gimseoncheol/.npm/_npx/ba4f1959e38407b5/node_modules/.bin/firebase init dataconnect --project image-voca-app
+[debug] [2026-03-05T16:40:06.031Z] CLI Version:   15.8.0
+[debug] [2026-03-05T16:40:06.031Z] Platform:      darwin
+[debug] [2026-03-05T16:40:06.031Z] Node Version:  v20.18.0
+[debug] [2026-03-05T16:40:06.031Z] Time:          Fri Mar 06 2026 01:40:06 GMT+0900 (Korean Standard Time)
+[debug] [2026-03-05T16:40:06.032Z] ----------------------------------------------------------------------
+[debug] 
+[info] 
+     ######## #### ########  ######## ########     ###     ######  ########
+     ##        ##  ##     ## ##       ##     ##  ##   ##  ##       ##
+     ######    ##  ########  ######   ########  #########  ######  ######
+     ##        ##  ##    ##  ##       ##     ## ##     ##       ## ##
+     ##       #### ##     ## ######## ########  ##     ##  ######  ########
+
+You're about to initialize a Firebase project in this directory:
+
+  /Users/gimseoncheol
+
+Before we get started, keep in mind:
+
+  * You are initializing within an existing Firebase project directory
+
+[info] 
+=== Project Setup
+[info] 
+[info] First, let's associate this project directory with a Firebase project.
+[info] You can create multiple project aliases by running firebase use --add, 
+[info] 
+[debug] [2026-03-05T16:40:07.085Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2026-03-05T16:40:07.085Z] > authorizing via signed-in user (curetail144@gmail.com)
+[debug] [2026-03-05T16:40:07.086Z] Checked if tokens are valid: true, expires at: 1772732379315
+[debug] [2026-03-05T16:40:07.086Z] Checked if tokens are valid: true, expires at: 1772732379315
+[debug] [2026-03-05T16:40:07.087Z] >>> [apiv2][query] GET https://firebase.googleapis.com/v1beta1/projects/image-voca-app [none]
+[debug] [2026-03-05T16:40:07.588Z] <<< [apiv2][status] GET https://firebase.googleapis.com/v1beta1/projects/image-voca-app 200
+[debug] [2026-03-05T16:40:07.588Z] <<< [apiv2][body] GET https://firebase.googleapis.com/v1beta1/projects/image-voca-app {"projectId":"image-voca-app","projectNumber":"1000234293792","displayName":"image-voca-app","name":"projects/image-voca-app","resources":{"hostingSite":"image-voca-app"},"state":"ACTIVE","etag":"1_ea13c7ed-72cc-4fc2-8d9b-d8d7fb597998"}
+[info] i  Using project image-voca-app (image-voca-app) . 
+[info] 
+=== Dataconnect Setup
+[info] i  dataconnect: ensuring required API firebasedataconnect.googleapis.com is enabled... 
+[debug] [2026-03-05T16:40:07.598Z] Checked if tokens are valid: true, expires at: 1772732379315
+[debug] [2026-03-05T16:40:07.598Z] Checked if tokens are valid: true, expires at: 1772732379315
+[info] i  dataconnect: ensuring required API sqladmin.googleapis.com is enabled... 
+[debug] [2026-03-05T16:40:07.599Z] Checked if tokens are valid: true, expires at: 1772732379315
+[debug] [2026-03-05T16:40:07.599Z] Checked if tokens are valid: true, expires at: 1772732379315
+[debug] [2026-03-05T16:40:07.599Z] >>> [apiv2][query] GET https://serviceusage.googleapis.com/v1/projects/image-voca-app/services/firebasedataconnect.googleapis.com [none]
+[debug] [2026-03-05T16:40:07.599Z] >>> [apiv2][(partial)header] GET https://serviceusage.googleapis.com/v1/projects/image-voca-app/services/firebasedataconnect.googleapis.com  x-goog-user-project=image-voca-app
+[debug] [2026-03-05T16:40:07.600Z] >>> [apiv2][query] GET https://serviceusage.googleapis.com/v1/projects/image-voca-app/services/sqladmin.googleapis.com [none]
+[debug] [2026-03-05T16:40:07.600Z] >>> [apiv2][(partial)header] GET https://serviceusage.googleapis.com/v1/projects/image-voca-app/services/sqladmin.googleapis.com  x-goog-user-project=image-voca-app
+[debug] [2026-03-05T16:40:08.809Z] <<< [apiv2][status] GET https://serviceusage.googleapis.com/v1/projects/image-voca-app/services/firebasedataconnect.googleapis.com 200
+[debug] [2026-03-05T16:40:08.809Z] <<< [apiv2][body] GET https://serviceusage.googleapis.com/v1/projects/image-voca-app/services/firebasedataconnect.googleapis.com [omitted]
+[warn] ⚠  dataconnect: missing required API firebasedataconnect.googleapis.com. Enabling now... 
+[debug] [2026-03-05T16:40:08.810Z] Checked if tokens are valid: true, expires at: 1772732379315
+[debug] [2026-03-05T16:40:08.810Z] Checked if tokens are valid: true, expires at: 1772732379315
+[debug] [2026-03-05T16:40:08.810Z] >>> [apiv2][query] POST https://serviceusage.googleapis.com/v1/projects/image-voca-app/services/firebasedataconnect.googleapis.com:enable [none]
+[debug] [2026-03-05T16:40:08.810Z] >>> [apiv2][(partial)header] POST https://serviceusage.googleapis.com/v1/projects/image-voca-app/services/firebasedataconnect.googleapis.com:enable  x-goog-user-project=image-voca-app
+[debug] [2026-03-05T16:40:08.819Z] <<< [apiv2][status] GET https://serviceusage.googleapis.com/v1/projects/image-voca-app/services/sqladmin.googleapis.com 200
+[debug] [2026-03-05T16:40:08.819Z] <<< [apiv2][body] GET https://serviceusage.googleapis.com/v1/projects/image-voca-app/services/sqladmin.googleapis.com [omitted]
+[warn] ⚠  dataconnect: missing required API sqladmin.googleapis.com. Enabling now... 
+[debug] [2026-03-05T16:40:08.819Z] Checked if tokens are valid: true, expires at: 1772732379315
+[debug] [2026-03-05T16:40:08.819Z] Checked if tokens are valid: true, expires at: 1772732379315
+[debug] [2026-03-05T16:40:08.819Z] >>> [apiv2][query] POST https://serviceusage.googleapis.com/v1/projects/image-voca-app/services/sqladmin.googleapis.com:enable [none]
+[debug] [2026-03-05T16:40:08.819Z] >>> [apiv2][(partial)header] POST https://serviceusage.googleapis.com/v1/projects/image-voca-app/services/sqladmin.googleapis.com:enable  x-goog-user-project=image-voca-app
+[debug] [2026-03-05T16:40:09.158Z] <<< [apiv2][status] POST https://serviceusage.googleapis.com/v1/projects/image-voca-app/services/firebasedataconnect.googleapis.com:enable 200
+[debug] [2026-03-05T16:40:09.158Z] <<< [apiv2][body] POST https://serviceusage.googleapis.com/v1/projects/image-voca-app/services/firebasedataconnect.googleapis.com:enable [omitted]
+[debug] [2026-03-05T16:40:09.172Z] <<< [apiv2][status] POST https://serviceusage.googleapis.com/v1/projects/image-voca-app/services/sqladmin.googleapis.com:enable 200
+[debug] [2026-03-05T16:40:09.173Z] <<< [apiv2][body] POST https://serviceusage.googleapis.com/v1/projects/image-voca-app/services/sqladmin.googleapis.com:enable [omitted]
+[debug] [2026-03-05T16:40:19.183Z] Checked if tokens are valid: true, expires at: 1772732379315
+[debug] [2026-03-05T16:40:19.186Z] Checked if tokens are valid: true, expires at: 1772732379315
+[debug] [2026-03-05T16:40:19.186Z] >>> [apiv2][query] GET https://firebasedataconnect.googleapis.com/v1/projects/image-voca-app/locations/-/services [none]
+[debug] [2026-03-05T16:40:20.558Z] <<< [apiv2][status] GET https://firebasedataconnect.googleapis.com/v1/projects/image-voca-app/locations/-/services 200
+[debug] [2026-03-05T16:40:20.558Z] <<< [apiv2][body] GET https://firebasedataconnect.googleapis.com/v1/projects/image-voca-app/locations/-/services {}
+[info] i  Learn more about Gemini in Firebase and how it uses your data: https://firebase.google.com/docs/gemini-in-firebase#how-gemini-in-firebase-uses-your-data 
+[info] i  : ensuring required API cloudaicompanion.googleapis.com is enabled... 
+[debug] [2026-03-05T16:40:33.255Z] Checked if tokens are valid: true, expires at: 1772732379315
+[debug] [2026-03-05T16:40:33.255Z] Checked if tokens are valid: true, expires at: 1772732379315
+[debug] [2026-03-05T16:40:33.255Z] >>> [apiv2][query] GET https://serviceusage.googleapis.com/v1/projects/image-voca-app/services/cloudaicompanion.googleapis.com [none]
+[debug] [2026-03-05T16:40:33.255Z] >>> [apiv2][(partial)header] GET https://serviceusage.googleapis.com/v1/projects/image-voca-app/services/cloudaicompanion.googleapis.com  x-goog-user-project=image-voca-app
+[debug] [2026-03-05T16:40:34.340Z] <<< [apiv2][status] GET https://serviceusage.googleapis.com/v1/projects/image-voca-app/services/cloudaicompanion.googleapis.com 200
+[debug] [2026-03-05T16:40:34.340Z] <<< [apiv2][body] GET https://serviceusage.googleapis.com/v1/projects/image-voca-app/services/cloudaicompanion.googleapis.com [omitted]
+[info] ✔  : required API cloudaicompanion.googleapis.com is enabled 
+[debug] [2026-03-05T16:57:09.304Z] Error: read EIO
+    at TTY.onStreamRead (node:internal/stream_base_commons:218:20)
+    at TTY.callbackTrampoline (node:internal/async_hooks:130:17)

@@ -202,6 +202,12 @@
     "keep": "Keep editing",
     "leave": "Leave"
   },
+  "notFound": {
+    "title": "404",
+    "heading": "Page Not Found",
+    "description": "Sorry, the page you are looking for does not exist or has been moved.",
+    "backHome": "Back to Home"
+  },
   "common": {
     "loading": "Loading...",
     "error": "Error",
