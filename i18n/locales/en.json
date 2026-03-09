@@ -79,7 +79,13 @@
     "status_processing": "Processing",
     "status_success": "Done",
     "status_failed": "Failed",
-    "status_skipped": "Skipped"
+    "status_skipped": "Skipped",
+    "derivativePreviewTitle": "Confirm adjective derivatives",
+    "derivativePreviewLoading": "Detecting adjective derivatives...",
+    "derivativePreviewEmpty": "No adjective derivatives were found. The original words will be uploaded as usual.",
+    "derivativePreviewPartial": "Some words could not be analyzed. You can still continue with the available results.",
+    "derivativePreviewCount": "{{count}} candidates",
+    "derivativePreviewOriginal": "Original"
   },
   "courses": {
     "title": "Courses",

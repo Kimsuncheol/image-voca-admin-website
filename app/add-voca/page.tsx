@@ -62,6 +62,10 @@ import PageLayout from "@/components/layout/PageLayout";
 import { getCourseById, type CourseId } from "@/types/course";
 import type { StandardWordInput } from "@/lib/schemas/vocaSchemas";
 import type { SchemaType } from "@/lib/utils/csvParser";
+import type {
+  DerivativePreviewItemResult,
+  DerivativePreviewResponse,
+} from "@/types/vocabulary";
 
 // ── Navigation guard ──────────────────────────────────────────────────
 import {
@@ -73,10 +77,16 @@ import {
 import { checkDayExists } from "@/lib/firebase/firestore";
 import { uploadCsvBackup } from "@/lib/firebase/storage";
 import { getIpaUSUK } from "@/lib/utils/ipaLookup";
+import { supportsDerivativeCourse } from "@/constants/supportedDerivativeCourses";
+import {
+  buildDerivativeAwareWordsForUpload,
+  type DerivativeSelectionMap,
+} from "@/services/vocaSaveService";
 
 // ── Feature components ────────────────────────────────────────────────
 import CourseSelector from "@/components/add-voca/CourseSelector";
 import CsvUploadTab, { type CsvItem } from "@/components/add-voca/CsvUploadTab";
+import DerivativePreviewDialog from "@/components/add-voca/DerivativePreviewDialog";
 import UrlUploadTab, { type UrlItem } from "@/components/add-voca/UrlUploadTab";
 import QuoteUploadTab, {
   type QuoteItem,
@@ -88,6 +98,11 @@ import UploadProgressModal, {
 // ── Local type alias ───────────────────────────────────────────────────
 // An item in the upload queue is either a parsed CSV or a resolved URL entry.
 type QueueItem = CsvItem | UrlItem | QuoteItem;
+type StandardQueueItem = CsvItem | UrlItem;
+type ReadyQueueItem = QueueItem & { data: NonNullable<QueueItem["data"]> };
+type ReadyStandardQueueItem = StandardQueueItem & {
+  data: { words: StandardWordInput[] };
+};
 
 /**
  * Type guard — returns true when `item` originated from a CSV file upload.
@@ -129,6 +144,13 @@ export default function AddVocaPage() {
   });
   const [progressDone, setProgressDone] = useState(false);
   const [statusText, setStatusText] = useState("");
+  const [derivativePreviewOpen, setDerivativePreviewOpen] = useState(false);
+  const [derivativePreviewLoading, setDerivativePreviewLoading] =
+    useState(false);
+  const [derivativePreviewItems, setDerivativePreviewItems] = useState<
+    DerivativePreviewItemResult[]
+  >([]);
+  const [derivativePreviewError, setDerivativePreviewError] = useState("");
 
   // ── Overwrite confirmation state (FR-5) ───────────────────────────
   // The dialog is driven by a promise so `handleUpload` can `await` the
@@ -141,6 +163,7 @@ export default function AddVocaPage() {
 
   // Prevents re-entrant calls to handleUpload while an upload is in progress
   const uploadingRef = useRef(false);
+  const pendingDerivativeItemsRef = useRef<ReadyStandardQueueItem[]>([]);
 
   // ── Browser unload guard ───────────────────────────────────────────
   // Show a native "Leave site?" prompt when the user tries to refresh or
@@ -219,7 +242,8 @@ export default function AddVocaPage() {
   // Only items that have both a day name and at least one parsed word are
   // eligible for upload — the rest are silently excluded.
   const readyItems = currentItems.filter(
-    (item) => item.dayName && item.data && item.data.words.length > 0,
+    (item): item is ReadyQueueItem =>
+      Boolean(item.dayName && item.data && item.data.words.length > 0),
   );
 
   // ── Overwrite dialog helpers ───────────────────────────────────────
@@ -260,7 +284,7 @@ export default function AddVocaPage() {
   // ── Upload orchestration ───────────────────────────────────────────
 
   /**
-   * Main upload handler. Orchestrates the two-phase pipeline:
+   * Main upload executor. Orchestrates the two-phase pipeline:
    *
    * Phase 1 — Pre-process (runs with concurrency = 3):
    *   For each queued item:
@@ -272,15 +296,9 @@ export default function AddVocaPage() {
    *   All successfully pre-processed days are sent to
    *   POST /api/admin/batch-upload in one request.
    *   Results are written back into progressItems individually.
-   *
-   * Guards:
-   *   - Requires a selected course and at least one ready item.
-   *   - `uploadingRef` prevents re-entrant calls.
-   *   - If existing days are detected (FR-4), the overwrite dialog is
-   *     shown and awaited before proceeding (FR-5).
    */
-  const handleUpload = async () => {
-    if (!selectedCourse || readyItems.length === 0 || uploadingRef.current)
+  const runUpload = async (itemsToUpload: QueueItem[]) => {
+    if (!selectedCourse || itemsToUpload.length === 0 || uploadingRef.current)
       return;
 
     const course = getCourseById(selectedCourse);
@@ -288,21 +306,15 @@ export default function AddVocaPage() {
 
     uploadingRef.current = true;
 
-    // FR-4: Check which day names already exist in Firestore (parallel).
-    // Flat courses (e.g. FAMOUS_QUOTE) skip this — they have no DayN
-    // subcollections and use UUID day IDs for queue bookkeeping only.
-    // checkDayExists also requires a document path (even
-    // segments) which flat courses don't have.
     const existsFlags = course.flat
-      ? readyItems.map(() => false)
+      ? itemsToUpload.map(() => false)
       : await Promise.all(
-          readyItems.map((item) => checkDayExists(course.path, item.dayName)),
+          itemsToUpload.map((item) => checkDayExists(course.path, item.dayName)),
         );
-    const existingDays: string[] = readyItems
+    const existingDays: string[] = itemsToUpload
       .filter((_, i) => existsFlags[i])
       .map((item) => item.dayName);
 
-    // FR-5: If any days already exist, ask the user what to do
     let skipDays = new Set<string>();
     if (existingDays.length > 0) {
       const decision = await showOverwriteConfirm(existingDays);
@@ -313,9 +325,7 @@ export default function AddVocaPage() {
       if (decision === "skip") skipDays = new Set(existingDays);
     }
 
-    // Initialise progress modal with one entry per ready item.
-    // Items in skipDays start as "skipped" immediately.
-    const initial: ProgressItem[] = readyItems.map((item) => ({
+    const initial: ProgressItem[] = itemsToUpload.map((item) => ({
       id: item.id,
       label: isCsvItem(item)
         ? item.fileName
@@ -331,29 +341,14 @@ export default function AddVocaPage() {
     setStatusText(t("addVoca.statusProcessing"));
     setProgressOpen(true);
 
-    // Items that need actual processing (skipped days are excluded)
-    const queue = readyItems.filter((item) => !skipDays.has(item.dayName));
-
-    // ── PHASE 1: Pre-processing ────────────────────────────────────
-    // Each item is pre-processed in a rolling concurrency pool of size 3.
-    // Results are buffered in processedMap; failures are tracked in errorMap.
+    const queue = itemsToUpload.filter((item) => !skipDays.has(item.dayName));
     const CONCURRENCY = 3;
     const processedMap = new Map<string, unknown[]>();
     const errorMap = new Map<string, string>();
 
-    /**
-     * Pre-processes a single queue item:
-     *   1. Optionally backs up its source CSV to Firebase Storage (FR-6).
-     *   2. Resolves IPA for standard (non-collocation) words (FR-10).
-     *   3. Enriches standard words via OpenAI (best-effort, FR-11).
-     * On success, the enriched word array is stored in `processedMap`.
-     * On failure, the error message is stored in `errorMap`.
-     */
     const preprocessItem = async (item: QueueItem) => {
       updateProgressItem(item.id, { status: "processing" });
       try {
-        // FR-6: Upload the original CSV file to Storage as an audit backup.
-        // Non-fatal: a failed backup does not abort the upload pipeline.
         if (isCsvItem(item) && item.file) {
           try {
             await uploadCsvBackup(item.file, course.id, item.dayName);
@@ -362,12 +357,9 @@ export default function AddVocaPage() {
           }
         }
 
-        // FR-9: Words arrive pre-normalised by extractVocaFields in csvParser
         let words = item.data!.words;
 
         if (schemaType === "standard") {
-          // FR-10: Auto-fill pronunciation for simple (single-word) entries.
-          // Multi-word phrases are skipped because IPA lookup is word-level.
           words = await Promise.all(
             words.map(async (w) => {
               const sw = w as StandardWordInput;
@@ -377,8 +369,6 @@ export default function AddVocaPage() {
             }),
           );
 
-          // FR-11: Send words to OpenAI for linguistic enrichment.
-          // Non-fatal: a failed enrichment does not abort the upload pipeline.
           try {
             const resp = await fetch("/api/admin/enrich", {
               method: "POST",
@@ -403,12 +393,8 @@ export default function AddVocaPage() {
       }
     };
 
-    // Rolling concurrency pool: keeps up to CONCURRENCY tasks in-flight.
-    // When a task finishes, the next one from `pool` is started immediately,
-    // rather than waiting for an entire batch to finish. This is more
-    // efficient for items with variable latency (e.g. network I/O).
     if (queue.length > 0) {
-      const pool = [...queue]; // mutable copy consumed via shift()
+      const pool = [...queue];
       const total = pool.length;
       let done = 0;
       let resolveAll!: () => void;
@@ -434,14 +420,10 @@ export default function AddVocaPage() {
       await allDone;
     }
 
-    // Surface pre-processing failures in the progress counter
     if (errorMap.size > 0) {
       setProgressCounts((prev) => ({ ...prev, failed: errorMap.size }));
     }
 
-    // ── PHASE 2: Batch upload (FR-12) ──────────────────────────────
-    // Collect all items that survived pre-processing, then POST them all
-    // in a single request to reduce Firestore round-trips from N→1.
     const daysToUpload = queue
       .filter((item) => processedMap.has(item.id))
       .map((item) => ({
@@ -467,7 +449,6 @@ export default function AddVocaPage() {
           results: { dayName: string; count: number; error?: string }[];
         };
 
-        // Apply per-day results back to the progress list
         let successCount = 0;
         let failCount = errorMap.size;
         for (const r of results) {
@@ -490,7 +471,6 @@ export default function AddVocaPage() {
           failed: failCount,
         }));
       } catch (e) {
-        // Treat a batch-level failure as a failure for every pending day
         const msg = e instanceof Error ? e.message : "Upload failed";
         for (const item of queue) {
           if (processedMap.has(item.id)) {
@@ -507,6 +487,89 @@ export default function AddVocaPage() {
     setStatusText("");
     setProgressDone(true);
     uploadingRef.current = false;
+  };
+
+  const closeDerivativePreview = () => {
+    pendingDerivativeItemsRef.current = [];
+    setDerivativePreviewOpen(false);
+    setDerivativePreviewLoading(false);
+    setDerivativePreviewItems([]);
+    setDerivativePreviewError("");
+  };
+
+  const handleDerivativePreviewConfirm = async (
+    selections: DerivativeSelectionMap,
+  ) => {
+    const pendingItems = pendingDerivativeItemsRef.current;
+    const previewItems = derivativePreviewItems;
+    closeDerivativePreview();
+    const expandedItems = buildDerivativeAwareWordsForUpload(
+      pendingItems,
+      previewItems,
+      selections,
+    );
+    await runUpload(expandedItems);
+  };
+
+  const handleUpload = async () => {
+    if (!selectedCourse || readyItems.length === 0 || uploadingRef.current)
+      return;
+
+    const derivativeEligible =
+      schemaType === "standard" &&
+      (tabIndex === 0 || tabIndex === 1) &&
+      supportsDerivativeCourse(selectedCourse);
+
+    if (!derivativeEligible) {
+      await runUpload(readyItems);
+      return;
+    }
+
+    const derivativeItems = readyItems as ReadyStandardQueueItem[];
+    pendingDerivativeItemsRef.current = derivativeItems;
+    setDerivativePreviewOpen(true);
+    setDerivativePreviewLoading(true);
+    setDerivativePreviewItems([]);
+    setDerivativePreviewError("");
+
+    try {
+      const response = await fetch("/api/admin/derivatives/preview", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          courseId: selectedCourse,
+          items: derivativeItems.map((item) => ({
+            itemId: item.id,
+            dayName: item.dayName,
+            words: item.data!.words as StandardWordInput[],
+          })),
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Derivative preview failed");
+      }
+
+      const result = (await response.json()) as DerivativePreviewResponse;
+      const hasCandidates = result.items.some((item) =>
+        item.words.some((word) => word.candidates.length > 0),
+      );
+
+      if (!hasCandidates) {
+        setDerivativePreviewLoading(false);
+        closeDerivativePreview();
+        await runUpload(derivativeItems);
+        return;
+      }
+
+      setDerivativePreviewItems(result.items);
+      setDerivativePreviewLoading(false);
+    } catch (error) {
+      console.error("[add-voca] Derivative preview failed:", error);
+      setDerivativePreviewLoading(false);
+      closeDerivativePreview();
+      await runUpload(derivativeItems);
+    }
   };
 
   // ── Event handlers ─────────────────────────────────────────────────
@@ -552,6 +615,7 @@ export default function AddVocaPage() {
     setCsvItems([]);
     setUrlItems([]);
     setQuoteItems([]);
+    closeDerivativePreview();
   };
 
   // ── Render ─────────────────────────────────────────────────────────
@@ -636,11 +700,43 @@ export default function AddVocaPage() {
           size="large"
           startIcon={<CloudUploadIcon />}
           onClick={handleUpload}
-          disabled={!selectedCourse || readyItems.length === 0}
+          disabled={
+            !selectedCourse ||
+            readyItems.length === 0 ||
+            derivativePreviewLoading
+          }
         >
           {t("addVoca.upload")}
         </Button>
       </Box>
+
+      <DerivativePreviewDialog
+        key={
+          derivativePreviewLoading
+            ? "derivative-preview-loading"
+            : derivativePreviewItems
+                .map((item) =>
+                  [
+                    item.itemId,
+                    item.words
+                      .map(
+                        (word) =>
+                          `${word.baseWord}:${word.candidates
+                            .map((candidate) => candidate.word)
+                            .join(",")}`,
+                      )
+                      .join("|"),
+                  ].join("::"),
+                )
+                .join("||")
+        }
+        open={derivativePreviewOpen}
+        loading={derivativePreviewLoading}
+        items={derivativePreviewItems}
+        error={derivativePreviewError}
+        onClose={closeDerivativePreview}
+        onConfirm={handleDerivativePreviewConfirm}
+      />
 
       {/* ── Overwrite confirmation dialog (FR-5) ──────────────────────── */}
       {/*

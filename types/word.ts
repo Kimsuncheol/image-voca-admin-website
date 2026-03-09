@@ -1,3 +1,8 @@
+import type {
+  DerivativeBuckets,
+  PersistedDerivativeInfo,
+} from "@/types/vocabulary";
+
 export interface StandardWord {
   id: string;
   word: string;
@@ -5,6 +10,8 @@ export interface StandardWord {
   pronunciation: string;
   example: string;
   translation: string;
+  derivatives?: DerivativeBuckets;
+  derivativeInfo?: PersistedDerivativeInfo;
 }
 
 export interface CollocationWord {

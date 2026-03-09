@@ -29,6 +29,7 @@ export async function POST(request: NextRequest) {
   }
 
   const apiKey = process.env.OPENAI_API_KEY;
+  console.log(process.env.OPENAI_API_KEY);
   if (!apiKey) {
     // Return words unchanged when enrichment is not configured
     const { words } = await request.json() as { words: WordInput[] };
