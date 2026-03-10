@@ -373,7 +373,11 @@ export default function AddVocaPage() {
             const resp = await fetch("/api/admin/enrich", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ words }),
+              body: JSON.stringify({
+                words,
+                coursePath: course.path,
+                dayName: item.dayName,
+              }),
             });
             if (resp.ok) {
               const result = await resp.json();

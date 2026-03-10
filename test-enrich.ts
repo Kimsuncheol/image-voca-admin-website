@@ -32,6 +32,12 @@ const testWords: WordInput[] = [
   {
     word: "ubiquitous",
     meaning: "Present, appearing, or found everywhere.",
+    example: "1. Mobile phones are ubiquitous.\n2. The company logo is ubiquitous in this city."
+  },
+  {
+    word: "resilient",
+    meaning: "Able to withstand or recover quickly from difficult conditions.",
+    translation: "1. 이 식물은 가혹한 환경에서도 잘 견딥니다.\n2. 아이들은 생각보다 회복력이 빠릅니다."
   }
 ];
 
@@ -42,15 +48,34 @@ async function runTest() {
     console.log(`Processing: "${w.word}" (${w.meaning})`);
     
     // We want to test the generation of example and translation
-    const parts: string[] = [
-      '- Write 2 or 3 short, natural English example sentences using the word. Format them as a numbered list separated by line breaks (\\n).',
-      '- Provide the Korean translations corresponding to the examples. Format them as a numbered list separated by line breaks (\\n).'
-    ];
+    const needsExample = !w.example;
+    const needsTranslation = !w.translation;
+    if (!needsExample && !needsTranslation) return;
+
+    const parts: string[] = [];
+    const jsonFields: string[] = [];
+
+    if (needsExample) {
+      parts.push('- Write 2 or 3 short, natural English example sentences using the word. Format them as a numbered list separated by line breaks (\\n).');
+      jsonFields.push('"example":"1. ...\\n2. ..."');
+    } else if (needsTranslation && w.example) {
+      parts.push(`- Here are the existing examples: "${w.example}"`);
+    }
+
+    if (needsTranslation) {
+      if (needsExample) {
+        parts.push('- Provide the Korean translations corresponding to the generated examples. Format them as a numbered list separated by line breaks (\\n).');
+        jsonFields.push('"translation":"1. ...\\n2. ..."');
+      } else {
+        parts.push('- Provide the Korean translations corresponding to the existing examples. Match the formatting of the existing examples (e.g., if there are multiple lines, provide multiple lines).');
+        jsonFields.push('"translation":"..."');
+      }
+    }
 
     const prompt =
       `English word: "${w.word}", meaning: "${w.meaning}".\n` +
       parts.join('\n') +
-      '\nRespond ONLY as JSON: {"example":"1. ...\\n2. ...","translation":"1. ...\\n2. ..."}\nEnsure line breaks are escaped as \\n in the JSON string.';
+      `\nRespond ONLY as JSON: {${jsonFields.join(',')}}\nEnsure line breaks are escaped as \\n in the JSON string.`;
 
     try {
       const result = await geminiModel.generateContent(prompt);

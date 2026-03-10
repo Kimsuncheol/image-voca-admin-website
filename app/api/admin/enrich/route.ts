@@ -1,13 +1,50 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { adminAuth } from '@/lib/firebase/admin';
+import { adminAuth, adminDb } from '@/lib/firebase/admin';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import {
+  buildWordLookupKey,
+  enrichWords,
+  hasText,
+  isWordInput,
+  mergeWordsWithExisting,
+  type PersistedWordFields,
+  type WordInput,
+} from './enrichWords';
 
-interface WordInput {
-  word: string;
-  meaning: string;
-  pronunciation?: string;
-  example?: string;
-  translation?: string;
+interface EnrichRequestBody {
+  words: WordInput[];
+  coursePath?: string;
+  dayName?: string;
+}
+
+async function getExistingWordLookup(
+  coursePath?: string,
+  dayName?: string,
+): Promise<Map<string, PersistedWordFields>> {
+  if (!coursePath || !dayName) return new Map();
+
+  try {
+    const snapshot = await adminDb.doc(coursePath).collection(dayName).get();
+    const lookup = new Map<string, PersistedWordFields>();
+
+    snapshot.docs.forEach((docSnap) => {
+      const data = docSnap.data() as Partial<WordInput>;
+      if (!hasText(data.word) || !hasText(data.meaning)) return;
+
+      const key = buildWordLookupKey(data.word, data.meaning);
+      if (lookup.has(key)) return;
+
+      lookup.set(key, {
+        example: hasText(data.example) ? data.example : undefined,
+        translation: hasText(data.translation) ? data.translation : undefined,
+      });
+    });
+
+    return lookup;
+  } catch (error) {
+    console.error('[Enrich] Failed to load existing day words:', error);
+    return new Map();
+  }
 }
 
 /**
@@ -28,18 +65,27 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) {
-    // Return words unchanged when enrichment is not configured
-    const { words } = await request.json() as { words: WordInput[] };
-    return NextResponse.json({ words });
-  }
-
-  let words: WordInput[];
+  let requestBody: EnrichRequestBody;
   try {
-    ({ words } = await request.json() as { words: WordInput[] });
+    requestBody = (await request.json()) as EnrichRequestBody;
   } catch {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
+  }
+
+  if (!Array.isArray(requestBody.words) || !requestBody.words.every(isWordInput)) {
+    return NextResponse.json({ error: 'Invalid data' }, { status: 400 });
+  }
+
+  const existingWordLookup = await getExistingWordLookup(
+    requestBody.coursePath,
+    requestBody.dayName,
+  );
+  const words = mergeWordsWithExisting(requestBody.words, existingWordLookup);
+
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    // Return merged words unchanged when enrichment is not configured
+    return NextResponse.json({ words });
   }
 
   const genAI = new GoogleGenerativeAI(apiKey);
@@ -48,21 +94,31 @@ export async function POST(request: NextRequest) {
     generationConfig: { responseMimeType: 'application/json', maxOutputTokens: 1000 },
   });
 
-  const enrichOne = async (w: WordInput): Promise<WordInput> => {
-    const needsExample = !w.example;
-    const needsTranslation = !w.translation;
-    if (!needsExample && !needsTranslation) return w;
-
+  const result = await enrichWords(words, async (w, needs) => {
     const parts: string[] = [];
-    if (needsExample)
+    const jsonFields: string[] = [];
+
+    if (needs.needsExample) {
       parts.push('- Write 2 or 3 short, natural English example sentences using the word. Format them as a numbered list separated by line breaks (\\n).');
-    if (needsTranslation)
-      parts.push('- Provide the Korean translations corresponding to the examples. Format them as a numbered list separated by line breaks (\\n).');
+      jsonFields.push('"example":"1. ...\\n2. ..."');
+    } else if (needs.needsTranslation && w.example) {
+      parts.push(`- Here are the existing examples: "${w.example}"`);
+    }
+
+    if (needs.needsTranslation) {
+      if (needs.needsExample) {
+        parts.push('- Provide the Korean translations corresponding to the generated examples. Format them as a numbered list separated by line breaks (\\n).');
+        jsonFields.push('"translation":"1. ...\\n2. ..."');
+      } else {
+        parts.push('- Provide the Korean translations corresponding to the existing examples. Match the formatting of the existing examples (e.g., if there are multiple lines, provide multiple lines).');
+        jsonFields.push('"translation":"..."');
+      }
+    }
 
     const prompt =
       `English word: "${w.word}", meaning: "${w.meaning}".\n` +
       parts.join('\n') +
-      '\nRespond ONLY as JSON: {"example":"1. ...\\n2. ...","translation":"1. ...\\n2. ..."}\nEnsure line breaks are escaped as \\n in the JSON string.';
+      `\nRespond ONLY as JSON: {${jsonFields.join(',')}}\nEnsure line breaks are escaped as \\n in the JSON string.`;
 
     const result = await geminiModel.generateContent(prompt);
     const raw = result.response.text();
@@ -74,7 +130,7 @@ export async function POST(request: NextRequest) {
       const jsonStr = raw.substring(startIdx, endIdx + 1);
       try {
         parsed = JSON.parse(jsonStr);
-      } catch (err) {
+      } catch {
         /* keep original */
         console.error(`[Enrich Error] Failed to parse:`, jsonStr);
       }
@@ -83,24 +139,10 @@ export async function POST(request: NextRequest) {
     console.log(`[Enrich] "${w.word}":`, parsed);
 
     return {
-      ...w,
-      example: w.example || parsed.example || '',
-      translation: w.translation || parsed.translation || '',
+      example: hasText(parsed.example) ? parsed.example : '',
+      translation: hasText(parsed.translation) ? parsed.translation : '',
     };
-  };
-
-  // Process words in chunks of 10 to avoid hitting rate limits
-  const CHUNK = 10;
-  const allSettled: PromiseSettledResult<WordInput>[] = [];
-  for (let i = 0; i < words.length; i += CHUNK) {
-    const batch = words.slice(i, i + CHUNK);
-    const results = await Promise.allSettled(batch.map(enrichOne));
-    allSettled.push(...results);
-  }
-
-  const result = allSettled.map((r, i) =>
-    r.status === 'fulfilled' ? r.value : words[i]
-  );
+  });
 
   return NextResponse.json({ words: result });
 }
