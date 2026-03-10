@@ -38,7 +38,7 @@ test("non-exam courses do not include imageUrl", () => {
   assert.equal(shouldIncludeImageUrl(""), false);
 });
 
-test("prepareStandardWordsForUpload adds empty imageUrl for exam courses", () => {
+test("prepareStandardWordsForUpload backfills empty imageUrl for exam courses", () => {
   const result = prepareStandardWordsForUpload(baseWords, "TOEIC");
 
   assert.deepEqual(result, [
@@ -94,6 +94,23 @@ test("prepareStandardWordsForUpload preserves derivative-like fields", () => {
       imageUrl: "",
     },
   ]);
+});
+
+test("prepareStandardWordsForUpload preserves generated imageUrl values", () => {
+  const wordsWithImage: StandardWordInput[] = [
+    {
+      word: "abandon",
+      meaning: "to leave behind",
+      pronunciation: "",
+      example: "",
+      translation: "",
+      imageUrl: "https://example.com/abandon.png",
+    },
+  ];
+
+  const result = prepareStandardWordsForUpload(wordsWithImage, "CSAT");
+
+  assert.deepEqual(result, wordsWithImage);
 });
 
 test("prepareStandardWordsForUpload leaves non-exam courses unchanged", () => {

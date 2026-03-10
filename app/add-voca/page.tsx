@@ -66,6 +66,7 @@ import type {
   DerivativePreviewItemResult,
   DerivativePreviewResponse,
 } from "@/types/vocabulary";
+import { isSupportedImageGenerationCourseId } from "@/types/imageGeneration";
 
 // ── Navigation guard ──────────────────────────────────────────────────
 import {
@@ -82,12 +83,16 @@ import {
   buildDerivativeAwareWordsForUpload,
   type DerivativeSelectionMap,
 } from "@/services/vocaSaveService";
-import { prepareStandardWordsForUpload } from "@/services/standardWordUpload";
+import {
+  prepareStandardWordsForUpload,
+  shouldIncludeImageUrl,
+} from "@/services/standardWordUpload";
 
 // ── Feature components ────────────────────────────────────────────────
 import CourseSelector from "@/components/add-voca/CourseSelector";
 import CsvUploadTab, { type CsvItem } from "@/components/add-voca/CsvUploadTab";
 import DerivativePreviewDialog from "@/components/add-voca/DerivativePreviewDialog";
+import StickFigureGenerator from "@/components/add-voca/StickFigureGenerator";
 import UrlUploadTab, { type UrlItem } from "@/components/add-voca/UrlUploadTab";
 import QuoteUploadTab, {
   type QuoteItem,
@@ -228,6 +233,12 @@ export default function AddVocaPage() {
         ? "famousQuote"
         : "standard";
   const isFamousQuote = selectedCourse === "FAMOUS_QUOTE";
+  const showImageGenerator = shouldIncludeImageUrl(selectedCourse);
+  const imageGenerationCourseId = isSupportedImageGenerationCourseId(
+    selectedCourse,
+  )
+    ? selectedCourse
+    : null;
 
   // Items visible in the currently selected tab
   const currentItems =
@@ -386,6 +397,37 @@ export default function AddVocaPage() {
             }
           } catch (e) {
             console.error("[Enrich] Failed (non-fatal):", e);
+          }
+
+          if (shouldIncludeImageUrl(selectedCourse)) {
+            setStatusText(t("addVoca.statusImage"));
+            try {
+              const imageResp = await fetch("/api/admin/generate-images", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  courseId: selectedCourse,
+                  words,
+                }),
+              });
+
+              if (imageResp.ok) {
+                const result = (await imageResp.json()) as {
+                  words: StandardWordInput[];
+                  failures?: { word: string; error: string }[];
+                };
+                words = result.words;
+
+                if (result.failures && result.failures.length > 0) {
+                  console.warn(
+                    `[Image Generation] ${item.dayName} partial failures:`,
+                    result.failures,
+                  );
+                }
+              }
+            } catch (e) {
+              console.error("[Image Generation] Failed (non-fatal):", e);
+            }
           }
 
           words = prepareStandardWordsForUpload(
@@ -642,6 +684,10 @@ export default function AddVocaPage() {
        * handleCourseChange which resets csvItems + urlItems.
        */}
       <CourseSelector value={selectedCourse} onChange={handleCourseChange} />
+
+      {showImageGenerator && imageGenerationCourseId && (
+        <StickFigureGenerator courseId={imageGenerationCourseId} />
+      )}
 
       {/* Course-switch notice: shown when items were cleared by a course change */}
       {courseSwitchNotice && (

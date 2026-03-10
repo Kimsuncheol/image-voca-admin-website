@@ -20,6 +20,9 @@ export function prepareStandardWordsForUpload(
 
   return words.map((word) => ({
     ...word,
-    imageUrl: "",
+    imageUrl:
+      typeof word.imageUrl === "string" && word.imageUrl.trim().length > 0
+        ? word.imageUrl
+        : "",
   }));
 }
