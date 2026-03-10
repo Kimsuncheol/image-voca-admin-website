@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { adminAuth } from "@/lib/firebase/admin";
-import { generateStoredImage } from "@/lib/server/imageGenerationService";
+import {
+  deleteManagedGeneratedImageByUrl,
+  generateStoredImage,
+} from "@/lib/server/imageGenerationService";
 import {
   buildUploadStickFigurePrompt,
+  hasImageUrl,
   isSupportedImageGenerationCourseId,
   isUploadImageGenerationWord,
   normalizeImageGenerationMeaning,
@@ -61,6 +65,10 @@ export async function POST(request: NextRequest) {
 
       if (!generated.ok) {
         throw generated.error;
+      }
+
+      if (hasImageUrl(word.imageUrl) && word.imageUrl !== generated.imageUrl) {
+        void deleteManagedGeneratedImageByUrl(word.imageUrl);
       }
 
       return { imageUrl: generated.imageUrl };

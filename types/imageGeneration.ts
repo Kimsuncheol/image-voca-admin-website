@@ -242,6 +242,10 @@ export function hasImageUrl(value?: string): value is string {
   return typeof value === "string" && value.trim().length > 0;
 }
 
+export function isManagedGeneratedImagePath(path: string): boolean {
+  return path.startsWith("vocabulary-images/");
+}
+
 export function inferGenerateImageErrorCode(
   error: unknown,
   fallback: GenerateImageErrorCode = "INTERNAL_ERROR",

@@ -27,9 +27,7 @@ export async function generateImagesForUploadWords(
     hasImageUrl(word.imageUrl) ? word : { ...word, imageUrl: "" },
   );
   const failures: GenerateImagesFailure[] = [];
-  const indexesToGenerate = output
-    .map((word, index) => (hasImageUrl(word.imageUrl) ? null : index))
-    .filter((index): index is number => index !== null);
+  const indexesToGenerate = output.map((_, index) => index);
 
   let cursor = 0;
   const workerCount = Math.max(1, Math.min(concurrency, indexesToGenerate.length));
@@ -67,7 +65,10 @@ export async function generateImagesForUploadWords(
             code: generatedError.code,
             error: generatedError.error,
           });
-          output[index] = { ...word, imageUrl: "" };
+          output[index] = {
+            ...word,
+            imageUrl: hasImageUrl(word.imageUrl) ? word.imageUrl : "",
+          };
         }
       }
     }),

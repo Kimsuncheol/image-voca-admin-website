@@ -15,6 +15,7 @@ import {
   createGenerateImageError,
   extractInlineImagePart,
   inferGenerateImageErrorCode,
+  isManagedGeneratedImagePath,
   type GenerateImageErrorResponse,
   type ImageGenerationCourseId,
 } from "@/types/imageGeneration";
@@ -82,6 +83,24 @@ function getStorageBucketName(): string {
   return bucketName;
 }
 
+function tryExtractManagedGeneratedImagePath(imageUrl: string): string | null {
+  try {
+    const parsedUrl = new URL(imageUrl);
+    if (parsedUrl.hostname !== "firebasestorage.googleapis.com") return null;
+
+    const segments = parsedUrl.pathname.split("/");
+    const objectIndex = segments.indexOf("o");
+    if (objectIndex === -1) return null;
+
+    const encodedPath = segments.slice(objectIndex + 1).join("/");
+    const storagePath = decodeURIComponent(encodedPath);
+
+    return isManagedGeneratedImagePath(storagePath) ? storagePath : null;
+  } catch {
+    return null;
+  }
+}
+
 export async function generateStoredImage({
   courseId,
   word,
@@ -137,5 +156,21 @@ export async function generateStoredImage({
       ok: false,
       error: createGenerateImageError(inferGenerateImageErrorCode(error)),
     };
+  }
+}
+
+export async function deleteManagedGeneratedImageByUrl(
+  imageUrl: string,
+): Promise<void> {
+  const storagePath = tryExtractManagedGeneratedImagePath(imageUrl);
+  if (!storagePath) return;
+
+  try {
+    await getStorage()
+      .bucket(getStorageBucketName())
+      .file(storagePath)
+      .delete({ ignoreNotFound: true });
+  } catch (error) {
+    console.error("[image-generation] Failed to delete old image:", error);
   }
 }

@@ -3,22 +3,19 @@ import test from "node:test";
 
 import { generateImagesForUploadWords } from "./generateImages.ts";
 
-test("generateImagesForUploadWords preserves order and partial failures", async () => {
+test("generateImagesForUploadWords replaces existing images on success", async () => {
   const result = await generateImagesForUploadWords(
     [
       { word: "abandon", meaning: "to leave behind" },
-      { word: "portable", meaning: "easy to carry" },
-      { word: "brief", meaning: "short", imageUrl: "https://example.com/brief.png" },
+      {
+        word: "brief",
+        meaning: "short",
+        imageUrl: "https://example.com/brief-old.png",
+      },
     ],
-    async (word) => {
-      if (word.word === "portable") {
-        throw new Error("generation failed");
-      }
-
-      return {
-        imageUrl: `https://example.com/${word.word}.png`,
-      };
-    },
+    async (word) => ({
+      imageUrl: `https://example.com/${word.word}-new.png`,
+    }),
     2,
   );
 
@@ -26,21 +23,54 @@ test("generateImagesForUploadWords preserves order and partial failures", async 
     {
       word: "abandon",
       meaning: "to leave behind",
-      imageUrl: "https://example.com/abandon.png",
+      imageUrl: "https://example.com/abandon-new.png",
+    },
+    {
+      word: "brief",
+      meaning: "short",
+      imageUrl: "https://example.com/brief-new.png",
+    },
+  ]);
+  assert.deepEqual(result.failures, []);
+});
+
+test("generateImagesForUploadWords preserves old image on replacement failure", async () => {
+  const result = await generateImagesForUploadWords(
+    [
+      {
+        word: "brief",
+        meaning: "short",
+        imageUrl: "https://example.com/brief-old.png",
+      },
+      { word: "portable", meaning: "easy to carry" },
+    ],
+    async () => {
+      throw new Error("generation failed");
+    },
+    2,
+  );
+
+  assert.deepEqual(result.words, [
+    {
+      word: "brief",
+      meaning: "short",
+      imageUrl: "https://example.com/brief-old.png",
     },
     {
       word: "portable",
       meaning: "easy to carry",
       imageUrl: "",
     },
-    {
-      word: "brief",
-      meaning: "short",
-      imageUrl: "https://example.com/brief.png",
-    },
   ]);
 
   assert.deepEqual(result.failures, [
+    {
+      index: 0,
+      word: "brief",
+      meaning: "short",
+      code: "INTERNAL_ERROR",
+      error: "Image generation failed.",
+    },
     {
       index: 1,
       word: "portable",
