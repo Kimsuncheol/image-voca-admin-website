@@ -395,6 +395,14 @@ export default function AddVocaPage() {
             if (resp.ok) {
               const result = await resp.json();
               words = result.words;
+              console.log(
+                `[Enrich] ${item.dayName}`,
+                (words as StandardWordInput[]).map((w) => ({
+                  word: w.word,
+                  example: w.example,
+                  translation: w.translation,
+                })),
+              );
             }
           } catch (e) {
             console.error("[Enrich] Failed (non-fatal):", e);
