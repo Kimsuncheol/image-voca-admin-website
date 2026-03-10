@@ -82,6 +82,7 @@ import {
   buildDerivativeAwareWordsForUpload,
   type DerivativeSelectionMap,
 } from "@/services/vocaSaveService";
+import { prepareStandardWordsForUpload } from "@/services/standardWordUpload";
 
 // ── Feature components ────────────────────────────────────────────────
 import CourseSelector from "@/components/add-voca/CourseSelector";
@@ -386,6 +387,11 @@ export default function AddVocaPage() {
           } catch (e) {
             console.error("[Enrich] Failed (non-fatal):", e);
           }
+
+          words = prepareStandardWordsForUpload(
+            words as StandardWordInput[],
+            selectedCourse,
+          );
         }
 
         processedMap.set(item.id, words);

@@ -6,6 +6,7 @@ export const standardWordSchema = z.object({
   pronunciation: z.string().optional().default(''),
   example: z.string().optional().default(''),
   translation: z.string().optional().default(''),
+  imageUrl: z.string().optional(),
 });
 
 export const collocationWordSchema = z.object({

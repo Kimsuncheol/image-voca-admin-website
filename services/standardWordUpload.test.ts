@@ -1,0 +1,104 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+
+import type { StandardWordInput } from "@/lib/schemas/vocaSchemas";
+
+import {
+  prepareStandardWordsForUpload,
+  shouldIncludeImageUrl,
+} from "./standardWordUpload";
+
+const baseWords: StandardWordInput[] = [
+  {
+    word: "abandon",
+    meaning: "to leave behind",
+    pronunciation: "",
+    example: "",
+    translation: "",
+  },
+  {
+    word: "portable",
+    meaning: "easy to carry",
+    pronunciation: "",
+    example: "",
+    translation: "",
+  },
+];
+
+test("exam courses include imageUrl", () => {
+  assert.equal(shouldIncludeImageUrl("CSAT"), true);
+  assert.equal(shouldIncludeImageUrl("IELTS"), true);
+  assert.equal(shouldIncludeImageUrl("TOEFL"), true);
+  assert.equal(shouldIncludeImageUrl("TOEIC"), true);
+});
+
+test("non-exam courses do not include imageUrl", () => {
+  assert.equal(shouldIncludeImageUrl("COLLOCATIONS"), false);
+  assert.equal(shouldIncludeImageUrl("FAMOUS_QUOTE"), false);
+  assert.equal(shouldIncludeImageUrl(""), false);
+});
+
+test("prepareStandardWordsForUpload adds empty imageUrl for exam courses", () => {
+  const result = prepareStandardWordsForUpload(baseWords, "TOEIC");
+
+  assert.deepEqual(result, [
+    {
+      word: "abandon",
+      meaning: "to leave behind",
+      pronunciation: "",
+      example: "",
+      translation: "",
+      imageUrl: "",
+    },
+    {
+      word: "portable",
+      meaning: "easy to carry",
+      pronunciation: "",
+      example: "",
+      translation: "",
+      imageUrl: "",
+    },
+  ]);
+});
+
+test("prepareStandardWordsForUpload preserves derivative-like fields", () => {
+  const derivativeLikeWords = [
+    {
+      word: "portable",
+      meaning: "easy to carry",
+      pronunciation: "",
+      example: "",
+      translation: "",
+      derivativeInfo: {
+        type: "adjective",
+        sourceWords: ["port"],
+        source: "ai",
+      },
+    },
+  ] as unknown as StandardWordInput[];
+
+  const result = prepareStandardWordsForUpload(derivativeLikeWords, "IELTS");
+
+  assert.deepEqual(result, [
+    {
+      word: "portable",
+      meaning: "easy to carry",
+      pronunciation: "",
+      example: "",
+      translation: "",
+      derivativeInfo: {
+        type: "adjective",
+        sourceWords: ["port"],
+        source: "ai",
+      },
+      imageUrl: "",
+    },
+  ]);
+});
+
+test("prepareStandardWordsForUpload leaves non-exam courses unchanged", () => {
+  const result = prepareStandardWordsForUpload(baseWords, "COLLOCATIONS");
+
+  assert.equal(result, baseWords);
+  assert.equal("imageUrl" in result[0], false);
+});

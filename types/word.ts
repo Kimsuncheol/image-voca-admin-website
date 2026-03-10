@@ -10,6 +10,7 @@ export interface StandardWord {
   pronunciation: string;
   example: string;
   translation: string;
+  imageUrl?: string;
   derivatives?: DerivativeBuckets;
   derivativeInfo?: PersistedDerivativeInfo;
 }
