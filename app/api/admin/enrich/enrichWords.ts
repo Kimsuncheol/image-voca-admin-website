@@ -16,6 +16,11 @@ export interface EnrichmentNeeds {
   needsTranslation: boolean;
 }
 
+export interface EnrichmentOptions {
+  generateExample?: boolean;
+  generateTranslation?: boolean;
+}
+
 export type EnrichmentGenerator = (
   word: WordInput,
   needs: EnrichmentNeeds,
@@ -73,11 +78,19 @@ export function mergeWordsWithExisting(
 export async function enrichWords(
   words: WordInput[],
   generateEnrichment: EnrichmentGenerator,
+  options: EnrichmentOptions = {},
   chunkSize = 10,
 ): Promise<WordInput[]> {
+  const generateExample = options.generateExample ?? true;
+  const generateTranslation = options.generateTranslation ?? true;
+
   const enrichOne = async (word: WordInput): Promise<WordInput> => {
-    const needsExample = !hasText(word.example);
-    const needsTranslation = !hasText(word.translation);
+    const needsExample = generateExample && !hasText(word.example);
+    const needsTranslation =
+      generateTranslation &&
+      !hasText(word.translation) &&
+      (hasText(word.example) || needsExample);
+
     if (!needsExample && !needsTranslation) return word;
 
     const generated = await generateEnrichment(word, {
@@ -89,10 +102,14 @@ export async function enrichWords(
       ...word,
       example: hasText(word.example)
         ? word.example
-        : generated.example || '',
+        : !needsExample
+          ? word.example || ''
+          : generated.example || '',
       translation: hasText(word.translation)
         ? word.translation
-        : generated.translation || '',
+        : !needsTranslation
+          ? word.translation || ''
+          : generated.translation || '',
     };
   };
 

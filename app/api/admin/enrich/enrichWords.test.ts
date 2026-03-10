@@ -7,7 +7,7 @@ import {
   mergeWordsWithExisting,
   type PersistedWordFields,
   type WordInput,
-} from './enrichWords';
+} from './enrichWords.ts';
 
 function makeLookup(entries: Array<[string, string, PersistedWordFields]>) {
   return new Map(
@@ -160,7 +160,7 @@ test('unmatched rows fall back to generator and preserve original row on generat
       example: '1. The idea was novel.',
       translation: '1. 그 생각은 참신했다.',
     };
-  }, 1);
+  }, {}, 1);
 
   assert.deepEqual(result, [
     {
@@ -176,4 +176,109 @@ test('unmatched rows fall back to generator and preserve original row on generat
       translation: '',
     },
   ]);
+});
+
+test('can generate only examples when translation generation is disabled', async () => {
+  const words: WordInput[] = [
+    { word: 'novel', meaning: 'new and original', example: '', translation: '' },
+  ];
+
+  let seenNeeds: { needsExample: boolean; needsTranslation: boolean } | null =
+    null;
+
+  const result = await enrichWords(
+    words,
+    async (_word, needs) => {
+      seenNeeds = needs;
+      return {
+        example: '1. The idea was novel.',
+        translation: '1. 그 생각은 참신했다.',
+      };
+    },
+    { generateExample: true, generateTranslation: false },
+  );
+
+  assert.deepEqual(seenNeeds, {
+    needsExample: true,
+    needsTranslation: false,
+  });
+  assert.equal(result[0].example, '1. The idea was novel.');
+  assert.equal(result[0].translation, '');
+});
+
+test('can generate only translations when an example already exists', async () => {
+  const words: WordInput[] = [
+    {
+      word: 'brief',
+      meaning: 'short in duration',
+      example: '1. We had a brief meeting.',
+      translation: '',
+    },
+  ];
+
+  let seenNeeds: { needsExample: boolean; needsTranslation: boolean } | null =
+    null;
+
+  const result = await enrichWords(
+    words,
+    async (_word, needs) => {
+      seenNeeds = needs;
+      return {
+        translation: '1. 우리는 짧은 회의를 했다.',
+      };
+    },
+    { generateExample: false, generateTranslation: true },
+  );
+
+  assert.deepEqual(seenNeeds, {
+    needsExample: false,
+    needsTranslation: true,
+  });
+  assert.equal(result[0].example, '1. We had a brief meeting.');
+  assert.equal(result[0].translation, '1. 우리는 짧은 회의를 했다.');
+});
+
+test('skips translation-only generation when no example exists', async () => {
+  const words: WordInput[] = [
+    { word: 'rare', meaning: 'not common', example: '', translation: '' },
+  ];
+
+  let generatorCalls = 0;
+
+  const result = await enrichWords(
+    words,
+    async () => {
+      generatorCalls += 1;
+      return {
+        translation: '1. 드문.',
+      };
+    },
+    { generateExample: false, generateTranslation: true },
+  );
+
+  assert.equal(generatorCalls, 0);
+  assert.deepEqual(result, words);
+});
+
+test('returns merged words unchanged when both generation flags are disabled', async () => {
+  const words: WordInput[] = [
+    { word: 'apple', meaning: 'fruit', example: '', translation: '' },
+  ];
+
+  let generatorCalls = 0;
+
+  const result = await enrichWords(
+    words,
+    async () => {
+      generatorCalls += 1;
+      return {
+        example: '1. She ate an apple.',
+        translation: '1. 그녀는 사과를 먹었다.',
+      };
+    },
+    { generateExample: false, generateTranslation: false },
+  );
+
+  assert.equal(generatorCalls, 0);
+  assert.deepEqual(result, words);
 });

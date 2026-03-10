@@ -93,6 +93,9 @@ import CourseSelector from "@/components/add-voca/CourseSelector";
 import CsvUploadTab, { type CsvItem } from "@/components/add-voca/CsvUploadTab";
 import DerivativePreviewDialog from "@/components/add-voca/DerivativePreviewDialog";
 // import StickFigureGenerator from "@/components/add-voca/StickFigureGenerator";
+import UploadOptionsModal, {
+  type UploadOptions,
+} from "@/components/add-voca/UploadOptionsModal";
 import UrlUploadTab, { type UrlItem } from "@/components/add-voca/UrlUploadTab";
 import QuoteUploadTab, {
   type QuoteItem,
@@ -109,6 +112,13 @@ type ReadyQueueItem = QueueItem & { data: NonNullable<QueueItem["data"]> };
 type ReadyStandardQueueItem = StandardQueueItem & {
   data: { words: StandardWordInput[] };
 };
+const createDefaultUploadOptions = (
+  imageGenerationSupported: boolean,
+): UploadOptions => ({
+  images: imageGenerationSupported,
+  examples: true,
+  translations: true,
+});
 
 /**
  * Type guard — returns true when `item` originated from a CSV file upload.
@@ -150,6 +160,10 @@ export default function AddVocaPage() {
   });
   const [progressDone, setProgressDone] = useState(false);
   const [statusText, setStatusText] = useState("");
+  const [uploadOptionsOpen, setUploadOptionsOpen] = useState(false);
+  const [uploadOptions, setUploadOptions] = useState<UploadOptions>(
+    createDefaultUploadOptions(true),
+  );
   const [derivativePreviewOpen, setDerivativePreviewOpen] = useState(false);
   const [derivativePreviewLoading, setDerivativePreviewLoading] =
     useState(false);
@@ -170,6 +184,9 @@ export default function AddVocaPage() {
   // Prevents re-entrant calls to handleUpload while an upload is in progress
   const uploadingRef = useRef(false);
   const pendingDerivativeItemsRef = useRef<ReadyStandardQueueItem[]>([]);
+  const pendingUploadOptionsRef = useRef<UploadOptions>(
+    createDefaultUploadOptions(true),
+  );
 
   // ── Browser unload guard ───────────────────────────────────────────
   // Show a native "Leave site?" prompt when the user tries to refresh or
@@ -233,6 +250,7 @@ export default function AddVocaPage() {
         ? "famousQuote"
         : "standard";
   const isFamousQuote = selectedCourse === "FAMOUS_QUOTE";
+  const imageGenerationSupported = shouldIncludeImageUrl(selectedCourse);
   // const showImageGenerator = shouldIncludeImageUrl(selectedCourse);
   // const imageGenerationCourseId = isSupportedImageGenerationCourseId(
   //   selectedCourse,
@@ -308,7 +326,10 @@ export default function AddVocaPage() {
    *   POST /api/admin/batch-upload in one request.
    *   Results are written back into progressItems individually.
    */
-  const runUpload = async (itemsToUpload: QueueItem[]) => {
+  const runUpload = async (
+    itemsToUpload: QueueItem[],
+    options: UploadOptions,
+  ) => {
     if (!selectedCourse || itemsToUpload.length === 0 || uploadingRef.current)
       return;
 
@@ -382,33 +403,38 @@ export default function AddVocaPage() {
             }),
           );
 
-          try {
-            const resp = await fetch("/api/admin/enrich", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                words,
-                coursePath: course.path,
-                dayName: item.dayName,
-              }),
-            });
-            if (resp.ok) {
-              const result = await resp.json();
-              words = result.words;
-              console.log(
-                `[Enrich] ${item.dayName}`,
-                (words as StandardWordInput[]).map((w) => ({
-                  word: w.word,
-                  example: w.example,
-                  translation: w.translation,
-                })),
-              );
+          if (options.examples || options.translations) {
+            setStatusText(t("addVoca.statusEnrich"));
+            try {
+              const resp = await fetch("/api/admin/enrich", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  words,
+                  coursePath: course.path,
+                  dayName: item.dayName,
+                  generateExample: options.examples,
+                  generateTranslation: options.translations,
+                }),
+              });
+              if (resp.ok) {
+                const result = await resp.json();
+                words = result.words;
+                console.log(
+                  `[Enrich] ${item.dayName}`,
+                  (words as StandardWordInput[]).map((w) => ({
+                    word: w.word,
+                    example: w.example,
+                    translation: w.translation,
+                  })),
+                );
+              }
+            } catch (e) {
+              console.error("[Enrich] Failed (non-fatal):", e);
             }
-          } catch (e) {
-            console.error("[Enrich] Failed (non-fatal):", e);
           }
 
-          if (shouldIncludeImageUrl(selectedCourse)) {
+          if (options.images && imageGenerationSupported) {
             setStatusText(t("addVoca.statusImage"));
             try {
               const imageResp = await fetch("/api/admin/generate-images", {
@@ -563,31 +589,30 @@ export default function AddVocaPage() {
   ) => {
     const pendingItems = pendingDerivativeItemsRef.current;
     const previewItems = derivativePreviewItems;
+    const options = pendingUploadOptionsRef.current;
     closeDerivativePreview();
     const expandedItems = buildDerivativeAwareWordsForUpload(
       pendingItems,
       previewItems,
       selections,
     );
-    await runUpload(expandedItems);
+    await runUpload(expandedItems, options);
   };
 
-  const handleUpload = async () => {
-    if (!selectedCourse || readyItems.length === 0 || uploadingRef.current)
-      return;
-
+  const startStandardUpload = async (options: UploadOptions) => {
     const derivativeEligible =
       schemaType === "standard" &&
       (tabIndex === 0 || tabIndex === 1) &&
       supportsDerivativeCourse(selectedCourse);
 
     if (!derivativeEligible) {
-      await runUpload(readyItems);
+      await runUpload(readyItems, options);
       return;
     }
 
     const derivativeItems = readyItems as ReadyStandardQueueItem[];
     pendingDerivativeItemsRef.current = derivativeItems;
+    pendingUploadOptionsRef.current = options;
     setDerivativePreviewOpen(true);
     setDerivativePreviewLoading(true);
     setDerivativePreviewItems([]);
@@ -619,7 +644,7 @@ export default function AddVocaPage() {
       if (!hasCandidates) {
         setDerivativePreviewLoading(false);
         closeDerivativePreview();
-        await runUpload(derivativeItems);
+        await runUpload(derivativeItems, options);
         return;
       }
 
@@ -629,8 +654,36 @@ export default function AddVocaPage() {
       console.error("[add-voca] Derivative preview failed:", error);
       setDerivativePreviewLoading(false);
       closeDerivativePreview();
-      await runUpload(derivativeItems);
+      await runUpload(derivativeItems, options);
     }
+  };
+
+  const handleUploadOptionsConfirm = async (options: UploadOptions) => {
+    setUploadOptions(options);
+    setUploadOptionsOpen(false);
+    await startStandardUpload(options);
+  };
+
+  const handleUpload = async () => {
+    if (!selectedCourse || readyItems.length === 0 || uploadingRef.current)
+      return;
+
+    const isStandardUploadFlow =
+      schemaType === "standard" && (tabIndex === 0 || tabIndex === 1);
+
+    if (isStandardUploadFlow) {
+      const defaultOptions = createDefaultUploadOptions(
+        imageGenerationSupported,
+      );
+      setUploadOptions(defaultOptions);
+      setUploadOptionsOpen(true);
+      return;
+    }
+
+    await runUpload(
+      readyItems,
+      createDefaultUploadOptions(imageGenerationSupported),
+    );
   };
 
   // ── Event handlers ─────────────────────────────────────────────────
@@ -805,6 +858,14 @@ export default function AddVocaPage() {
         error={derivativePreviewError}
         onClose={closeDerivativePreview}
         onConfirm={handleDerivativePreviewConfirm}
+      />
+
+      <UploadOptionsModal
+        open={uploadOptionsOpen}
+        selectedOptions={uploadOptions}
+        imageGenerationSupported={imageGenerationSupported}
+        onClose={() => setUploadOptionsOpen(false)}
+        onConfirm={handleUploadOptionsConfirm}
       />
 
       {/* ── Overwrite confirmation dialog (FR-5) ──────────────────────── */}
