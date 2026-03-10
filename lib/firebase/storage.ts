@@ -1,4 +1,4 @@
-import { getStorage, ref, getMetadata, uploadBytes } from 'firebase/storage';
+import { getStorage, ref, getMetadata, getDownloadURL, uploadBytes } from 'firebase/storage';
 import app from '@/lib/firebase/config';
 
 export const storage = getStorage(app);
@@ -31,4 +31,16 @@ export async function uploadCsvBackup(
 ): Promise<void> {
   const csvRef = ref(storage, `csv/${courseId}/${dayName}.csv`);
   await uploadBytes(csvRef, file);
+}
+
+export async function uploadWordImage(
+  file: File,
+  courseId: string,
+  dayId: string,
+  wordId: string,
+): Promise<string> {
+  const ext = file.name.split('.').pop() ?? 'jpg';
+  const imageRef = ref(storage, `word-images/${courseId}/${dayId}/${wordId}.${ext}`);
+  await uploadBytes(imageRef, file);
+  return getDownloadURL(imageRef);
 }

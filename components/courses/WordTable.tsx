@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Table from "@mui/material/Table";
 import TableBody from "@mui/material/TableBody";
 import TableCell from "@mui/material/TableCell";
@@ -8,10 +9,13 @@ import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import Paper from "@mui/material/Paper";
 import Box from "@mui/material/Box";
+import IconButton from "@mui/material/IconButton";
 import Typography from "@mui/material/Typography";
+import AddPhotoAlternateIcon from "@mui/icons-material/AddPhotoAlternate";
 import { useTranslation } from "react-i18next";
-import type { Word } from "@/types/word";
+import type { Word, StandardWord } from "@/types/word";
 import { isCollocationWord, isFamousQuoteWord } from "@/types/word";
+import WordImageModal from "./WordImageModal";
 
 // Detects "Name: text. Name: text" dialogue formatting.
 // Supports plain names (Layne:) and numbered names (Neighbor 1:).
@@ -172,12 +176,28 @@ interface WordTableProps {
   words: Word[];
   isCollocation: boolean;
   isFamousQuote?: boolean;
+  showImageUrl?: boolean;
+  courseId?: string;
+  coursePath?: string;
+  dayId?: string;
+  onWordImageUpdated?: (wordId: string, imageUrl: string) => void;
 }
 
-export default function WordTable({ words, isCollocation, isFamousQuote }: WordTableProps) {
+export default function WordTable({
+  words,
+  isCollocation,
+  isFamousQuote,
+  showImageUrl,
+  courseId,
+  coursePath,
+  dayId,
+  onWordImageUpdated,
+}: WordTableProps) {
   const { t } = useTranslation();
+  const [imageModalWord, setImageModalWord] = useState<StandardWord | null>(null);
 
   return (
+    <>
     <TableContainer component={Paper}>
       <Table>
         <TableHead>
@@ -203,6 +223,7 @@ export default function WordTable({ words, isCollocation, isFamousQuote }: WordT
                 <TableCell>{t("courses.pronunciation")}</TableCell>
                 <TableCell>{t("courses.example")}</TableCell>
                 <TableCell>{t("courses.translation")}</TableCell>
+                {showImageUrl && <TableCell>{t("courses.image", "Image")}</TableCell>}
               </>
             )}
           </TableRow>
@@ -231,6 +252,22 @@ export default function WordTable({ words, isCollocation, isFamousQuote }: WordT
                   <TableCell>{word.pronunciation}</TableCell>
                   <ExampleCell text={word.example} />
                   <ExampleCell text={word.translation} />
+                  {showImageUrl && (
+                    <TableCell>
+                      <IconButton size="small" onClick={() => setImageModalWord(word)} sx={{ p: 0 }}>
+                        {word.imageUrl ? (
+                          <Box
+                            component="img"
+                            src={word.imageUrl}
+                            alt={word.word}
+                            sx={{ width: 64, height: 64, objectFit: "cover", borderRadius: 1 }}
+                          />
+                        ) : (
+                          <AddPhotoAlternateIcon fontSize="small" />
+                        )}
+                      </IconButton>
+                    </TableCell>
+                  )}
                 </>
               )}
             </TableRow>
@@ -238,5 +275,21 @@ export default function WordTable({ words, isCollocation, isFamousQuote }: WordT
         </TableBody>
       </Table>
     </TableContainer>
+
+      {imageModalWord && courseId && coursePath && dayId && (
+        <WordImageModal
+          open={true}
+          word={imageModalWord}
+          courseId={courseId}
+          coursePath={coursePath}
+          dayId={dayId}
+          onClose={() => setImageModalWord(null)}
+          onImageSaved={(wordId, imageUrl) => {
+            onWordImageUpdated?.(wordId, imageUrl);
+            setImageModalWord(null);
+          }}
+        />
+      )}
+    </>
   );
 }

@@ -40,6 +40,7 @@ import PageLayout from "@/components/layout/PageLayout";
 
 // ── Course-domain types & data helpers ────────────────────────────────
 import { getCourseById } from "@/types/course";
+import { isSupportedImageGenerationCourseId } from "@/types/imageGeneration";
 import type { Word } from "@/types/word";
 import { getDayWords } from "@/lib/firebase/firestore";
 
@@ -138,6 +139,15 @@ export default function DayWordsPage({
           words={words}
           isCollocation={isCollocation}
           isFamousQuote={isFamousQuote}
+          showImageUrl={isSupportedImageGenerationCourseId(courseId)}
+          courseId={courseId}
+          coursePath={course.path}
+          dayId={dayId}
+          onWordImageUpdated={(wordId, imageUrl) =>
+            setWords((prev) =>
+              prev.map((w) => (w.id === wordId ? { ...w, imageUrl } : w)),
+            )
+          }
         />
       )}
     </PageLayout>

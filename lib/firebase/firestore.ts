@@ -6,6 +6,7 @@ import {
   query,
   limit,
   setDoc,
+  updateDoc,
   writeBatch,
 } from 'firebase/firestore';
 import { db } from './config';
@@ -76,6 +77,16 @@ export async function getDayWords(coursePath: string, dayId: string): Promise<Wo
     id: d.id,
     ...d.data(),
   })) as Word[];
+}
+
+export async function updateWordImageUrl(
+  coursePath: string,
+  dayId: string,
+  wordId: string,
+  imageUrl: string,
+): Promise<void> {
+  const wordRef = doc(collection(doc(db, coursePath), dayId), wordId);
+  await updateDoc(wordRef, { imageUrl });
 }
 
 /**
