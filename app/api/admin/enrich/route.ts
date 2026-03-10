@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth } from '@/lib/firebase/admin';
-import OpenAI from 'openai';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 
 interface WordInput {
   word: string;
@@ -13,7 +13,7 @@ interface WordInput {
 /**
  * POST /api/admin/enrich
  * Accepts { words: WordInput[] }, returns the same array with missing
- * `example` and `translation` fields filled in via OpenAI.
+ * `example` and `translation` fields filled in via Gemini.
  * Failures are silent per-word — callers receive the original word on error.
  */
 export async function POST(request: NextRequest) {
@@ -28,8 +28,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const apiKey = process.env.OPENAI_API_KEY;
-  console.log(process.env.OPENAI_API_KEY);
+  const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
     // Return words unchanged when enrichment is not configured
     const { words } = await request.json() as { words: WordInput[] };
@@ -43,7 +42,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
   }
 
-  const openai = new OpenAI({ apiKey });
+  const genAI = new GoogleGenerativeAI(apiKey);
+  const geminiModel = genAI.getGenerativeModel({
+    model: 'gemini-3-flash-preview',
+    generationConfig: { responseMimeType: 'application/json', maxOutputTokens: 1000 },
+  });
 
   const enrichOne = async (w: WordInput): Promise<WordInput> => {
     const needsExample = !w.example;
@@ -52,29 +55,32 @@ export async function POST(request: NextRequest) {
 
     const parts: string[] = [];
     if (needsExample)
-      parts.push('- Write one short, natural English example sentence using the word.');
+      parts.push('- Write 2 or 3 short, natural English example sentences using the word. Format them as a numbered list separated by line breaks (\\n).');
     if (needsTranslation)
-      parts.push('- Provide the Korean translation of the meaning.');
+      parts.push('- Provide the Korean translations corresponding to the examples. Format them as a numbered list separated by line breaks (\\n).');
 
     const prompt =
       `English word: "${w.word}", meaning: "${w.meaning}".\n` +
       parts.join('\n') +
-      '\nRespond ONLY as JSON: {"example":"...","translation":"..."}';
+      '\nRespond ONLY as JSON: {"example":"1. ...\\n2. ...","translation":"1. ...\\n2. ..."}\nEnsure line breaks are escaped as \\n in the JSON string.';
 
-    const completion = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
-      messages: [{ role: 'user', content: prompt }],
-      response_format: { type: 'json_object' },
-      max_tokens: 150,
-    });
-
-    const raw = completion.choices[0]?.message?.content ?? '{}';
+    const result = await geminiModel.generateContent(prompt);
+    const raw = result.response.text();
     let parsed: { example?: string; translation?: string } = {};
-    try {
-      parsed = JSON.parse(raw);
-    } catch {
-      /* keep original */
+    
+    const startIdx = raw.indexOf('{');
+    const endIdx = raw.lastIndexOf('}');
+    if (startIdx !== -1 && endIdx !== -1 && endIdx >= startIdx) {
+      const jsonStr = raw.substring(startIdx, endIdx + 1);
+      try {
+        parsed = JSON.parse(jsonStr);
+      } catch (err) {
+        /* keep original */
+        console.error(`[Enrich Error] Failed to parse:`, jsonStr);
+      }
     }
+
+    console.log(`[Enrich] "${w.word}":`, parsed);
 
     return {
       ...w,
@@ -83,7 +89,7 @@ export async function POST(request: NextRequest) {
     };
   };
 
-  // Process words in chunks of 10 to avoid hitting OpenAI rate limits
+  // Process words in chunks of 10 to avoid hitting rate limits
   const CHUNK = 10;
   const allSettled: PromiseSettledResult<WordInput>[] = [];
   for (let i = 0; i < words.length; i += CHUNK) {

@@ -7,9 +7,9 @@ import {
   normalizeVocabularyWord,
 } from "@/lib/word-derivation/shared";
 import {
-  getAdjectiveCandidatesFromOpenAI,
-  getDerivativeMeaningFromOpenAI,
-} from "@/services/openaiDerivativeService";
+  getAdjectiveCandidatesFromAI,
+  getDerivativeMeaningFromAI,
+} from "@/services/AIDerivativeService";
 import {
   getAdjectiveDefinitionFromWordnik,
   getRelatedDerivativeWordsFromWordnik,
@@ -57,7 +57,7 @@ async function buildCandidate(
   let meaning = definition?.text ?? "";
 
   if (!meaning) {
-    meaning = await getDerivativeMeaningFromOpenAI(
+    meaning = await getDerivativeMeaningFromAI(
       baseWord,
       normalizedCandidate,
       baseMeaning,
@@ -159,7 +159,7 @@ async function discoverForWord(
 
   if (candidateMap.size === 0) {
     try {
-      const openAiCandidates = await getAdjectiveCandidatesFromOpenAI(
+      const openAiCandidates = await getAdjectiveCandidatesFromAI(
         normalizedBaseWord,
         baseMeaning,
       );
@@ -172,12 +172,12 @@ async function discoverForWord(
         normalizedBaseWord,
         baseMeaning,
         filteredOpenAiCandidates,
-        "openai",
+        "ai",
       );
       mergeCandidates(candidateMap, hydratedOpenAiCandidates);
     } catch (error) {
-      console.error("[derivatives] OpenAI derivative fallback failed:", error);
-      errors.push("OpenAI fallback failed");
+      console.error("[derivatives] AI derivative fallback failed:", error);
+      errors.push("AI fallback failed");
     }
   }
 
