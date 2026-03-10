@@ -66,7 +66,7 @@ import type {
   DerivativePreviewItemResult,
   DerivativePreviewResponse,
 } from "@/types/vocabulary";
-import { isSupportedImageGenerationCourseId } from "@/types/imageGeneration";
+// import { isSupportedImageGenerationCourseId } from "@/types/imageGeneration";
 
 // ── Navigation guard ──────────────────────────────────────────────────
 import {
@@ -92,7 +92,7 @@ import {
 import CourseSelector from "@/components/add-voca/CourseSelector";
 import CsvUploadTab, { type CsvItem } from "@/components/add-voca/CsvUploadTab";
 import DerivativePreviewDialog from "@/components/add-voca/DerivativePreviewDialog";
-import StickFigureGenerator from "@/components/add-voca/StickFigureGenerator";
+// import StickFigureGenerator from "@/components/add-voca/StickFigureGenerator";
 import UrlUploadTab, { type UrlItem } from "@/components/add-voca/UrlUploadTab";
 import QuoteUploadTab, {
   type QuoteItem,
@@ -233,12 +233,12 @@ export default function AddVocaPage() {
         ? "famousQuote"
         : "standard";
   const isFamousQuote = selectedCourse === "FAMOUS_QUOTE";
-  const showImageGenerator = shouldIncludeImageUrl(selectedCourse);
-  const imageGenerationCourseId = isSupportedImageGenerationCourseId(
-    selectedCourse,
-  )
-    ? selectedCourse
-    : null;
+  // const showImageGenerator = shouldIncludeImageUrl(selectedCourse);
+  // const imageGenerationCourseId = isSupportedImageGenerationCourseId(
+  //   selectedCourse,
+  // )
+  //   ? selectedCourse
+  //   : null;
 
   // Items visible in the currently selected tab
   const currentItems =
@@ -253,9 +253,8 @@ export default function AddVocaPage() {
 
   // Only items that have both a day name and at least one parsed word are
   // eligible for upload — the rest are silently excluded.
-  const readyItems = currentItems.filter(
-    (item): item is ReadyQueueItem =>
-      Boolean(item.dayName && item.data && item.data.words.length > 0),
+  const readyItems = currentItems.filter((item): item is ReadyQueueItem =>
+    Boolean(item.dayName && item.data && item.data.words.length > 0),
   );
 
   // ── Overwrite dialog helpers ───────────────────────────────────────
@@ -321,7 +320,9 @@ export default function AddVocaPage() {
     const existsFlags = course.flat
       ? itemsToUpload.map(() => false)
       : await Promise.all(
-          itemsToUpload.map((item) => checkDayExists(course.path, item.dayName)),
+          itemsToUpload.map((item) =>
+            checkDayExists(course.path, item.dayName),
+          ),
         );
     const existingDays: string[] = itemsToUpload
       .filter((_, i) => existsFlags[i])
@@ -685,9 +686,9 @@ export default function AddVocaPage() {
        */}
       <CourseSelector value={selectedCourse} onChange={handleCourseChange} />
 
-      {showImageGenerator && imageGenerationCourseId && (
+      {/* showImageGenerator && imageGenerationCourseId && (
         <StickFigureGenerator courseId={imageGenerationCourseId} />
-      )}
+      ) */}
 
       {/* Course-switch notice: shown when items were cleared by a course change */}
       {courseSwitchNotice && (
@@ -721,7 +722,11 @@ export default function AddVocaPage() {
           onItemsChange={setCsvItems}
           schemaType={schemaType}
           hideDayInput={isFamousQuote}
-          coursePath={isFamousQuote ? (getCourseById(selectedCourse)?.path ?? '') : undefined}
+          coursePath={
+            isFamousQuote
+              ? (getCourseById(selectedCourse)?.path ?? "")
+              : undefined
+          }
         />
       )}
       {tabIndex === 1 && (
