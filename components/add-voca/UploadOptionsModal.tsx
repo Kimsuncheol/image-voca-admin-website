@@ -12,19 +12,13 @@ import FormGroup from "@mui/material/FormGroup";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import { useTranslation } from "react-i18next";
-
-export interface UploadOptions {
-  images: boolean;
-  examples: boolean;
-  translations: boolean;
-}
+import type { UploadOptions } from "@/lib/addVocaUploadOptions";
 
 interface UploadOptionsModalProps {
   open: boolean;
   selectedOptions: UploadOptions;
-  imageGenerationSupported: boolean;
-  imageGenerationEnabled: boolean;
-  enrichGenerationEnabled: boolean;
+  isImageGenerationEnabled: boolean;
+  isExampleAndTranslationGenerationEnabled: boolean;
   onClose: () => void;
   onConfirm: (options: UploadOptions) => void;
 }
@@ -32,9 +26,8 @@ interface UploadOptionsModalProps {
 export default function UploadOptionsModal({
   open,
   selectedOptions,
-  imageGenerationSupported,
-  imageGenerationEnabled,
-  enrichGenerationEnabled,
+  isImageGenerationEnabled,
+  isExampleAndTranslationGenerationEnabled,
   onClose,
   onConfirm,
 }: UploadOptionsModalProps) {
@@ -44,11 +37,16 @@ export default function UploadOptionsModal({
   const toggle = (key: keyof UploadOptions) =>
     setDraftOptions((prev) => ({
       ...prev,
-      [key]:
-        key === "images"
-          ? imageGenerationSupported && imageGenerationEnabled && !prev[key]
-          : enrichGenerationEnabled && !prev[key],
+      [key]: !prev[key],
     }));
+
+  const getVisibleOptions = (options: UploadOptions): UploadOptions => ({
+    images: isImageGenerationEnabled ? options.images : false,
+    examples: isExampleAndTranslationGenerationEnabled ? options.examples : false,
+    translations: isExampleAndTranslationGenerationEnabled
+      ? options.translations
+      : false,
+  });
 
   return (
     <Dialog
@@ -56,19 +54,7 @@ export default function UploadOptionsModal({
       onClose={onClose}
       maxWidth="sm"
       fullWidth
-      onTransitionEnter={() =>
-        setDraftOptions({
-          ...selectedOptions,
-          images:
-            imageGenerationSupported && imageGenerationEnabled
-              ? selectedOptions.images
-              : false,
-          examples: enrichGenerationEnabled ? selectedOptions.examples : false,
-          translations: enrichGenerationEnabled
-            ? selectedOptions.translations
-            : false,
-        })
-      }
+      onTransitionEnter={() => setDraftOptions(getVisibleOptions(selectedOptions))}
       slotProps={{
         paper: {
           sx: {
@@ -92,58 +78,40 @@ export default function UploadOptionsModal({
           </Typography>
 
           <FormGroup>
-            <FormControlLabel
-              control={
-                <Checkbox
-                  checked={draftOptions.images}
-                  onChange={() => toggle("images")}
-                  disabled={!imageGenerationSupported || !imageGenerationEnabled}
-                />
-              }
-              label={t("addVoca.generateImages", "Generate images")}
-            />
-            <FormControlLabel
-              control={
-                <Checkbox
-                  checked={draftOptions.examples}
-                  onChange={() => toggle("examples")}
-                  disabled={!enrichGenerationEnabled}
-                />
-              }
-              label={t("addVoca.generateExamples", "Generate examples")}
-            />
-            <FormControlLabel
-              control={
-                <Checkbox
-                  checked={draftOptions.translations}
-                  onChange={() => toggle("translations")}
-                  disabled={!enrichGenerationEnabled}
-                />
-              }
-              label={t("addVoca.generateTranslations", "Generate translations")}
-            />
+            {isImageGenerationEnabled && (
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={draftOptions.images}
+                    onChange={() => toggle("images")}
+                  />
+                }
+                label={t("addVoca.generateImages", "Generate images")}
+              />
+            )}
+            {isExampleAndTranslationGenerationEnabled && (
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={draftOptions.examples}
+                    onChange={() => toggle("examples")}
+                  />
+                }
+                label={t("addVoca.generateExamples", "Generate examples")}
+              />
+            )}
+            {isExampleAndTranslationGenerationEnabled && (
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={draftOptions.translations}
+                    onChange={() => toggle("translations")}
+                  />
+                }
+                label={t("addVoca.generateTranslations", "Generate translations")}
+              />
+            )}
           </FormGroup>
-
-          {!imageGenerationSupported && (
-            <Typography variant="caption" color="text.secondary">
-              {t(
-                "addVoca.generateImagesUnsupported",
-                "Image generation is only available for CSAT, IELTS, TOEFL, and TOEIC.",
-              )}
-            </Typography>
-          )}
-
-          {imageGenerationSupported && !imageGenerationEnabled && (
-            <Typography variant="caption" color="text.secondary">
-              {t("addVoca.generateImagesDisabled")}
-            </Typography>
-          )}
-
-          {!enrichGenerationEnabled && (
-            <Typography variant="caption" color="text.secondary">
-              {t("addVoca.generateEnrichDisabled")}
-            </Typography>
-          )}
         </Stack>
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 2, pt: 1.5 }}>
@@ -151,7 +119,7 @@ export default function UploadOptionsModal({
           {t("common.cancel")}
         </Button>
         <Button
-          onClick={() => onConfirm(draftOptions)}
+          onClick={() => onConfirm(getVisibleOptions(draftOptions))}
           variant="contained"
           sx={{ borderRadius: 2 }}
         >

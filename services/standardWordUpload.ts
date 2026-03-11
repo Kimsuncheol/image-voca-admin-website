@@ -1,5 +1,5 @@
-import type { StandardWordInput } from "@/lib/schemas/vocaSchemas";
-import type { CourseId } from "@/types/course";
+import type { StandardWordInput } from "../lib/schemas/vocaSchemas.ts";
+import type { CourseId } from "../types/course.ts";
 
 const IMAGE_URL_COURSE_IDS = new Set<CourseId>([
   "CSAT",

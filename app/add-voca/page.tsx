@@ -83,20 +83,19 @@ import {
   buildDerivativeAwareWordsForUpload,
   type DerivativeSelectionMap,
 } from "@/services/vocaSaveService";
-import {
-  prepareStandardWordsForUpload,
-  shouldIncludeImageUrl,
-} from "@/services/standardWordUpload";
+import { prepareStandardWordsForUpload } from "@/services/standardWordUpload";
 import { useAISettings } from "@/lib/hooks/useAISettings";
+import {
+  getStandardUploadOptionState,
+  type UploadOptions,
+} from "@/lib/addVocaUploadOptions";
 
 // ── Feature components ────────────────────────────────────────────────
 import CourseSelector from "@/components/add-voca/CourseSelector";
 import CsvUploadTab, { type CsvItem } from "@/components/add-voca/CsvUploadTab";
 import DerivativePreviewDialog from "@/components/add-voca/DerivativePreviewDialog";
 // import StickFigureGenerator from "@/components/add-voca/StickFigureGenerator";
-import UploadOptionsModal, {
-  type UploadOptions,
-} from "@/components/add-voca/UploadOptionsModal";
+import UploadOptionsModal from "@/components/add-voca/UploadOptionsModal";
 import UrlUploadTab, { type UrlItem } from "@/components/add-voca/UrlUploadTab";
 import QuoteUploadTab, {
   type QuoteItem,
@@ -113,14 +112,6 @@ type ReadyQueueItem = QueueItem & { data: NonNullable<QueueItem["data"]> };
 type ReadyStandardQueueItem = StandardQueueItem & {
   data: { words: StandardWordInput[] };
 };
-const createDefaultUploadOptions = (
-  imageGenerationEnabled: boolean,
-  enrichGenerationEnabled: boolean,
-): UploadOptions => ({
-  images: imageGenerationEnabled,
-  examples: enrichGenerationEnabled,
-  translations: enrichGenerationEnabled,
-});
 
 /**
  * Type guard — returns true when `item` originated from a CSV file upload.
@@ -165,7 +156,7 @@ export default function AddVocaPage() {
   const [statusText, setStatusText] = useState("");
   const [uploadOptionsOpen, setUploadOptionsOpen] = useState(false);
   const [uploadOptions, setUploadOptions] = useState<UploadOptions>(
-    createDefaultUploadOptions(false, false),
+    { images: false, examples: false, translations: false },
   );
   const [derivativePreviewOpen, setDerivativePreviewOpen] = useState(false);
   const [derivativePreviewLoading, setDerivativePreviewLoading] =
@@ -188,7 +179,7 @@ export default function AddVocaPage() {
   const uploadingRef = useRef(false);
   const pendingDerivativeItemsRef = useRef<ReadyStandardQueueItem[]>([]);
   const pendingUploadOptionsRef = useRef<UploadOptions>(
-    createDefaultUploadOptions(false, false),
+    { images: false, examples: false, translations: false },
   );
 
   // ── Browser unload guard ───────────────────────────────────────────
@@ -253,10 +244,16 @@ export default function AddVocaPage() {
         ? "famousQuote"
         : "standard";
   const isFamousQuote = selectedCourse === "FAMOUS_QUOTE";
-  const imageGenerationSupported = shouldIncludeImageUrl(selectedCourse);
-  const imageGenerationEnabled =
-    imageGenerationSupported && aiSettings.imageGenerationEnabled;
-  const enrichGenerationEnabled = aiSettings.enrichGenerationEnabled;
+  const {
+    isImageGenerationEnabled,
+    isExampleAndTranslationGenerationEnabled,
+    shouldShowModal: shouldShowUploadOptionsModal,
+    defaultOptions: defaultUploadOptions,
+  } = getStandardUploadOptionState({
+    selectedCourse,
+    imageGenerationEnabled: aiSettings.imageGenerationEnabled,
+    enrichGenerationEnabled: aiSettings.enrichGenerationEnabled,
+  });
   // const showImageGenerator = shouldIncludeImageUrl(selectedCourse);
   // const imageGenerationCourseId = isSupportedImageGenerationCourseId(
   //   selectedCourse,
@@ -409,7 +406,10 @@ export default function AddVocaPage() {
             }),
           );
 
-          if (enrichGenerationEnabled && (options.examples || options.translations)) {
+          if (
+            isExampleAndTranslationGenerationEnabled &&
+            (options.examples || options.translations)
+          ) {
             setStatusText(t("addVoca.statusEnrich"));
             try {
               const resp = await fetch("/api/admin/enrich", {
@@ -440,7 +440,7 @@ export default function AddVocaPage() {
             }
           }
 
-          if (options.images && imageGenerationEnabled) {
+          if (options.images && isImageGenerationEnabled) {
             setStatusText(t("addVoca.statusImage"));
             try {
               const imageResp = await fetch("/api/admin/generate-images", {
@@ -678,22 +678,18 @@ export default function AddVocaPage() {
       schemaType === "standard" && (tabIndex === 0 || tabIndex === 1);
 
     if (isStandardUploadFlow) {
-      const defaultOptions = createDefaultUploadOptions(
-        imageGenerationEnabled,
-        enrichGenerationEnabled,
-      );
-      setUploadOptions(defaultOptions);
+      setUploadOptions(defaultUploadOptions);
+
+      if (!shouldShowUploadOptionsModal) {
+        await startStandardUpload(defaultUploadOptions);
+        return;
+      }
+
       setUploadOptionsOpen(true);
       return;
     }
 
-    await runUpload(
-      readyItems,
-      createDefaultUploadOptions(
-        imageGenerationEnabled,
-        enrichGenerationEnabled,
-      ),
-    );
+    await runUpload(readyItems, defaultUploadOptions);
   };
 
   // ── Event handlers ─────────────────────────────────────────────────
@@ -873,9 +869,10 @@ export default function AddVocaPage() {
       <UploadOptionsModal
         open={uploadOptionsOpen}
         selectedOptions={uploadOptions}
-        imageGenerationSupported={imageGenerationSupported}
-        imageGenerationEnabled={imageGenerationEnabled}
-        enrichGenerationEnabled={enrichGenerationEnabled}
+        isImageGenerationEnabled={isImageGenerationEnabled}
+        isExampleAndTranslationGenerationEnabled={
+          isExampleAndTranslationGenerationEnabled
+        }
         onClose={() => setUploadOptionsOpen(false)}
         onConfirm={handleUploadOptionsConfirm}
       />

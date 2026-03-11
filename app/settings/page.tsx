@@ -11,7 +11,6 @@ import Radio from "@mui/material/Radio";
 import FormControl from "@mui/material/FormControl";
 import FormLabel from "@mui/material/FormLabel";
 import Switch from "@mui/material/Switch";
-import Button from "@mui/material/Button";
 import Alert from "@mui/material/Alert";
 import Skeleton from "@mui/material/Skeleton";
 import Stack from "@mui/material/Stack";
@@ -25,7 +24,6 @@ export default function SettingsPage() {
   const { t } = useTranslation();
 
   const [settings, setSettings] = useState<AISettings | null>(null);
-  const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   useEffect(() => {
@@ -37,17 +35,14 @@ export default function SettingsPage() {
       });
   }, [t]);
 
-  async function handleSave() {
-    if (!settings) return;
-    setSaving(true);
+  async function handleChange(newSettings: AISettings) {
+    setSettings(newSettings);
     setMessage(null);
     try {
-      await saveAISettings(settings);
+      await saveAISettings(newSettings);
       setMessage({ type: "success", text: t("settings.saveSuccess") });
     } catch {
       setMessage({ type: "error", text: t("settings.saveError") });
-    } finally {
-      setSaving(false);
     }
   }
 
@@ -83,10 +78,7 @@ export default function SettingsPage() {
                     <Switch
                       checked={settings.imageGenerationEnabled}
                       onChange={(_, checked) =>
-                        setSettings({
-                          ...settings,
-                          imageGenerationEnabled: checked,
-                        })
+                        handleChange({ ...settings, imageGenerationEnabled: checked })
                       }
                     />
                   }
@@ -102,10 +94,7 @@ export default function SettingsPage() {
                 <RadioGroup
                   value={settings.imageModel}
                   onChange={(e) =>
-                    setSettings({
-                      ...settings,
-                      imageModel: e.target.value as AISettings["imageModel"],
-                    })
+                    handleChange({ ...settings, imageModel: e.target.value as AISettings["imageModel"] })
                   }
                   aria-label={t("settings.imageGeneration")}
                 >
@@ -146,10 +135,7 @@ export default function SettingsPage() {
                     <Switch
                       checked={settings.enrichGenerationEnabled}
                       onChange={(_, checked) =>
-                        setSettings({
-                          ...settings,
-                          enrichGenerationEnabled: checked,
-                        })
+                        handleChange({ ...settings, enrichGenerationEnabled: checked })
                       }
                     />
                   }
@@ -165,10 +151,7 @@ export default function SettingsPage() {
                 <RadioGroup
                   value={settings.enrichModel}
                   onChange={(e) =>
-                    setSettings({
-                      ...settings,
-                      enrichModel: e.target.value as AISettings["enrichModel"],
-                    })
+                    handleChange({ ...settings, enrichModel: e.target.value as AISettings["enrichModel"] })
                   }
                   aria-label={t("settings.enrichGeneration")}
                 >
@@ -180,14 +163,6 @@ export default function SettingsPage() {
           </CardContent>
         </Card>
 
-        <Button
-          variant="contained"
-          size="large"
-          onClick={handleSave}
-          disabled={settings === null || saving}
-        >
-          {saving ? t("settings.saving") : t("common.save")}
-        </Button>
       </Stack>
     </PageLayout>
   );
