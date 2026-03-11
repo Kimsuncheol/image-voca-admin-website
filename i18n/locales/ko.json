@@ -35,7 +35,7 @@
     "settingsDesc": "생성에 사용할 AI 모델 설정"
   },
   "settings": {
-    "title": "설정",
+    "title": "AI 설정",
     "imageGeneration": "이미지 생성",
     "enrichGeneration": "예문 및 번역 생성",
     "selectModel": "모델 선택",

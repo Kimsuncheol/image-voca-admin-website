@@ -35,7 +35,7 @@
     "settingsDesc": "Configure AI models for generation"
   },
   "settings": {
-    "title": "Settings",
+    "title": "AI settings",
     "imageGeneration": "Image Generation",
     "enrichGeneration": "Example & Translation Generation",
     "selectModel": "Select model",
