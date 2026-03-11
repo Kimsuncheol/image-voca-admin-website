@@ -9,6 +9,7 @@ import {
 } from "@/lib/server/aiFeatureGuards";
 import {
   buildStickFigurePrompt,
+  createGenerateImageError,
   getGenerateImageErrorStatus,
   validateGenerateImageRequestBody,
   type GenerateImageResponse,
