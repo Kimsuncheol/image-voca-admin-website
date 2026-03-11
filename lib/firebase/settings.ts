@@ -1,19 +1,17 @@
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { db } from "./config";
-
-export interface AISettings {
-  imageModel: "nano-banana2" | "gpt-image-1";
-  enrichModel: "gemini" | "chatgpt";
-}
+import { normalizeAISettings, type AISettings } from "@/lib/aiSettings";
 
 const SETTINGS_DOC = doc(db, "settings", "ai");
+
+export type { AISettings } from "@/lib/aiSettings";
 
 export async function getAISettings(): Promise<AISettings> {
   const snap = await getDoc(SETTINGS_DOC);
   if (!snap.exists()) {
-    return { imageModel: "nano-banana2", enrichModel: "gemini" };
+    return normalizeAISettings();
   }
-  return snap.data() as AISettings;
+  return normalizeAISettings(snap.data() as Partial<AISettings>);
 }
 
 export async function saveAISettings(settings: AISettings): Promise<void> {

@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server.js";
 
 import { adminAuth } from "@/lib/firebase/admin";
 import {
@@ -6,6 +6,10 @@ import {
   generateStoredImage,
 } from "@/lib/server/imageGenerationService";
 import { getServerAISettings } from "@/lib/server/aiSettings";
+import {
+  getImageGenerationDisabledResponse,
+  isImageGenerationEnabled,
+} from "@/lib/server/aiFeatureGuards";
 import {
   buildUploadStickFigurePrompt,
   hasImageUrl,
@@ -50,7 +54,13 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Invalid data" }, { status: 400 });
   }
 
-  const { imageModel } = await getServerAISettings();
+  const settings = await getServerAISettings();
+  if (!isImageGenerationEnabled(settings)) {
+    const disabledResponse = getImageGenerationDisabledResponse();
+    return NextResponse.json(disabledResponse.body, {
+      status: disabledResponse.status,
+    });
+  }
 
   const result = await generateImagesForUploadWords(
     body.words,
@@ -63,7 +73,7 @@ export async function POST(request: NextRequest) {
           word: normalizedWord,
           prompt: buildUploadStickFigurePrompt(normalizedWord, normalizedMeaning),
         },
-        imageModel,
+        settings.imageModel,
       );
 
       if (!generated.ok) {

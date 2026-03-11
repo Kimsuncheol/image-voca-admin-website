@@ -87,6 +87,7 @@ import {
   prepareStandardWordsForUpload,
   shouldIncludeImageUrl,
 } from "@/services/standardWordUpload";
+import { useAISettings } from "@/lib/hooks/useAISettings";
 
 // ── Feature components ────────────────────────────────────────────────
 import CourseSelector from "@/components/add-voca/CourseSelector";
@@ -113,11 +114,12 @@ type ReadyStandardQueueItem = StandardQueueItem & {
   data: { words: StandardWordInput[] };
 };
 const createDefaultUploadOptions = (
-  imageGenerationSupported: boolean,
+  imageGenerationEnabled: boolean,
+  enrichGenerationEnabled: boolean,
 ): UploadOptions => ({
-  images: imageGenerationSupported,
-  examples: true,
-  translations: true,
+  images: imageGenerationEnabled,
+  examples: enrichGenerationEnabled,
+  translations: enrichGenerationEnabled,
 });
 
 /**
@@ -135,6 +137,7 @@ function isUrlItem(item: QueueItem): item is UrlItem {
 
 export default function AddVocaPage() {
   const { t } = useTranslation();
+  const { settings: aiSettings } = useAISettings();
 
   // ── Upload-queue state ─────────────────────────────────────────────
   // `tabIndex` selects between the CSV (0) and URL (1) input methods.
@@ -162,7 +165,7 @@ export default function AddVocaPage() {
   const [statusText, setStatusText] = useState("");
   const [uploadOptionsOpen, setUploadOptionsOpen] = useState(false);
   const [uploadOptions, setUploadOptions] = useState<UploadOptions>(
-    createDefaultUploadOptions(true),
+    createDefaultUploadOptions(false, false),
   );
   const [derivativePreviewOpen, setDerivativePreviewOpen] = useState(false);
   const [derivativePreviewLoading, setDerivativePreviewLoading] =
@@ -185,7 +188,7 @@ export default function AddVocaPage() {
   const uploadingRef = useRef(false);
   const pendingDerivativeItemsRef = useRef<ReadyStandardQueueItem[]>([]);
   const pendingUploadOptionsRef = useRef<UploadOptions>(
-    createDefaultUploadOptions(true),
+    createDefaultUploadOptions(false, false),
   );
 
   // ── Browser unload guard ───────────────────────────────────────────
@@ -251,6 +254,9 @@ export default function AddVocaPage() {
         : "standard";
   const isFamousQuote = selectedCourse === "FAMOUS_QUOTE";
   const imageGenerationSupported = shouldIncludeImageUrl(selectedCourse);
+  const imageGenerationEnabled =
+    imageGenerationSupported && aiSettings.imageGenerationEnabled;
+  const enrichGenerationEnabled = aiSettings.enrichGenerationEnabled;
   // const showImageGenerator = shouldIncludeImageUrl(selectedCourse);
   // const imageGenerationCourseId = isSupportedImageGenerationCourseId(
   //   selectedCourse,
@@ -403,7 +409,7 @@ export default function AddVocaPage() {
             }),
           );
 
-          if (options.examples || options.translations) {
+          if (enrichGenerationEnabled && (options.examples || options.translations)) {
             setStatusText(t("addVoca.statusEnrich"));
             try {
               const resp = await fetch("/api/admin/enrich", {
@@ -434,7 +440,7 @@ export default function AddVocaPage() {
             }
           }
 
-          if (options.images && imageGenerationSupported) {
+          if (options.images && imageGenerationEnabled) {
             setStatusText(t("addVoca.statusImage"));
             try {
               const imageResp = await fetch("/api/admin/generate-images", {
@@ -673,7 +679,8 @@ export default function AddVocaPage() {
 
     if (isStandardUploadFlow) {
       const defaultOptions = createDefaultUploadOptions(
-        imageGenerationSupported,
+        imageGenerationEnabled,
+        enrichGenerationEnabled,
       );
       setUploadOptions(defaultOptions);
       setUploadOptionsOpen(true);
@@ -682,7 +689,10 @@ export default function AddVocaPage() {
 
     await runUpload(
       readyItems,
-      createDefaultUploadOptions(imageGenerationSupported),
+      createDefaultUploadOptions(
+        imageGenerationEnabled,
+        enrichGenerationEnabled,
+      ),
     );
   };
 
@@ -864,6 +874,8 @@ export default function AddVocaPage() {
         open={uploadOptionsOpen}
         selectedOptions={uploadOptions}
         imageGenerationSupported={imageGenerationSupported}
+        imageGenerationEnabled={imageGenerationEnabled}
+        enrichGenerationEnabled={enrichGenerationEnabled}
         onClose={() => setUploadOptionsOpen(false)}
         onConfirm={handleUploadOptionsConfirm}
       />

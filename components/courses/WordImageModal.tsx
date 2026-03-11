@@ -15,6 +15,7 @@ import CircularProgress from "@mui/material/CircularProgress";
 import AutoFixHighIcon from "@mui/icons-material/AutoFixHigh";
 import { useTranslation } from "react-i18next";
 import type { StandardWord } from "@/types/word";
+import { useAISettings } from "@/lib/hooks/useAISettings";
 import { updateWordImageUrl } from "@/lib/firebase/firestore";
 import { uploadWordImage } from "@/lib/firebase/storage";
 
@@ -38,6 +39,7 @@ export default function WordImageModal({
   onImageSaved,
 }: WordImageModalProps) {
   const { t } = useTranslation();
+  const { settings: aiSettings, loading: aiSettingsLoading } = useAISettings();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [droppedFile, setDroppedFile] = useState<File | null>(null);
@@ -64,6 +66,7 @@ export default function WordImageModal({
   };
 
   const handleGenerate = async () => {
+    if (aiSettingsLoading || !aiSettings.imageGenerationEnabled) return;
     setLoading(true);
     setError("");
     try {
@@ -72,12 +75,13 @@ export default function WordImageModal({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ courseId, words: [word] }),
       });
-      if (!resp.ok) throw new Error("Generation failed");
       const result = (await resp.json()) as {
-        words: (StandardWord & { imageUrl: string })[];
+        error?: string;
+        words?: (StandardWord & { imageUrl: string })[];
         failures?: { word: string; error: string }[];
       };
-      const newImageUrl = result.words[0]?.imageUrl;
+      if (!resp.ok) throw new Error(result.error || "Generation failed");
+      const newImageUrl = result.words?.[0]?.imageUrl;
       if (!newImageUrl) throw new Error("No image URL returned");
       await updateWordImageUrl(coursePath, dayId, word.id, newImageUrl);
       onImageSaved(word.id, newImageUrl);
@@ -136,11 +140,17 @@ export default function WordImageModal({
           variant="contained"
           startIcon={loading ? <CircularProgress size={16} color="inherit" /> : <AutoFixHighIcon />}
           onClick={handleGenerate}
-          disabled={loading}
+          disabled={loading || aiSettingsLoading || !aiSettings.imageGenerationEnabled}
           fullWidth
         >
           {t("courses.generateImage", "Generate image")}
         </Button>
+
+        {!aiSettingsLoading && !aiSettings.imageGenerationEnabled && (
+          <Typography variant="caption" color="text.secondary">
+            {t("courses.imageGenerationDisabled")}
+          </Typography>
+        )}
 
         {/* ── Divider ──────────────────────────────────── */}
         <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>

@@ -6,6 +6,7 @@ import {
   buildStickFigurePrompt,
   createGenerateImageError,
   extractInlineImagePart,
+  getGenerateImageErrorStatus,
   inferGenerateImageErrorCode,
   normalizeImageGenerationWord,
   validateGenerateImageRequestBody,
@@ -40,6 +41,17 @@ test("validateGenerateImageRequestBody rejects unsupported courses", () => {
   if (result.ok) return;
 
   assert.equal(result.error.code, "UNSUPPORTED_COURSE");
+});
+
+test("createGenerateImageError supports FEATURE_DISABLED", () => {
+  const result = createGenerateImageError("FEATURE_DISABLED");
+
+  assert.deepEqual(result, {
+    ok: false,
+    code: "FEATURE_DISABLED",
+    error: "Image generation is disabled in AI settings.",
+  });
+  assert.equal(getGenerateImageErrorStatus("FEATURE_DISABLED"), 403);
 });
 
 test("buildStickFigurePrompt preserves the required wording", () => {

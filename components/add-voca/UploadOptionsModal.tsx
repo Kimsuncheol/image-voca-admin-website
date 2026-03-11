@@ -23,6 +23,8 @@ interface UploadOptionsModalProps {
   open: boolean;
   selectedOptions: UploadOptions;
   imageGenerationSupported: boolean;
+  imageGenerationEnabled: boolean;
+  enrichGenerationEnabled: boolean;
   onClose: () => void;
   onConfirm: (options: UploadOptions) => void;
 }
@@ -31,6 +33,8 @@ export default function UploadOptionsModal({
   open,
   selectedOptions,
   imageGenerationSupported,
+  imageGenerationEnabled,
+  enrichGenerationEnabled,
   onClose,
   onConfirm,
 }: UploadOptionsModalProps) {
@@ -40,7 +44,10 @@ export default function UploadOptionsModal({
   const toggle = (key: keyof UploadOptions) =>
     setDraftOptions((prev) => ({
       ...prev,
-      [key]: key === "images" ? imageGenerationSupported && !prev[key] : !prev[key],
+      [key]:
+        key === "images"
+          ? imageGenerationSupported && imageGenerationEnabled && !prev[key]
+          : enrichGenerationEnabled && !prev[key],
     }));
 
   return (
@@ -52,7 +59,14 @@ export default function UploadOptionsModal({
       onTransitionEnter={() =>
         setDraftOptions({
           ...selectedOptions,
-          images: imageGenerationSupported ? selectedOptions.images : false,
+          images:
+            imageGenerationSupported && imageGenerationEnabled
+              ? selectedOptions.images
+              : false,
+          examples: enrichGenerationEnabled ? selectedOptions.examples : false,
+          translations: enrichGenerationEnabled
+            ? selectedOptions.translations
+            : false,
         })
       }
       slotProps={{
@@ -83,7 +97,7 @@ export default function UploadOptionsModal({
                 <Checkbox
                   checked={draftOptions.images}
                   onChange={() => toggle("images")}
-                  disabled={!imageGenerationSupported}
+                  disabled={!imageGenerationSupported || !imageGenerationEnabled}
                 />
               }
               label={t("addVoca.generateImages", "Generate images")}
@@ -93,6 +107,7 @@ export default function UploadOptionsModal({
                 <Checkbox
                   checked={draftOptions.examples}
                   onChange={() => toggle("examples")}
+                  disabled={!enrichGenerationEnabled}
                 />
               }
               label={t("addVoca.generateExamples", "Generate examples")}
@@ -102,6 +117,7 @@ export default function UploadOptionsModal({
                 <Checkbox
                   checked={draftOptions.translations}
                   onChange={() => toggle("translations")}
+                  disabled={!enrichGenerationEnabled}
                 />
               }
               label={t("addVoca.generateTranslations", "Generate translations")}
@@ -114,6 +130,18 @@ export default function UploadOptionsModal({
                 "addVoca.generateImagesUnsupported",
                 "Image generation is only available for CSAT, IELTS, TOEFL, and TOEIC.",
               )}
+            </Typography>
+          )}
+
+          {imageGenerationSupported && !imageGenerationEnabled && (
+            <Typography variant="caption" color="text.secondary">
+              {t("addVoca.generateImagesDisabled")}
+            </Typography>
+          )}
+
+          {!enrichGenerationEnabled && (
+            <Typography variant="caption" color="text.secondary">
+              {t("addVoca.generateEnrichDisabled")}
             </Typography>
           )}
         </Stack>

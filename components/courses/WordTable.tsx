@@ -19,6 +19,7 @@ import ErrorOutlineIcon from "@mui/icons-material/ErrorOutline";
 import { useTranslation } from "react-i18next";
 import type { Word, StandardWord } from "@/types/word";
 import { isCollocationWord, isFamousQuoteWord } from "@/types/word";
+import { useAISettings } from "@/lib/hooks/useAISettings";
 import WordImageModal from "./WordImageModal";
 import { updateWordField } from "@/lib/firebase/firestore";
 
@@ -206,6 +207,7 @@ export default function WordTable({
   onWordFieldsUpdated,
 }: WordTableProps) {
   const { t } = useTranslation();
+  const { settings: aiSettings, loading: aiSettingsLoading } = useAISettings();
   const [imageModalWord, setImageModalWord] = useState<StandardWord | null>(null);
 
   // Key: `${wordId}:${field}` → 'loading' | 'error'
@@ -227,6 +229,12 @@ export default function WordTable({
 
   const handleGenerateField = async (word: StandardWord, field: GeneratableField) => {
     if (!coursePath || !dayId) return;
+    if (
+      (field === "example" || field === "translation") &&
+      !aiSettings.enrichGenerationEnabled
+    ) {
+      return;
+    }
     const key = `${word.id}:${field}`;
     setFieldState((prev) => ({ ...prev, [key]: "loading" }));
     try {
@@ -287,6 +295,29 @@ export default function WordTable({
     field: GeneratableField;
     tooltipKey: string;
   }) {
+    const isEnrichmentField = field === "example" || field === "translation";
+    const disabledReason = isEnrichmentField
+      ? aiSettingsLoading
+        ? t("common.loading")
+        : !aiSettings.enrichGenerationEnabled
+          ? t("courses.enrichGenerationDisabled")
+          : null
+      : null;
+
+    if (disabledReason) {
+      return (
+        <TableCell>
+          <Tooltip title={disabledReason}>
+            <span>
+              <IconButton size="small" disabled sx={{ p: 0 }}>
+                <AutoFixHighIcon fontSize="small" />
+              </IconButton>
+            </span>
+          </Tooltip>
+        </TableCell>
+      );
+    }
+
     if (isLoading(word.id, field)) {
       return (
         <TableCell>

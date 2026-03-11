@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server.js';
 import { adminAuth, adminDb } from '@/lib/firebase/admin';
 import {
   buildWordLookupKey,
@@ -14,6 +14,10 @@ import {
   createChatGPTEnrichmentGenerator,
 } from '@/lib/server/enrichmentService';
 import { getServerAISettings } from '@/lib/server/aiSettings';
+import {
+  getEnrichGenerationDisabledResponse,
+  shouldBlockEnrichGeneration,
+} from '@/lib/server/aiFeatureGuards';
 
 interface EnrichRequestBody {
   words: WordInput[];
@@ -94,9 +98,20 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ words });
   }
 
-  const { enrichModel } = await getServerAISettings();
+  const settings = await getServerAISettings();
+  if (
+    shouldBlockEnrichGeneration(settings, {
+      generateExample,
+      generateTranslation,
+    })
+  ) {
+    const disabledResponse = getEnrichGenerationDisabledResponse();
+    return NextResponse.json(disabledResponse.body, {
+      status: disabledResponse.status,
+    });
+  }
 
-  if (enrichModel === 'chatgpt') {
+  if (settings.enrichModel === 'chatgpt') {
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) return NextResponse.json({ words });
 

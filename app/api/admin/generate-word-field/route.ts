@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server.js';
 import { adminAuth } from '@/lib/firebase/admin';
 import { enrichWords, hasText, type WordInput } from '../enrich/enrichWords';
 import { getIpaUSUK } from '@/lib/utils/ipaLookup';
@@ -7,6 +7,10 @@ import {
   createChatGPTEnrichmentGenerator,
 } from '@/lib/server/enrichmentService';
 import { getServerAISettings } from '@/lib/server/aiSettings';
+import {
+  getEnrichGenerationDisabledResponse,
+  shouldBlockWordFieldGeneration,
+} from '@/lib/server/aiFeatureGuards';
 
 type FieldType = 'pronunciation' | 'example' | 'translation';
 
@@ -68,12 +72,18 @@ export async function POST(request: NextRequest) {
   }
 
   // --- Example / Translation ---
-  const { enrichModel } = await getServerAISettings();
+  const settings = await getServerAISettings();
+  if (shouldBlockWordFieldGeneration(settings, field)) {
+    const disabledResponse = getEnrichGenerationDisabledResponse();
+    return NextResponse.json(disabledResponse.body, {
+      status: disabledResponse.status,
+    });
+  }
 
   let generatorApiKey: string | undefined;
   let createGenerator: typeof createGeminiEnrichmentGenerator;
 
-  if (enrichModel === 'chatgpt') {
+  if (settings.enrichModel === 'chatgpt') {
     generatorApiKey = process.env.OPENAI_API_KEY;
     createGenerator = createChatGPTEnrichmentGenerator;
   } else {

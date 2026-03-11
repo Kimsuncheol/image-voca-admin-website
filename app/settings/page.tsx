@@ -10,6 +10,7 @@ import FormControlLabel from "@mui/material/FormControlLabel";
 import Radio from "@mui/material/Radio";
 import FormControl from "@mui/material/FormControl";
 import FormLabel from "@mui/material/FormLabel";
+import Switch from "@mui/material/Switch";
 import Button from "@mui/material/Button";
 import Alert from "@mui/material/Alert";
 import Skeleton from "@mui/material/Skeleton";
@@ -17,6 +18,7 @@ import Stack from "@mui/material/Stack";
 import ImageIcon from "@mui/icons-material/Image";
 import TranslateIcon from "@mui/icons-material/Translate";
 import PageLayout from "@/components/layout/PageLayout";
+import { DEFAULT_AI_SETTINGS } from "@/lib/aiSettings";
 import { getAISettings, saveAISettings, type AISettings } from "@/lib/firebase/settings";
 
 export default function SettingsPage() {
@@ -27,8 +29,13 @@ export default function SettingsPage() {
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   useEffect(() => {
-    getAISettings().then(setSettings);
-  }, []);
+    getAISettings()
+      .then(setSettings)
+      .catch(() => {
+        setSettings(DEFAULT_AI_SETTINGS);
+        setMessage({ type: "error", text: t("settings.loadError") });
+      });
+  }, [t]);
 
   async function handleSave() {
     if (!settings) return;
@@ -71,22 +78,48 @@ export default function SettingsPage() {
               </Stack>
             ) : (
               <FormControl>
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={settings.imageGenerationEnabled}
+                      onChange={(_, checked) =>
+                        setSettings({
+                          ...settings,
+                          imageGenerationEnabled: checked,
+                        })
+                      }
+                    />
+                  }
+                  label={t("settings.featureEnabled")}
+                  sx={{ mb: 1 }}
+                />
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                  {settings.imageGenerationEnabled
+                    ? t("settings.imageGenerationEnabledHelp")
+                    : t("settings.imageGenerationDisabledHelp")}
+                </Typography>
                 <FormLabel sx={{ mb: 1 }}>{t("settings.selectModel")}</FormLabel>
                 <RadioGroup
                   value={settings.imageModel}
                   onChange={(e) =>
-                    setSettings({ ...settings, imageModel: e.target.value as AISettings["imageModel"] })
+                    setSettings({
+                      ...settings,
+                      imageModel: e.target.value as AISettings["imageModel"],
+                    })
                   }
+                  aria-label={t("settings.imageGeneration")}
                 >
                   <FormControlLabel
                     value="nano-banana2"
                     control={<Radio />}
                     label="Nano banana2 (Gemini)"
+                    disabled={!settings.imageGenerationEnabled}
                   />
                   <FormControlLabel
                     value="gpt-image-1"
                     control={<Radio />}
                     label="gpt-image-1 (ChatGPT)"
+                    disabled={!settings.imageGenerationEnabled}
                   />
                 </RadioGroup>
               </FormControl>
@@ -108,15 +141,39 @@ export default function SettingsPage() {
               </Stack>
             ) : (
               <FormControl>
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={settings.enrichGenerationEnabled}
+                      onChange={(_, checked) =>
+                        setSettings({
+                          ...settings,
+                          enrichGenerationEnabled: checked,
+                        })
+                      }
+                    />
+                  }
+                  label={t("settings.featureEnabled")}
+                  sx={{ mb: 1 }}
+                />
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                  {settings.enrichGenerationEnabled
+                    ? t("settings.enrichGenerationEnabledHelp")
+                    : t("settings.enrichGenerationDisabledHelp")}
+                </Typography>
                 <FormLabel sx={{ mb: 1 }}>{t("settings.selectModel")}</FormLabel>
                 <RadioGroup
                   value={settings.enrichModel}
                   onChange={(e) =>
-                    setSettings({ ...settings, enrichModel: e.target.value as AISettings["enrichModel"] })
+                    setSettings({
+                      ...settings,
+                      enrichModel: e.target.value as AISettings["enrichModel"],
+                    })
                   }
+                  aria-label={t("settings.enrichGeneration")}
                 >
-                  <FormControlLabel value="gemini" control={<Radio />} label="Gemini" />
-                  <FormControlLabel value="chatgpt" control={<Radio />} label="ChatGPT" />
+                  <FormControlLabel value="gemini" control={<Radio />} label="Gemini" disabled={!settings.enrichGenerationEnabled} />
+                  <FormControlLabel value="chatgpt" control={<Radio />} label="ChatGPT" disabled={!settings.enrichGenerationEnabled} />
                 </RadioGroup>
               </FormControl>
             )}
