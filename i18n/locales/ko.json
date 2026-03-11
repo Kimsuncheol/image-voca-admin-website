@@ -30,7 +30,18 @@
     "ads": "광고",
     "adsDesc": "영상 광고 관리",
     "promotionCodes": "프로모션 코드",
-    "promotionCodesDesc": "프로모션 코드 생성 및 관리"
+    "promotionCodesDesc": "프로모션 코드 생성 및 관리",
+    "settings": "설정",
+    "settingsDesc": "생성에 사용할 AI 모델 설정"
+  },
+  "settings": {
+    "title": "설정",
+    "imageGeneration": "이미지 생성",
+    "enrichGeneration": "예문 및 번역 생성",
+    "selectModel": "모델 선택",
+    "saving": "저장 중...",
+    "saveSuccess": "설정이 저장되었습니다",
+    "saveError": "설정 저장에 실패했습니다"
   },
   "addVoca": {
     "title": "단어 추가",
@@ -126,7 +137,12 @@
     "collocation": "연어",
     "explanation": "설명",
     "quote": "명언",
-    "author": "작가"
+    "author": "작가",
+    "image": "이미지",
+    "generatePronunciation": "발음 생성",
+    "generateExample": "예문 생성",
+    "generateTranslation": "번역 생성",
+    "generateFieldError": "생성 실패 – 다시 시도하려면 클릭"
   },
   "users": {
     "title": "사용자 관리",

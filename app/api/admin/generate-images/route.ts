@@ -5,6 +5,7 @@ import {
   deleteManagedGeneratedImageByUrl,
   generateStoredImage,
 } from "@/lib/server/imageGenerationService";
+import { getServerAISettings } from "@/lib/server/aiSettings";
 import {
   buildUploadStickFigurePrompt,
   hasImageUrl,
@@ -49,19 +50,21 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Invalid data" }, { status: 400 });
   }
 
+  const { imageModel } = await getServerAISettings();
+
   const result = await generateImagesForUploadWords(
     body.words,
     async (word) => {
       const normalizedWord = normalizeImageGenerationWord(word.word);
       const normalizedMeaning = normalizeImageGenerationMeaning(word.meaning);
-      const generated = await generateStoredImage({
-        courseId: body.courseId,
-        word: normalizedWord,
-        prompt: buildUploadStickFigurePrompt(
-          normalizedWord,
-          normalizedMeaning,
-        ),
-      });
+      const generated = await generateStoredImage(
+        {
+          courseId: body.courseId,
+          word: normalizedWord,
+          prompt: buildUploadStickFigurePrompt(normalizedWord, normalizedMeaning),
+        },
+        imageModel,
+      );
 
       if (!generated.ok) {
         throw generated.error;

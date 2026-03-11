@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { adminAuth } from "@/lib/firebase/admin";
 import { generateStoredImage } from "@/lib/server/imageGenerationService";
+import { getServerAISettings } from "@/lib/server/aiSettings";
 import {
   buildStickFigurePrompt,
   createGenerateImageError,
@@ -50,7 +51,8 @@ export async function POST(request: NextRequest) {
 
   const { word, courseId } = validated.data;
   const prompt = buildStickFigurePrompt(word);
-  const result = await generateStoredImage({ courseId, word, prompt });
+  const { imageModel } = await getServerAISettings();
+  const result = await generateStoredImage({ courseId, word, prompt }, imageModel);
   if (!result.ok) {
     return NextResponse.json<GenerateImageResponse>(result.error, {
       status: getGenerateImageErrorStatus(result.error.code),

@@ -11,11 +11,16 @@ import Paper from "@mui/material/Paper";
 import Box from "@mui/material/Box";
 import IconButton from "@mui/material/IconButton";
 import Typography from "@mui/material/Typography";
+import CircularProgress from "@mui/material/CircularProgress";
+import Tooltip from "@mui/material/Tooltip";
 import AddPhotoAlternateIcon from "@mui/icons-material/AddPhotoAlternate";
+import AutoFixHighIcon from "@mui/icons-material/AutoFixHigh";
+import ErrorOutlineIcon from "@mui/icons-material/ErrorOutline";
 import { useTranslation } from "react-i18next";
 import type { Word, StandardWord } from "@/types/word";
 import { isCollocationWord, isFamousQuoteWord } from "@/types/word";
 import WordImageModal from "./WordImageModal";
+import { updateWordField } from "@/lib/firebase/firestore";
 
 // Detects "Name: text. Name: text" dialogue formatting.
 // Supports plain names (Layne:) and numbered names (Neighbor 1:).
@@ -172,6 +177,8 @@ function ExampleCell({ text }: { text: string | undefined }) {
   );
 }
 
+type GeneratableField = "pronunciation" | "example" | "translation";
+
 interface WordTableProps {
   words: Word[];
   isCollocation: boolean;
@@ -181,6 +188,10 @@ interface WordTableProps {
   coursePath?: string;
   dayId?: string;
   onWordImageUpdated?: (wordId: string, imageUrl: string) => void;
+  onWordFieldsUpdated?: (
+    wordId: string,
+    fields: Partial<Pick<StandardWord, "pronunciation" | "example" | "translation">>,
+  ) => void;
 }
 
 export default function WordTable({
@@ -192,9 +203,118 @@ export default function WordTable({
   coursePath,
   dayId,
   onWordImageUpdated,
+  onWordFieldsUpdated,
 }: WordTableProps) {
   const { t } = useTranslation();
   const [imageModalWord, setImageModalWord] = useState<StandardWord | null>(null);
+
+  // Key: `${wordId}:${field}` → 'loading' | 'error'
+  const [fieldState, setFieldState] = useState<Record<string, "loading" | "error">>({});
+
+  // Locally mirrors generated values so cells update immediately without parent re-render
+  const [localFields, setLocalFields] = useState<
+    Record<string, Partial<Pick<StandardWord, "pronunciation" | "example" | "translation">>>
+  >({});
+
+  const getField = (word: StandardWord, field: GeneratableField) =>
+    localFields[word.id]?.[field] ?? word[field];
+
+  const isLoading = (wordId: string, field: string) =>
+    fieldState[`${wordId}:${field}`] === "loading";
+
+  const isError = (wordId: string, field: string) =>
+    fieldState[`${wordId}:${field}`] === "error";
+
+  const handleGenerateField = async (word: StandardWord, field: GeneratableField) => {
+    if (!coursePath || !dayId) return;
+    const key = `${word.id}:${field}`;
+    setFieldState((prev) => ({ ...prev, [key]: "loading" }));
+    try {
+      const currentExample = localFields[word.id]?.example ?? word.example;
+      const resp = await fetch("/api/admin/generate-word-field", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          field,
+          word: word.word,
+          meaning: word.meaning,
+          ...(field === "translation" ? { example: currentExample } : {}),
+        }),
+      });
+      if (!resp.ok) throw new Error();
+      const result = (await resp.json()) as {
+        pronunciation?: string;
+        example?: string;
+        translation?: string;
+      };
+
+      const fieldsToSave: Partial<Pick<StandardWord, "pronunciation" | "example" | "translation">> =
+        {};
+      if (result.pronunciation) fieldsToSave.pronunciation = result.pronunciation;
+      if (result.example) fieldsToSave.example = result.example;
+      if (result.translation) fieldsToSave.translation = result.translation;
+
+      await Promise.all(
+        (
+          Object.entries(fieldsToSave) as [GeneratableField, string][]
+        ).map(([f, v]) => updateWordField(coursePath, dayId, word.id, f, v)),
+      );
+
+      setLocalFields((prev) => ({
+        ...prev,
+        [word.id]: { ...prev[word.id], ...fieldsToSave },
+      }));
+      onWordFieldsUpdated?.(word.id, fieldsToSave);
+
+      setFieldState((prev) => {
+        const next = { ...prev };
+        Object.keys(fieldsToSave).forEach((f) => delete next[`${word.id}:${f}`]);
+        return next;
+      });
+    } catch {
+      setFieldState((prev) => ({ ...prev, [key]: "error" }));
+    }
+  };
+
+  const canGenerate = !!(coursePath && dayId);
+
+  function AiTriggerCell({
+    word,
+    field,
+    tooltipKey,
+  }: {
+    word: StandardWord;
+    field: GeneratableField;
+    tooltipKey: string;
+  }) {
+    if (isLoading(word.id, field)) {
+      return (
+        <TableCell>
+          <CircularProgress size={16} />
+        </TableCell>
+      );
+    }
+    if (isError(word.id, field)) {
+      return (
+        <TableCell>
+          <Tooltip title={t("courses.generateFieldError")}>
+            <IconButton size="small" onClick={() => handleGenerateField(word, field)} sx={{ p: 0 }}>
+              <ErrorOutlineIcon fontSize="small" color="error" />
+            </IconButton>
+          </Tooltip>
+        </TableCell>
+      );
+    }
+    return (
+      <TableCell>
+        <Tooltip title={t(tooltipKey)}>
+          <IconButton size="small" onClick={() => handleGenerateField(word, field)} sx={{ p: 0 }}>
+            <AutoFixHighIcon fontSize="small" />
+          </IconButton>
+        </Tooltip>
+      </TableCell>
+    );
+  }
 
   return (
     <>
@@ -249,9 +369,33 @@ export default function WordTable({
                 <>
                   <TableCell>{word.word}</TableCell>
                   <TableCell>{word.meaning}</TableCell>
-                  <TableCell>{word.pronunciation}</TableCell>
-                  <ExampleCell text={word.example} />
-                  <ExampleCell text={word.translation} />
+                  {canGenerate && !getField(word, "pronunciation") ? (
+                    <AiTriggerCell
+                      word={word}
+                      field="pronunciation"
+                      tooltipKey="courses.generatePronunciation"
+                    />
+                  ) : (
+                    <TableCell>{getField(word, "pronunciation")}</TableCell>
+                  )}
+                  {canGenerate && !getField(word, "example") ? (
+                    <AiTriggerCell
+                      word={word}
+                      field="example"
+                      tooltipKey="courses.generateExample"
+                    />
+                  ) : (
+                    <ExampleCell text={getField(word, "example")} />
+                  )}
+                  {canGenerate && !getField(word, "translation") ? (
+                    <AiTriggerCell
+                      word={word}
+                      field="translation"
+                      tooltipKey="courses.generateTranslation"
+                    />
+                  ) : (
+                    <ExampleCell text={getField(word, "translation")} />
+                  )}
                   {showImageUrl && (
                     <TableCell>
                       <IconButton size="small" onClick={() => setImageModalWord(word)} sx={{ p: 0 }}>

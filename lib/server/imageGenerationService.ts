@@ -8,6 +8,7 @@ import {
   ResponseModality,
 } from "firebase/ai";
 import { getDownloadURL, getStorage } from "firebase-admin/storage";
+import OpenAI from "openai";
 
 import {
   IMAGE_GENERATION_MODEL,
@@ -101,7 +102,51 @@ function tryExtractManagedGeneratedImagePath(imageUrl: string): string | null {
   }
 }
 
-export async function generateStoredImage({
+async function uploadImageToStorage(
+  imageBuffer: Buffer,
+  mimeType: string,
+  courseId: ImageGenerationCourseId,
+  word: string,
+  prompt: string,
+): Promise<{ ok: true; imageUrl: string; storagePath: string } | { ok: false; error: GenerateImageErrorResponse }> {
+  const uniqueFileId = `${Date.now()}-${crypto.randomUUID()}`;
+  const storagePath = buildImageStoragePath(courseId, word, uniqueFileId);
+  const file = getStorage().bucket(getStorageBucketName()).file(storagePath);
+
+  try {
+    await file.save(imageBuffer, {
+      resumable: false,
+      metadata: {
+        contentType: mimeType,
+        cacheControl: "public,max-age=31536000,immutable",
+        metadata: {
+          firebaseStorageDownloadTokens: crypto.randomUUID(),
+          courseId,
+          originalWord: word,
+          prompt,
+        },
+      },
+    });
+  } catch (error) {
+    console.error("[image-generation] Failed to upload image:", error);
+    return { ok: false, error: createGenerateImageError("UPLOAD_FAILED") };
+  }
+
+  const imageUrl = await getDownloadURL(file);
+  return { ok: true, imageUrl, storagePath };
+}
+
+export async function generateStoredImage(
+  { courseId, word, prompt }: GenerateStoredImageParams,
+  model: "nano-banana2" | "gpt-image-1" = "nano-banana2",
+): Promise<GenerateStoredImageResult> {
+  if (model === "gpt-image-1") {
+    return generateStoredImageWithOpenAI({ courseId, word, prompt });
+  }
+  return generateStoredImageWithGemini({ courseId, word, prompt });
+}
+
+async function generateStoredImageWithGemini({
   courseId,
   word,
   prompt,
@@ -114,44 +159,75 @@ export async function generateStoredImage({
       return extracted;
     }
 
-    const uniqueFileId = `${Date.now()}-${crypto.randomUUID()}`;
-    const storagePath = buildImageStoragePath(courseId, word, uniqueFileId);
-    const file = getStorage()
-      .bucket(getStorageBucketName())
-      .file(storagePath);
+    const uploaded = await uploadImageToStorage(
+      Buffer.from(extracted.image.data, "base64"),
+      extracted.image.mimeType,
+      courseId,
+      word,
+      prompt,
+    );
+    if (!uploaded.ok) return uploaded;
 
-    try {
-      await file.save(Buffer.from(extracted.image.data, "base64"), {
-        resumable: false,
-        metadata: {
-          contentType: extracted.image.mimeType,
-          cacheControl: "public,max-age=31536000,immutable",
-          metadata: {
-            firebaseStorageDownloadTokens: crypto.randomUUID(),
-            courseId,
-            originalWord: word,
-            prompt,
-          },
-        },
-      });
-    } catch (error) {
-      console.error("[image-generation] Failed to upload image:", error);
-      return {
-        ok: false,
-        error: createGenerateImageError("UPLOAD_FAILED"),
-      };
-    }
-
-    const imageUrl = await getDownloadURL(file);
     return {
       ok: true,
       prompt,
-      imageUrl,
-      storagePath,
+      imageUrl: uploaded.imageUrl,
+      storagePath: uploaded.storagePath,
       mimeType: extracted.image.mimeType,
     };
   } catch (error) {
-    console.error("[image-generation] Image generation failed:", error);
+    console.error("[image-generation/gemini] Image generation failed:", error);
+    return {
+      ok: false,
+      error: createGenerateImageError(inferGenerateImageErrorCode(error)),
+    };
+  }
+}
+
+async function generateStoredImageWithOpenAI({
+  courseId,
+  word,
+  prompt,
+}: GenerateStoredImageParams): Promise<GenerateStoredImageResult> {
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) {
+    return { ok: false, error: createGenerateImageError("INTERNAL_ERROR", "OpenAI API key is not configured.") };
+  }
+
+  try {
+    const openai = new OpenAI({ apiKey });
+    const response = await openai.images.generate({
+      model: "gpt-image-1",
+      prompt,
+      n: 1,
+      size: "1024x1024",
+    });
+
+    const imageData = response.data[0];
+    let imageBuffer: Buffer;
+    const mimeType = "image/png";
+
+    if (imageData.b64_json) {
+      imageBuffer = Buffer.from(imageData.b64_json, "base64");
+    } else if (imageData.url) {
+      const res = await fetch(imageData.url);
+      imageBuffer = Buffer.from(await res.arrayBuffer());
+    } else {
+      return { ok: false, error: createGenerateImageError("NO_IMAGE_RETURNED") };
+    }
+
+    const uploaded = await uploadImageToStorage(imageBuffer, mimeType, courseId, word, prompt);
+    if (!uploaded.ok) return uploaded;
+
+    return {
+      ok: true,
+      prompt,
+      imageUrl: uploaded.imageUrl,
+      storagePath: uploaded.storagePath,
+      mimeType,
+    };
+  } catch (error) {
+    console.error("[image-generation/openai] Image generation failed:", error);
     return {
       ok: false,
       error: createGenerateImageError(inferGenerateImageErrorCode(error)),

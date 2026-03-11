@@ -18,6 +18,7 @@ import MenuBookIcon from "@mui/icons-material/MenuBook";
 import PeopleIcon from "@mui/icons-material/People";
 import OndemandVideoIcon from "@mui/icons-material/OndemandVideo";
 import LocalOfferIcon from "@mui/icons-material/LocalOffer";
+import SettingsIcon from "@mui/icons-material/Settings";
 import { useTranslation } from "react-i18next";
 
 /** Shape of a single sidebar navigation entry. */
@@ -70,6 +71,11 @@ export function useNavItems(): NavItem[] {
       title: t("dashboard.promotionCodes", "Promotion Codes"),
       icon: <LocalOfferIcon />,
       href: "/promotion-codes",
+    },
+    {
+      title: t("settings.title", "Settings"),
+      icon: <SettingsIcon />,
+      href: "/settings",
     },
   ];
 }

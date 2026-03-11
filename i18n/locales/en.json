@@ -30,7 +30,18 @@
     "ads": "Advertisements",
     "adsDesc": "Manage video advertisements",
     "promotionCodes": "Promotion Codes",
-    "promotionCodesDesc": "Generate and manage promotion codes"
+    "promotionCodesDesc": "Generate and manage promotion codes",
+    "settings": "Settings",
+    "settingsDesc": "Configure AI models for generation"
+  },
+  "settings": {
+    "title": "Settings",
+    "imageGeneration": "Image Generation",
+    "enrichGeneration": "Example & Translation Generation",
+    "selectModel": "Select model",
+    "saving": "Saving...",
+    "saveSuccess": "Settings saved successfully",
+    "saveError": "Failed to save settings"
   },
   "addVoca": {
     "title": "Add Vocabulary",
@@ -126,7 +137,12 @@
     "collocation": "Collocation",
     "explanation": "Explanation",
     "quote": "Quote",
-    "author": "Author"
+    "author": "Author",
+    "image": "Image",
+    "generatePronunciation": "Generate pronunciation",
+    "generateExample": "Generate example",
+    "generateTranslation": "Generate translation",
+    "generateFieldError": "Generation failed – click to retry"
   },
   "users": {
     "title": "User Management",

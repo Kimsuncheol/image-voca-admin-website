@@ -89,6 +89,17 @@ export async function updateWordImageUrl(
   await updateDoc(wordRef, { imageUrl });
 }
 
+export async function updateWordField(
+  coursePath: string,
+  dayId: string,
+  wordId: string,
+  field: 'pronunciation' | 'example' | 'translation',
+  value: string,
+): Promise<void> {
+  const wordRef = doc(collection(doc(db, coursePath), dayId), wordId);
+  await updateDoc(wordRef, { [field]: value });
+}
+
 /**
  * Returns true if the day collection already has at least one word document.
  * Used for overwrite detection (FR-4).
