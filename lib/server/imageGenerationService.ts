@@ -203,7 +203,10 @@ async function generateStoredImageWithOpenAI({
       size: "1024x1024",
     });
 
-    const imageData = response.data[0];
+    const imageData = response.data?.[0];
+    if (!imageData) {
+      return { ok: false, error: createGenerateImageError("NO_IMAGE_RETURNED") };
+    }
     let imageBuffer: Buffer;
     const mimeType = "image/png";
 
