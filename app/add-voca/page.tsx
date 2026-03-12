@@ -84,7 +84,7 @@ import {
   type DerivativeSelectionMap,
 } from "@/services/vocaSaveService";
 import { prepareStandardWordsForUpload } from "@/services/standardWordUpload";
-import { useAISettings } from "@/lib/hooks/useAISettings";
+import { useAdminAIAccess } from "@/lib/hooks/useAdminAccess";
 import {
   getStandardUploadOptionState,
   type UploadOptions,
@@ -128,7 +128,12 @@ function isUrlItem(item: QueueItem): item is UrlItem {
 
 export default function AddVocaPage() {
   const { t } = useTranslation();
-  const { settings: aiSettings } = useAISettings();
+  const {
+    canUseImageGeneration,
+    canUseExampleTranslationGeneration,
+    imageGenerationBlockedByPermissions,
+    exampleTranslationBlockedByPermissions,
+  } = useAdminAIAccess();
 
   // ── Upload-queue state ─────────────────────────────────────────────
   // `tabIndex` selects between the CSV (0) and URL (1) input methods.
@@ -251,8 +256,8 @@ export default function AddVocaPage() {
     defaultOptions: defaultUploadOptions,
   } = getStandardUploadOptionState({
     selectedCourse,
-    imageGenerationEnabled: aiSettings.imageGenerationEnabled,
-    enrichGenerationEnabled: aiSettings.enrichGenerationEnabled,
+    imageGenerationEnabled: canUseImageGeneration,
+    enrichGenerationEnabled: canUseExampleTranslationGeneration,
   });
   // const showImageGenerator = shouldIncludeImageUrl(selectedCourse);
   // const imageGenerationCourseId = isSupportedImageGenerationCourseId(
@@ -765,6 +770,18 @@ export default function AddVocaPage() {
           onClose={() => setCourseSwitchNotice("")}
         >
           {courseSwitchNotice}
+        </Alert>
+      )}
+
+      {imageGenerationBlockedByPermissions && (
+        <Alert severity="info" sx={{ mb: 2 }}>
+          {t("addVoca.generateImagesPermissionDenied")}
+        </Alert>
+      )}
+
+      {exampleTranslationBlockedByPermissions && (
+        <Alert severity="info" sx={{ mb: 2 }}>
+          {t("addVoca.generateEnrichPermissionDenied")}
         </Alert>
       )}
 

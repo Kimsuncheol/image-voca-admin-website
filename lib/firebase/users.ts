@@ -8,21 +8,27 @@ import {
 } from 'firebase/firestore';
 import { db } from './config';
 import type { AppUser } from '@/types/user';
+import { normalizeUserWithAdminPermissions } from '@/lib/adminPermissions';
 
 const USERS_COLLECTION = 'users';
 
 export async function getAllUsers(): Promise<AppUser[]> {
   const snapshot = await getDocs(collection(db, USERS_COLLECTION));
-  return snapshot.docs.map((d) => ({
-    uid: d.id,
-    ...d.data(),
-  })) as AppUser[];
+  return snapshot.docs.map((d) =>
+    normalizeUserWithAdminPermissions({
+      uid: d.id,
+      ...d.data(),
+    } as AppUser),
+  ) as AppUser[];
 }
 
 export async function getUserById(uid: string): Promise<AppUser | null> {
   const snapshot = await getDoc(doc(db, USERS_COLLECTION, uid));
   if (!snapshot.exists()) return null;
-  return { uid: snapshot.id, ...snapshot.data() } as AppUser;
+  return normalizeUserWithAdminPermissions({
+    uid: snapshot.id,
+    ...snapshot.data(),
+  } as AppUser) as AppUser;
 }
 
 export async function createOrUpdateUser(

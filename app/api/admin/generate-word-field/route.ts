@@ -1,15 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server.js';
-import { adminAuth } from '@/lib/firebase/admin';
 import { enrichWords, hasText, type WordInput } from '../enrich/enrichWords';
 import { getIpaUSUK } from '@/lib/utils/ipaLookup';
 import {
   createGeminiEnrichmentGenerator,
   createChatGPTEnrichmentGenerator,
 } from '@/lib/server/enrichmentService';
+import { verifySessionUser } from '@/lib/server/sessionUser';
 import { getServerAISettings } from '@/lib/server/aiSettings';
 import {
   getEnrichGenerationDisabledResponse,
-  shouldBlockWordFieldGeneration,
+  getEnrichGenerationPermissionDeniedResponse,
+  shouldBlockWordFieldGenerationForUser,
 } from '@/lib/server/aiFeatureGuards';
 
 type FieldType = 'pronunciation' | 'example' | 'translation';
@@ -22,14 +23,11 @@ interface GenerateWordFieldBody {
 }
 
 export async function POST(request: NextRequest) {
-  const sessionCookie = request.cookies.get('__session')?.value;
-  if (!sessionCookie) {
+  const caller = await verifySessionUser(request);
+  if (!caller) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
-
-  try {
-    await adminAuth.verifySessionCookie(sessionCookie, true);
-  } catch {
+  if (caller.role !== 'admin' && caller.role !== 'super-admin') {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
@@ -73,10 +71,17 @@ export async function POST(request: NextRequest) {
 
   // --- Example / Translation ---
   const settings = await getServerAISettings();
-  if (shouldBlockWordFieldGeneration(settings, field)) {
+  const blockReason = shouldBlockWordFieldGenerationForUser(settings, field, caller);
+  if (blockReason === 'feature_disabled') {
     const disabledResponse = getEnrichGenerationDisabledResponse();
     return NextResponse.json(disabledResponse.body, {
       status: disabledResponse.status,
+    });
+  }
+  if (blockReason === 'permission_denied') {
+    const deniedResponse = getEnrichGenerationPermissionDeniedResponse();
+    return NextResponse.json(deniedResponse.body, {
+      status: deniedResponse.status,
     });
   }
 

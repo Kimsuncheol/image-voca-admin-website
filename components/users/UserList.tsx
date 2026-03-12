@@ -1,7 +1,12 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import type { AppUser, UserRole, UserPlan } from "@/types/user";
+import type {
+  AdminPermissions,
+  AppUser,
+  UserRole,
+  UserPlan,
+} from "@/types/user";
 
 import UserStats from "./UserStats";
 import UserFilters from "./UserFilters";
@@ -13,18 +18,25 @@ interface UserListProps {
   users: AppUser[];
   currentUserRole: UserRole;
   currentUserUid: string;
+  currentUserPermissions: AdminPermissions;
   onDelete: (uid: string) => Promise<void>;
   onRoleChange: (uid: string, role: "user" | "admin") => Promise<void>;
   onPlanChange: (uid: string, plan: UserPlan) => Promise<void>;
+  onAdminPermissionsChange: (
+    uid: string,
+    adminPermissions: AdminPermissions,
+  ) => Promise<void>;
 }
 
 export default function UserList({
   users,
   currentUserRole,
   currentUserUid,
+  currentUserPermissions,
   onDelete,
   onRoleChange,
   onPlanChange,
+  onAdminPermissionsChange,
 }: UserListProps) {
   const [search, setSearch] = useState("");
   const [planFilter, setPlanFilter] = useState<UserPlan | "all">("all");
@@ -81,6 +93,10 @@ export default function UserList({
         await onRoleChange(action.uid, action.nextRole);
         return;
       }
+      if (action.type === "adminPermissionsChange") {
+        await onAdminPermissionsChange(action.uid, action.nextAdminPermissions);
+        return;
+      }
       await onPlanChange(action.uid, action.nextPlan);
     } finally {
       setIsConfirmSubmitting(false);
@@ -116,6 +132,7 @@ export default function UserList({
           user={selectedUser}
           currentUserRole={currentUserRole}
           currentUserUid={currentUserUid}
+          currentUserPermissions={currentUserPermissions}
           isConfirmSubmitting={isConfirmSubmitting}
           onClose={() => {
             if (isConfirmSubmitting) return;

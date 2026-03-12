@@ -54,6 +54,17 @@ test("createGenerateImageError supports FEATURE_DISABLED", () => {
   assert.equal(getGenerateImageErrorStatus("FEATURE_DISABLED"), 403);
 });
 
+test("createGenerateImageError supports PERMISSION_DENIED", () => {
+  const result = createGenerateImageError("PERMISSION_DENIED");
+
+  assert.deepEqual(result, {
+    ok: false,
+    code: "PERMISSION_DENIED",
+    error: "Image generation is disabled for your administrator account.",
+  });
+  assert.equal(getGenerateImageErrorStatus("PERMISSION_DENIED"), 403);
+});
+
 test("buildStickFigurePrompt preserves the required wording", () => {
   const prompt = buildStickFigurePrompt("portable");
 

@@ -7,30 +7,43 @@ import Avatar from "@mui/material/Avatar";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import Divider from "@mui/material/Divider";
+import FormControlLabel from "@mui/material/FormControlLabel";
 import Select from "@mui/material/Select";
 import MenuItem from "@mui/material/MenuItem";
 import Chip from "@mui/material/Chip";
 import Button from "@mui/material/Button";
+import Switch from "@mui/material/Switch";
 import DeleteIcon from "@mui/icons-material/Delete";
 import { useTranslation } from "react-i18next";
-import type { AppUser, UserRole, UserPlan } from "@/types/user";
+import {
+  ADMIN_PERMISSION_KEYS,
+  getEffectiveAdminPermissions,
+} from "@/lib/adminPermissions";
+import type { AdminPermissions, AppUser, UserRole, UserPlan } from "@/types/user";
 import {
   roleColors,
   planChipColor,
   getPlanLabel,
   formatCreatedAt,
+  getPermissionLabel,
 } from "./utils";
 
 // The action type will be communicated back to UserList which holds the state
 export type ConfirmActionPayload =
   | { type: "delete"; uid: string }
   | { type: "roleChange"; uid: string; nextRole: "user" | "admin" }
-  | { type: "planChange"; uid: string; nextPlan: UserPlan };
+  | { type: "planChange"; uid: string; nextPlan: UserPlan }
+  | {
+      type: "adminPermissionsChange";
+      uid: string;
+      nextAdminPermissions: AdminPermissions;
+    };
 
 interface UserDetailModalProps {
   user: AppUser;
   currentUserRole: UserRole;
   currentUserUid: string;
+  currentUserPermissions: AdminPermissions;
   isConfirmSubmitting: boolean;
   onClose: () => void;
   onActionSelect: (action: ConfirmActionPayload) => void;
@@ -40,11 +53,13 @@ export default function UserDetailModal({
   user,
   currentUserRole,
   currentUserUid,
+  currentUserPermissions,
   isConfirmSubmitting,
   onClose,
   onActionSelect,
 }: UserDetailModalProps) {
   const { t } = useTranslation();
+  const effectivePermissions = getEffectiveAdminPermissions(user);
 
   const canDelete = (target: AppUser): boolean => {
     if (target.uid === currentUserUid) return false;
@@ -56,11 +71,29 @@ export default function UserDetailModal({
   const canChangeRole = (target: AppUser): boolean => {
     if (target.uid === currentUserUid) return false;
     if (target.role === "super-admin") return false;
-    return currentUserRole === "super-admin";
+    return currentUserRole === "super-admin" && currentUserPermissions.roleModification;
   };
 
   const canChangePlan = (): boolean =>
-    currentUserRole === "admin" || currentUserRole === "super-admin";
+    currentUserPermissions.planModification;
+
+  const canChangeAdminPermissions = (target: AppUser): boolean =>
+    currentUserRole === "super-admin" &&
+    target.role === "admin" &&
+    target.uid !== currentUserUid;
+
+  const handlePermissionToggle = (permission: keyof AdminPermissions) => {
+    if (!canChangeAdminPermissions(user)) return;
+
+    onActionSelect({
+      type: "adminPermissionsChange",
+      uid: user.uid,
+      nextAdminPermissions: {
+        ...effectivePermissions,
+        [permission]: !effectivePermissions[permission],
+      },
+    });
+  };
 
   return (
     <Dialog
@@ -186,6 +219,85 @@ export default function UserDetailModal({
               </Stack>
             );
           })()}
+
+          {user.role === "super-admin" && (
+            <Stack
+              direction="row"
+              justifyContent="space-between"
+              alignItems="center"
+            >
+              <Typography variant="body2" color="text.secondary">
+                {t("users.permissions")}
+              </Typography>
+              <Chip
+                label={t("users.fullAccess")}
+                color="error"
+                size="small"
+                variant="outlined"
+              />
+            </Stack>
+          )}
+
+          {user.role === "admin" && (
+            <>
+              <Divider />
+              <Stack spacing={1}>
+                <Typography variant="subtitle2">
+                  {t("users.permissions")}
+                </Typography>
+
+                {ADMIN_PERMISSION_KEYS.map((permission) => (
+                  <Stack
+                    key={permission}
+                    direction="row"
+                    justifyContent="space-between"
+                    alignItems="center"
+                    spacing={2}
+                  >
+                    <Typography variant="body2" color="text.secondary">
+                      {getPermissionLabel(permission, t)}
+                    </Typography>
+
+                    {canChangeAdminPermissions(user) ? (
+                      <FormControlLabel
+                        sx={{ mr: 0 }}
+                        control={
+                          <Switch
+                            checked={effectivePermissions[permission]}
+                            disabled={isConfirmSubmitting}
+                            onChange={() => handlePermissionToggle(permission)}
+                          />
+                        }
+                        label={
+                          effectivePermissions[permission]
+                            ? t("users.permissionEnabled")
+                            : t("users.permissionDisabled")
+                        }
+                        labelPlacement="start"
+                      />
+                    ) : (
+                      <Chip
+                        label={
+                          effectivePermissions[permission]
+                            ? t("users.permissionEnabled")
+                            : t("users.permissionDisabled")
+                        }
+                        color={
+                          effectivePermissions[permission] ? "success" : "default"
+                        }
+                        size="small"
+                        variant={
+                          effectivePermissions[permission]
+                            ? "filled"
+                            : "outlined"
+                        }
+                      />
+                    )}
+                  </Stack>
+                ))}
+              </Stack>
+            </>
+          )}
         </Stack>
       </DialogContent>
       <DialogActions sx={{ justifyContent: "space-between", px: 3, pb: 2 }}>

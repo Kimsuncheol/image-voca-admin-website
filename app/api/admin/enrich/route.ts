@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server.js';
-import { adminAuth, adminDb } from '@/lib/firebase/admin';
+import { adminDb } from '@/lib/firebase/admin';
 import {
   buildWordLookupKey,
   enrichWords,
@@ -16,8 +16,10 @@ import {
 import { getServerAISettings } from '@/lib/server/aiSettings';
 import {
   getEnrichGenerationDisabledResponse,
-  shouldBlockEnrichGeneration,
+  getEnrichGenerationPermissionDeniedResponse,
+  shouldBlockEnrichGenerationForUser,
 } from '@/lib/server/aiFeatureGuards';
+import { verifySessionUser } from '@/lib/server/sessionUser';
 
 interface EnrichRequestBody {
   words: WordInput[];
@@ -64,14 +66,11 @@ async function getExistingWordLookup(
  * Failures are silent per-word — callers receive the original word on error.
  */
 export async function POST(request: NextRequest) {
-  const sessionCookie = request.cookies.get('__session')?.value;
-  if (!sessionCookie) {
+  const caller = await verifySessionUser(request);
+  if (!caller) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
-
-  try {
-    await adminAuth.verifySessionCookie(sessionCookie, true);
-  } catch {
+  if (caller.role !== 'admin' && caller.role !== 'super-admin') {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
@@ -99,15 +98,24 @@ export async function POST(request: NextRequest) {
   }
 
   const settings = await getServerAISettings();
-  if (
-    shouldBlockEnrichGeneration(settings, {
+  const blockReason = shouldBlockEnrichGenerationForUser(
+    settings,
+    {
       generateExample,
       generateTranslation,
-    })
-  ) {
+    },
+    caller,
+  );
+  if (blockReason === 'feature_disabled') {
     const disabledResponse = getEnrichGenerationDisabledResponse();
     return NextResponse.json(disabledResponse.body, {
       status: disabledResponse.status,
+    });
+  }
+  if (blockReason === 'permission_denied') {
+    const deniedResponse = getEnrichGenerationPermissionDeniedResponse();
+    return NextResponse.json(deniedResponse.body, {
+      status: deniedResponse.status,
     });
   }
 

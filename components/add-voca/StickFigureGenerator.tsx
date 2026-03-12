@@ -11,7 +11,7 @@ import Typography from "@mui/material/Typography";
 import CheckIcon from "@mui/icons-material/Check";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import { useTranslation } from "react-i18next";
-import { useAISettings } from "@/lib/hooks/useAISettings";
+import { useAdminAIAccess } from "@/lib/hooks/useAdminAccess";
 
 import {
   normalizeImageGenerationWord,
@@ -39,6 +39,7 @@ const ERROR_KEY_BY_CODE: Partial<Record<GenerateImageErrorCode, string>> = {
   INVALID_WORD: "addVoca.imageGeneratorErrorInvalidWord",
   UNSUPPORTED_COURSE: "addVoca.imageGeneratorErrorUnsupportedCourse",
   FEATURE_DISABLED: "addVoca.imageGeneratorErrorDisabled",
+  PERMISSION_DENIED: "addVoca.imageGeneratorErrorPermissionDenied",
   MODEL_BLOCKED: "addVoca.imageGeneratorErrorModelBlocked",
   NO_IMAGE_RETURNED: "addVoca.imageGeneratorErrorNoImage",
   UPLOAD_FAILED: "addVoca.imageGeneratorErrorUploadFailed",
@@ -49,7 +50,12 @@ export default function StickFigureGenerator({
   courseId,
 }: StickFigureGeneratorProps) {
   const { t } = useTranslation();
-  const { settings: aiSettings, loading: aiSettingsLoading } = useAISettings();
+  const {
+    loading: aiAccessLoading,
+    canUseImageGeneration,
+    imageGenerationBlockedByPermissions,
+    imageGenerationBlockedBySettings,
+  } = useAdminAIAccess();
   const [word, setWord] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -84,7 +90,7 @@ export default function StickFigureGenerator({
     setError("");
     setResult(null);
 
-    if (aiSettingsLoading || !aiSettings.imageGenerationEnabled) {
+    if (aiAccessLoading || !canUseImageGeneration) {
       return;
     }
 
@@ -158,12 +164,12 @@ export default function StickFigureGenerator({
               placeholder={t("addVoca.imageGeneratorPlaceholder")}
               value={word}
               onChange={(event) => setWord(event.target.value)}
-              disabled={loading || aiSettingsLoading || !aiSettings.imageGenerationEnabled}
+              disabled={loading || aiAccessLoading || !canUseImageGeneration}
             />
             <Button
               type="submit"
               variant="contained"
-              disabled={loading || aiSettingsLoading || !aiSettings.imageGenerationEnabled}
+              disabled={loading || aiAccessLoading || !canUseImageGeneration}
               sx={{ minWidth: { xs: "100%", md: 180 }, height: 56 }}
             >
               {loading
@@ -173,8 +179,14 @@ export default function StickFigureGenerator({
           </Stack>
         </Box>
 
-        {!aiSettingsLoading && !aiSettings.imageGenerationEnabled && (
+        {!aiAccessLoading && imageGenerationBlockedBySettings && (
           <Alert severity="info">{t("addVoca.imageGeneratorDisabled")}</Alert>
+        )}
+
+        {!aiAccessLoading && imageGenerationBlockedByPermissions && (
+          <Alert severity="info">
+            {t("addVoca.imageGeneratorPermissionDenied")}
+          </Alert>
         )}
 
         {error && <Alert severity="error">{error}</Alert>}

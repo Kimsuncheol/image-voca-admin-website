@@ -14,8 +14,12 @@ export const DEFAULT_AI_SETTINGS: AISettings = {
 
 export const IMAGE_GENERATION_DISABLED_ERROR =
   "Image generation is disabled in AI settings.";
+export const IMAGE_GENERATION_PERMISSION_DISABLED_ERROR =
+  "Image generation is disabled for your administrator account.";
 export const ENRICH_GENERATION_DISABLED_ERROR =
   "Example and translation generation is disabled in AI settings.";
+export const ENRICH_GENERATION_PERMISSION_DISABLED_ERROR =
+  "Example and translation generation is disabled for your administrator account.";
 
 export function normalizeAISettings(
   value?: Partial<AISettings> | null,

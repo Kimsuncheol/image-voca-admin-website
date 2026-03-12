@@ -11,7 +11,12 @@ import Avatar from "@mui/material/Avatar";
 import Chip from "@mui/material/Chip";
 import { useTranslation } from "react-i18next";
 import type { AppUser } from "@/types/user";
-import { roleColors, planChipColor, getPlanLabel } from "./utils";
+import {
+  roleColors,
+  planChipColor,
+  getPlanLabel,
+  getUserPermissionsSummary,
+} from "./utils";
 
 interface UserTableProps {
   users: AppUser[];
@@ -30,12 +35,13 @@ export default function UserTable({ users, onSelectUser }: UserTableProps) {
             <TableCell>{t("users.email")}</TableCell>
             <TableCell>{t("users.role")}</TableCell>
             <TableCell>{t("users.plan")}</TableCell>
+            <TableCell>{t("users.permissions")}</TableCell>
           </TableRow>
         </TableHead>
         <TableBody>
           {users.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={4} align="center" sx={{ py: 4 }}>
+              <TableCell colSpan={5} align="center" sx={{ py: 4 }}>
                 <Typography color="text.secondary">
                   {t("users.noUsers")}
                 </Typography>
@@ -83,6 +89,20 @@ export default function UserTable({ users, onSelectUser }: UserTableProps) {
                       u.plan && u.plan !== "free" ? "filled" : "outlined"
                     }
                   />
+                </TableCell>
+                <TableCell>
+                  {u.role === "super-admin" ? (
+                    <Chip
+                      label={getUserPermissionsSummary(u, t)}
+                      color="error"
+                      size="small"
+                      variant="outlined"
+                    />
+                  ) : (
+                    <Typography variant="body2" color="text.secondary">
+                      {getUserPermissionsSummary(u, t)}
+                    </Typography>
+                  )}
                 </TableCell>
               </TableRow>
             ))

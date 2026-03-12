@@ -30,6 +30,9 @@ export default function UserConfirmDialog({
     if (pendingAction.type === "roleChange") {
       return t("users.confirmRoleChange");
     }
+    if (pendingAction.type === "adminPermissionsChange") {
+      return t("users.confirmAdminPermissionsChange");
+    }
     return t("users.confirmPlanChange");
   };
 

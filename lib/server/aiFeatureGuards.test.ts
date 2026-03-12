@@ -4,10 +4,17 @@ import test from "node:test";
 import { DEFAULT_AI_SETTINGS } from "../aiSettings.ts";
 
 import {
+  canUseEnrichGeneration,
+  canUseImageGeneration,
   getEnrichGenerationDisabledResponse,
+  getEnrichGenerationPermissionDeniedResponse,
   getImageGenerationDisabledResponse,
+  getImageGenerationPermissionDeniedResponse,
   isImageGenerationEnabled,
+  shouldBlockEnrichGenerationForUser,
+  shouldBlockImageGenerationForUser,
   shouldBlockEnrichGeneration,
+  shouldBlockWordFieldGenerationForUser,
   shouldBlockWordFieldGeneration,
 } from "./aiFeatureGuards.ts";
 
@@ -79,4 +86,71 @@ test("enrich disabled response matches the route contract", () => {
       error: "Example and translation generation is disabled in AI settings.",
     },
   });
+});
+
+test("permission denied responses match the route contracts", () => {
+  assert.deepEqual(getImageGenerationPermissionDeniedResponse(), {
+    status: 403,
+    body: {
+      ok: false,
+      code: "PERMISSION_DENIED",
+      error: "Image generation is disabled for your administrator account.",
+    },
+  });
+
+  assert.deepEqual(getEnrichGenerationPermissionDeniedResponse(), {
+    status: 403,
+    body: {
+      error:
+        "Example and translation generation is disabled for your administrator account.",
+    },
+  });
+});
+
+test("admin-specific feature guards combine global settings with personal permissions", () => {
+  const adminUser = {
+    role: "admin" as const,
+    adminPermissions: {
+      imageGeneration: false,
+      exampleTranslationGeneration: true,
+      planModification: false,
+      roleModification: false,
+    },
+  };
+
+  assert.equal(
+    shouldBlockImageGenerationForUser(DEFAULT_AI_SETTINGS, adminUser),
+    "permission_denied",
+  );
+  assert.equal(
+    shouldBlockEnrichGenerationForUser(
+      DEFAULT_AI_SETTINGS,
+      { generateExample: true, generateTranslation: false },
+      adminUser,
+    ),
+    null,
+  );
+  assert.equal(
+    shouldBlockWordFieldGenerationForUser(
+      DEFAULT_AI_SETTINGS,
+      "translation",
+      {
+        ...adminUser,
+        adminPermissions: {
+          ...adminUser.adminPermissions,
+          exampleTranslationGeneration: false,
+        },
+      },
+    ),
+    "permission_denied",
+  );
+});
+
+test("super-admin bypasses per-admin permission restrictions", () => {
+  const superAdminUser = {
+    role: "super-admin" as const,
+  };
+
+  assert.equal(canUseImageGeneration(DEFAULT_AI_SETTINGS, superAdminUser), true);
+  assert.equal(canUseEnrichGeneration(DEFAULT_AI_SETTINGS, superAdminUser), true);
 });

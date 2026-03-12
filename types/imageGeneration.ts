@@ -22,6 +22,7 @@ export type GenerateImageErrorCode =
   | "INVALID_WORD"
   | "UNSUPPORTED_COURSE"
   | "FEATURE_DISABLED"
+  | "PERMISSION_DENIED"
   | "MODEL_BLOCKED"
   | "NO_IMAGE_RETURNED"
   | "UPLOAD_FAILED"
@@ -153,6 +154,8 @@ export function getGenerateImageErrorMessage(
       return "Image generation is only supported for CSAT, IELTS, TOEFL, and TOEIC.";
     case "FEATURE_DISABLED":
       return "Image generation is disabled in AI settings.";
+    case "PERMISSION_DENIED":
+      return "Image generation is disabled for your administrator account.";
     case "MODEL_BLOCKED":
       return "The model blocked this prompt. Try a simpler word.";
     case "NO_IMAGE_RETURNED":
@@ -176,6 +179,7 @@ export function getGenerateImageErrorStatus(
     case "UNSUPPORTED_COURSE":
       return 400;
     case "FEATURE_DISABLED":
+    case "PERMISSION_DENIED":
       return 403;
     case "MODEL_BLOCKED":
       return 422;

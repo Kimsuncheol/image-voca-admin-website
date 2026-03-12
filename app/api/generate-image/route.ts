@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server.js";
 
-import { adminAuth } from "@/lib/firebase/admin";
 import { generateStoredImage } from "@/lib/server/imageGenerationService";
+import { verifySessionUser } from "@/lib/server/sessionUser";
 import { getServerAISettings } from "@/lib/server/aiSettings";
 import {
   getImageGenerationDisabledResponse,
-  isImageGenerationEnabled,
+  getImageGenerationPermissionDeniedResponse,
+  shouldBlockImageGenerationForUser,
 } from "@/lib/server/aiFeatureGuards";
 import {
   buildStickFigurePrompt,
@@ -19,17 +20,14 @@ import {
 export const runtime = "nodejs";
 
 export async function POST(request: NextRequest) {
-  const sessionCookie = request.cookies.get("__session")?.value;
-  if (!sessionCookie) {
+  const caller = await verifySessionUser(request);
+  if (!caller) {
     return NextResponse.json<GenerateImageResponse>(
       createGenerateImageError("UNAUTHORIZED"),
       { status: 401 },
     );
   }
-
-  try {
-    await adminAuth.verifySessionCookie(sessionCookie, true);
-  } catch {
+  if (caller.role !== "admin" && caller.role !== "super-admin") {
     return NextResponse.json<GenerateImageResponse>(
       createGenerateImageError("UNAUTHORIZED"),
       { status: 401 },
@@ -56,10 +54,17 @@ export async function POST(request: NextRequest) {
   const { word, courseId } = validated.data;
   const prompt = buildStickFigurePrompt(word);
   const settings = await getServerAISettings();
-  if (!isImageGenerationEnabled(settings)) {
+  const blockReason = shouldBlockImageGenerationForUser(settings, caller);
+  if (blockReason === "feature_disabled") {
     const disabledResponse = getImageGenerationDisabledResponse();
     return NextResponse.json<GenerateImageResponse>(disabledResponse.body, {
       status: disabledResponse.status,
+    });
+  }
+  if (blockReason === "permission_denied") {
+    const deniedResponse = getImageGenerationPermissionDeniedResponse();
+    return NextResponse.json<GenerateImageResponse>(deniedResponse.body, {
+      status: deniedResponse.status,
     });
   }
   const result = await generateStoredImage(

@@ -30,7 +30,6 @@
  */
 
 import { useState, useEffect, useCallback } from "react";
-import { useRouter } from "next/navigation";
 import Typography from "@mui/material/Typography";
 import Alert from "@mui/material/Alert";
 
@@ -38,7 +37,10 @@ import Alert from "@mui/material/Alert";
 import PageLayout from "@/components/layout/PageLayout";
 
 // ── Auth + types ──────────────────────────────────────────────────────
-import type { AppUser, UserPlan } from "@/types/user";
+import {
+  getEffectiveAdminPermissions,
+} from "@/lib/adminPermissions";
+import type { AdminPermissions, AppUser, UserPlan } from "@/types/user";
 import { useTranslation } from "react-i18next";
 
 // ── Feature-specific components & hooks ───────────────────────────────
@@ -48,7 +50,6 @@ import { useAdminGuard } from "@/hooks/useAdminGuard";
 
 export default function UsersPage() {
   const { t } = useTranslation();
-  const router = useRouter();
 
   // ── Auth guard ────────────────────────────────────────────────────
   // Redirects non-admin users to "/" once auth resolves.
@@ -65,6 +66,12 @@ export default function UsersPage() {
     type: "success" | "error";
     text: string;
   } | null>(null);
+
+  const currentUserPermissions = getEffectiveAdminPermissions(user);
+
+  const replaceUpdatedUser = useCallback((nextUser: AppUser) => {
+    setUsers((prev) => prev.map((u) => (u.uid === nextUser.uid ? nextUser : u)));
+  }, []);
 
   // ── Data fetching ─────────────────────────────────────────────────
   /**
@@ -104,10 +111,10 @@ export default function UsersPage() {
       });
 
       if (!res.ok) throw new Error();
+      const data = (await res.json()) as { user: AppUser };
 
       setMessage({ type: "success", text: t("users.roleChangeSuccess") });
-      // Optimistic local state update — avoids a full refetch
-      setUsers((prev) => prev.map((u) => (u.uid === uid ? { ...u, role } : u)));
+      replaceUpdatedUser(data.user);
     } catch {
       setMessage({ type: "error", text: t("users.roleChangeError") });
     }
@@ -125,14 +132,42 @@ export default function UsersPage() {
       });
 
       if (!res.ok) throw new Error();
+      const data = (await res.json()) as { user: AppUser };
 
       setMessage({
         type: "success",
         text: t("users.subscriptionUpdateSuccess"),
       });
-      setUsers((prev) => prev.map((u) => (u.uid === uid ? { ...u, plan } : u)));
+      replaceUpdatedUser(data.user);
     } catch {
       setMessage({ type: "error", text: t("users.subscriptionUpdateError") });
+    }
+  };
+
+  const handleAdminPermissionsChange = async (
+    uid: string,
+    adminPermissions: AdminPermissions,
+  ) => {
+    try {
+      const res = await fetch("/api/admin/users", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ uid, adminPermissions }),
+      });
+
+      if (!res.ok) throw new Error();
+      const data = (await res.json()) as { user: AppUser };
+
+      setMessage({
+        type: "success",
+        text: t("users.adminPermissionsUpdateSuccess"),
+      });
+      replaceUpdatedUser(data.user);
+    } catch {
+      setMessage({
+        type: "error",
+        text: t("users.adminPermissionsUpdateError"),
+      });
     }
   };
 
@@ -209,9 +244,11 @@ export default function UsersPage() {
           users={users}
           currentUserRole={user?.role || "user"}
           currentUserUid={user?.uid || ""}
+          currentUserPermissions={currentUserPermissions}
           onDelete={handleDelete}
           onRoleChange={handleRoleChange}
           onPlanChange={handlePlanChange}
+          onAdminPermissionsChange={handleAdminPermissionsChange}
         />
       )}
     </PageLayout>

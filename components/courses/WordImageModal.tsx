@@ -15,7 +15,7 @@ import CircularProgress from "@mui/material/CircularProgress";
 import AutoFixHighIcon from "@mui/icons-material/AutoFixHigh";
 import { useTranslation } from "react-i18next";
 import type { StandardWord } from "@/types/word";
-import { useAISettings } from "@/lib/hooks/useAISettings";
+import { useAdminAIAccess } from "@/lib/hooks/useAdminAccess";
 import { updateWordImageUrl } from "@/lib/firebase/firestore";
 import { uploadWordImage } from "@/lib/firebase/storage";
 
@@ -39,7 +39,12 @@ export default function WordImageModal({
   onImageSaved,
 }: WordImageModalProps) {
   const { t } = useTranslation();
-  const { settings: aiSettings, loading: aiSettingsLoading } = useAISettings();
+  const {
+    loading: aiAccessLoading,
+    canUseImageGeneration,
+    imageGenerationBlockedByPermissions,
+    imageGenerationBlockedBySettings,
+  } = useAdminAIAccess();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [droppedFile, setDroppedFile] = useState<File | null>(null);
@@ -66,7 +71,7 @@ export default function WordImageModal({
   };
 
   const handleGenerate = async () => {
-    if (aiSettingsLoading || !aiSettings.imageGenerationEnabled) return;
+    if (aiAccessLoading || !canUseImageGeneration) return;
     setLoading(true);
     setError("");
     try {
@@ -140,15 +145,21 @@ export default function WordImageModal({
           variant="contained"
           startIcon={loading ? <CircularProgress size={16} color="inherit" /> : <AutoFixHighIcon />}
           onClick={handleGenerate}
-          disabled={loading || aiSettingsLoading || !aiSettings.imageGenerationEnabled}
+          disabled={loading || aiAccessLoading || !canUseImageGeneration}
           fullWidth
         >
           {t("courses.generateImage", "Generate image")}
         </Button>
 
-        {!aiSettingsLoading && !aiSettings.imageGenerationEnabled && (
+        {!aiAccessLoading && imageGenerationBlockedBySettings && (
           <Typography variant="caption" color="text.secondary">
             {t("courses.imageGenerationDisabled")}
+          </Typography>
+        )}
+
+        {!aiAccessLoading && imageGenerationBlockedByPermissions && (
+          <Typography variant="caption" color="text.secondary">
+            {t("courses.imageGenerationPermissionDenied")}
           </Typography>
         )}
 
