@@ -15,6 +15,7 @@ import { ReactNode } from "react";
 import DashboardIcon from "@mui/icons-material/Dashboard";
 import PostAddIcon from "@mui/icons-material/PostAdd";
 import MenuBookIcon from "@mui/icons-material/MenuBook";
+import SearchIcon from "@mui/icons-material/Search";
 import PeopleIcon from "@mui/icons-material/People";
 import OndemandVideoIcon from "@mui/icons-material/OndemandVideo";
 import LocalOfferIcon from "@mui/icons-material/LocalOffer";
@@ -56,6 +57,11 @@ export function useNavItems(): NavItem[] {
       title: t("dashboard.courses", "Courses"),
       icon: <MenuBookIcon />,
       href: "/courses",
+    },
+    {
+      title: t("dashboard.wordFinder", "Word Finder"),
+      icon: <SearchIcon />,
+      href: "/words",
     },
     {
       title: t("dashboard.userManagement", "Users"),

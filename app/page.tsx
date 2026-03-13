@@ -22,6 +22,7 @@ import Typography from "@mui/material/Typography";
 import Grid from "@mui/material/Grid";
 import PostAddIcon from "@mui/icons-material/PostAdd";
 import MenuBookIcon from "@mui/icons-material/MenuBook";
+import SearchIcon from "@mui/icons-material/Search";
 import PeopleIcon from "@mui/icons-material/People";
 import OndemandVideoIcon from "@mui/icons-material/OndemandVideo";
 import LocalOfferIcon from "@mui/icons-material/LocalOffer";
@@ -52,6 +53,12 @@ export default function Home() {
       description: t("dashboard.coursesDesc"),
       icon: <MenuBookIcon />,
       href: "/courses",
+    },
+    {
+      title: t("dashboard.wordFinder"),
+      description: t("dashboard.wordFinderDesc"),
+      icon: <SearchIcon />,
+      href: "/words",
     },
     {
       title: t("dashboard.userManagement"),

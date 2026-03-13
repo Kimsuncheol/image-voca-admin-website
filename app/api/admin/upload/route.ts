@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth, adminDb } from '@/lib/firebase/admin';
+import { invalidateCourseCache } from '@/lib/server/wordCache';
 
 /**
  * Firestore structure:
@@ -59,6 +60,8 @@ export async function POST(request: NextRequest) {
       },
       { merge: true }
     );
+
+    invalidateCourseCache();
 
     return NextResponse.json({ status: 'success', count: words.length });
   } catch (err) {

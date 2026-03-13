@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth, adminDb } from '@/lib/firebase/admin';
+import { invalidateCourseCache } from '@/lib/server/wordCache';
 
 /**
  * POST /api/admin/batch-upload
@@ -204,6 +205,8 @@ export async function POST(request: NextRequest) {
       console.error('[batch-upload] Metadata update failed:', err);
     }
   }
+
+  invalidateCourseCache();
 
   return NextResponse.json({ results });
 }

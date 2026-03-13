@@ -7,6 +7,7 @@ import type {
   UserRole,
   UserPlan,
 } from "@/types/user";
+import { tokenizeQuery, matchesAllTokens } from "@/lib/utils/search";
 
 import UserStats from "./UserStats";
 import UserFilters from "./UserFilters";
@@ -56,12 +57,14 @@ export default function UserList({
   const freeCount = users.filter((u) => !u.plan || u.plan === "free").length;
 
   const filteredUsers = useMemo(() => {
-    const q = search.toLowerCase();
+    const tokens = tokenizeQuery(search);
     return users.filter((u) => {
       const matchSearch =
-        !q ||
-        (u.displayName || "").toLowerCase().includes(q) ||
-        (u.email || "").toLowerCase().includes(q);
+        tokens.length === 0 ||
+        matchesAllTokens(
+          [u.displayName || "", u.email || ""].join(" "),
+          tokens,
+        );
       const matchPlan =
         planFilter === "all" ||
         (planFilter === "free"

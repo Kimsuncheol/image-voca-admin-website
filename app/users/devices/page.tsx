@@ -21,6 +21,7 @@ import {
   parseDeviceTimestamp,
 } from "@/components/user-devices/utils";
 import { useAdminGuard } from "@/hooks/useAdminGuard";
+import { tokenizeQuery, matchesAllTokens } from "@/lib/utils/search";
 import type { AdminManagedDeviceListItem } from "@/types/device";
 
 type DeviceSortKey = "lastSeenAt" | "createdAt" | "registeredDeviceCount";
@@ -108,24 +109,22 @@ export default function UserDevicesPage() {
   );
 
   const filteredUsers = useMemo(() => {
-    const query = search.trim().toLowerCase();
+    const tokens = tokenizeQuery(search);
 
     return [...deviceUsers]
       .filter((item) => (scopedUid ? item.uid === scopedUid : true))
       .filter((item) => {
-        if (!query) return true;
+        if (tokens.length === 0) return true;
 
-        const userMatches =
-          item.displayName.toLowerCase().includes(query) ||
-          item.email.toLowerCase().includes(query);
+        const searchableText = [
+          item.displayName,
+          item.email,
+          ...item.devices.flatMap((device) =>
+            [device.modelName, device.deviceId].filter(Boolean),
+          ),
+        ].join(" ");
 
-        if (userMatches) return true;
-
-        return item.devices.some((device) =>
-          [device.modelName, device.deviceId]
-            .filter((value): value is string => Boolean(value))
-            .some((value) => value.toLowerCase().includes(query)),
-        );
+        return matchesAllTokens(searchableText, tokens);
       })
       .filter((item) =>
         platformFilter === "all"
