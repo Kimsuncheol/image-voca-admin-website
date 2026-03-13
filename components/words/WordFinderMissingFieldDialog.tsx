@@ -49,6 +49,7 @@ interface WordFinderMissingFieldDialogProps {
   result: WordFinderResult | null;
   onClose: () => void;
   onResolved: (updates: WordFinderResultFieldUpdates) => void;
+  sharedLookupResult?: WordFinderResult | null;
 }
 
 function getFieldLabel(
@@ -178,6 +179,7 @@ export default function WordFinderMissingFieldDialog({
   result,
   onClose,
   onResolved,
+  sharedLookupResult,
 }: WordFinderMissingFieldDialogProps) {
   const { t } = useTranslation();
   const {
@@ -240,7 +242,9 @@ export default function WordFinderMissingFieldDialog({
   }, [dropPreview]);
 
   useEffect(() => {
-    if (!open || !result || !field) {
+    const lookupSource = sharedLookupResult ?? result;
+
+    if (!open || !result || !field || !lookupSource) {
       setError("");
       setSharedLookupError("");
       setSharedCandidates([]);
@@ -250,8 +254,8 @@ export default function WordFinderMissingFieldDialog({
 
     const controller = new AbortController();
     const params = new URLSearchParams({
-      q: result.primaryText,
-      type: result.type,
+      q: lookupSource.primaryText,
+      type: lookupSource.type,
     });
 
     setSharedLoading(true);
@@ -300,7 +304,7 @@ export default function WordFinderMissingFieldDialog({
       });
 
     return () => controller.abort();
-  }, [field, open, result, t]);
+  }, [field, open, result, sharedLookupResult, t]);
 
   const resetUploadState = useCallback(() => {
     if (dropPreview) {

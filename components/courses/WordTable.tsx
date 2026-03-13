@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import Table from "@mui/material/Table";
 import TableBody from "@mui/material/TableBody";
 import TableCell from "@mui/material/TableCell";
@@ -11,17 +11,23 @@ import Paper from "@mui/material/Paper";
 import Box from "@mui/material/Box";
 import IconButton from "@mui/material/IconButton";
 import Typography from "@mui/material/Typography";
-import CircularProgress from "@mui/material/CircularProgress";
 import Tooltip from "@mui/material/Tooltip";
 import AddPhotoAlternateIcon from "@mui/icons-material/AddPhotoAlternate";
 import AutoFixHighIcon from "@mui/icons-material/AutoFixHigh";
-import ErrorOutlineIcon from "@mui/icons-material/ErrorOutline";
 import { useTranslation } from "react-i18next";
+
+import WordFinderMissingFieldDialog from "@/components/words/WordFinderMissingFieldDialog";
+import { getCourseById } from "@/types/course";
 import type { Word, StandardWord } from "@/types/word";
 import { isCollocationWord, isFamousQuoteWord } from "@/types/word";
-import { useAdminAIAccess } from "@/lib/hooks/useAdminAccess";
-import WordImageModal from "./WordImageModal";
-import { updateWordField } from "@/lib/firebase/firestore";
+import {
+  adaptCourseWordToWordFinderResult,
+  applyCourseWordResolvedUpdates,
+} from "@/lib/wordFinderCourseAdapter";
+import type {
+  WordFinderActionField,
+  WordFinderResultFieldUpdates,
+} from "@/types/wordFinder";
 
 // Detects "Name: text. Name: text" dialogue formatting.
 // Supports plain names (Layne:) and numbered names (Neighbor 1:).
@@ -101,7 +107,6 @@ function ExampleCell({ text }: { text: string | undefined }) {
         }}
       >
         {lines.map((line, i) => {
-          // If the line has "Name: text", split and style it
           const match = line.match(SPEAKER_LINE_REGEX);
           if (match) {
             const dialogueText = match[2].trim();
@@ -151,7 +156,6 @@ function ExampleCell({ text }: { text: string | undefined }) {
             );
           }
 
-          // Fallback for normal sentences
           const orderedItems = parseOrderedItems(line);
           if (!orderedItems) {
             return (
@@ -207,147 +211,126 @@ export default function WordTable({
   onWordFieldsUpdated,
 }: WordTableProps) {
   const { t } = useTranslation();
-  const {
-    loading: aiAccessLoading,
-    canUseExampleTranslationGeneration,
-    exampleTranslationBlockedByPermissions,
-    exampleTranslationBlockedBySettings,
-  } = useAdminAIAccess();
-  const [imageModalWord, setImageModalWord] = useState<StandardWord | null>(null);
-
-  // Key: `${wordId}:${field}` → 'loading' | 'error'
-  const [fieldState, setFieldState] = useState<Record<string, "loading" | "error">>({});
-
-  // Locally mirrors generated values so cells update immediately without parent re-render
-  const [localFields, setLocalFields] = useState<
-    Record<string, Partial<Pick<StandardWord, "pronunciation" | "example" | "translation">>>
+  const [localResolvedFields, setLocalResolvedFields] = useState<
+    Record<string, WordFinderResultFieldUpdates>
   >({});
+  const [activeWordId, setActiveWordId] = useState("");
+  const [activeField, setActiveField] = useState<WordFinderActionField | null>(null);
 
-  const getField = (word: StandardWord, field: GeneratableField) =>
-    localFields[word.id]?.[field] ?? word[field];
+  const courseLabel = useMemo(() => {
+    if (!courseId) return "";
+    return getCourseById(courseId)?.label ?? courseId;
+  }, [courseId]);
 
-  const isLoading = (wordId: string, field: string) =>
-    fieldState[`${wordId}:${field}`] === "loading";
+  const activeWord = useMemo(
+    () => words.find((word) => word.id === activeWordId) ?? null,
+    [activeWordId, words],
+  );
 
-  const isError = (wordId: string, field: string) =>
-    fieldState[`${wordId}:${field}`] === "error";
+  const activeResult = useMemo(() => {
+    if (!activeWord || !courseId || !coursePath || !courseLabel) return null;
+    const mergedWord = { ...activeWord, ...localResolvedFields[activeWord.id] } as Word;
 
-  const handleGenerateField = async (word: StandardWord, field: GeneratableField) => {
-    if (!coursePath || !dayId) return;
-    if (
-      (field === "example" || field === "translation") &&
-      !canUseExampleTranslationGeneration
-    ) {
-      return;
+    return adaptCourseWordToWordFinderResult({
+      word: mergedWord,
+      courseId,
+      courseLabel,
+      coursePath,
+      dayId,
+      isCollocation,
+      isFamousQuote,
+    });
+  }, [
+    activeWord,
+    courseId,
+    courseLabel,
+    coursePath,
+    dayId,
+    isCollocation,
+    isFamousQuote,
+    localResolvedFields,
+  ]);
+
+  const openFieldModal = (wordId: string, field: WordFinderActionField) => {
+    setActiveWordId(wordId);
+    setActiveField(field);
+  };
+
+  const closeFieldModal = () => {
+    setActiveWordId("");
+    setActiveField(null);
+  };
+
+  const getResolvedTextField = (wordId: string, field: GeneratableField): string => {
+    const resolved = localResolvedFields[wordId];
+    if (field === "pronunciation") {
+      return resolved?.pronunciation ?? "";
     }
-    const key = `${word.id}:${field}`;
-    setFieldState((prev) => ({ ...prev, [key]: "loading" }));
-    try {
-      const currentExample = localFields[word.id]?.example ?? word.example;
-      const resp = await fetch("/api/admin/generate-word-field", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          field,
-          word: word.word,
-          meaning: word.meaning,
-          ...(field === "translation" ? { example: currentExample } : {}),
-        }),
-      });
-      if (!resp.ok) throw new Error();
-      const result = (await resp.json()) as {
-        pronunciation?: string;
-        example?: string;
-        translation?: string;
-      };
+    if (field === "example") {
+      return resolved?.example ?? "";
+    }
+    return resolved?.translation ?? "";
+  };
 
-      const fieldsToSave: Partial<Pick<StandardWord, "pronunciation" | "example" | "translation">> =
-        {};
-      if (result.pronunciation) fieldsToSave.pronunciation = result.pronunciation;
-      if (result.example) fieldsToSave.example = result.example;
-      if (result.translation) fieldsToSave.translation = result.translation;
+  const getResolvedImage = (wordId: string): string => {
+    return localResolvedFields[wordId]?.imageUrl ?? "";
+  };
 
-      await Promise.all(
-        (
-          Object.entries(fieldsToSave) as [GeneratableField, string][]
-        ).map(([f, v]) => updateWordField(coursePath, dayId, word.id, f, v)),
-      );
+  const handleResolved = (updates: WordFinderResultFieldUpdates) => {
+    if (!activeWordId || !activeWord) return;
 
-      setLocalFields((prev) => ({
-        ...prev,
-        [word.id]: { ...prev[word.id], ...fieldsToSave },
-      }));
-      onWordFieldsUpdated?.(word.id, fieldsToSave);
+    const mappedUpdates = applyCourseWordResolvedUpdates(activeWord, updates);
 
-      setFieldState((prev) => {
-        const next = { ...prev };
-        Object.keys(fieldsToSave).forEach((f) => delete next[`${word.id}:${f}`]);
-        return next;
-      });
-    } catch {
-      setFieldState((prev) => ({ ...prev, [key]: "error" }));
+    setLocalResolvedFields((prev) => ({
+      ...prev,
+      [activeWordId]: {
+        ...prev[activeWordId],
+        ...mappedUpdates,
+      },
+    }));
+
+    if (typeof mappedUpdates.imageUrl === "string") {
+      onWordImageUpdated?.(activeWordId, mappedUpdates.imageUrl);
+    }
+
+    const fieldUpdates: Partial<
+      Pick<StandardWord, "pronunciation" | "example" | "translation">
+    > = {};
+    if (typeof mappedUpdates.pronunciation === "string") {
+      fieldUpdates.pronunciation = mappedUpdates.pronunciation;
+    }
+    if (typeof mappedUpdates.example === "string") {
+      fieldUpdates.example = mappedUpdates.example;
+    }
+    if (typeof mappedUpdates.translation === "string") {
+      fieldUpdates.translation = mappedUpdates.translation;
+    }
+
+    if (Object.keys(fieldUpdates).length > 0) {
+      onWordFieldsUpdated?.(activeWordId, fieldUpdates);
     }
   };
 
-  const canGenerate = !!(coursePath && dayId);
-
-  function AiTriggerCell({
-    word,
+  function MissingFieldTrigger({
+    wordId,
     field,
     tooltipKey,
+    icon = <AutoFixHighIcon fontSize="small" />,
   }: {
-    word: StandardWord;
-    field: GeneratableField;
+    wordId: string;
+    field: WordFinderActionField;
     tooltipKey: string;
+    icon?: ReactNode;
   }) {
-    const isEnrichmentField = field === "example" || field === "translation";
-    const disabledReason = isEnrichmentField
-      ? aiAccessLoading
-        ? t("common.loading")
-        : exampleTranslationBlockedBySettings
-          ? t("courses.enrichGenerationDisabled")
-          : exampleTranslationBlockedByPermissions
-            ? t("courses.enrichGenerationPermissionDenied")
-          : null
-      : null;
-
-    if (disabledReason) {
-      return (
-        <TableCell>
-          <Tooltip title={disabledReason}>
-            <span>
-              <IconButton size="small" disabled sx={{ p: 0 }}>
-                <AutoFixHighIcon fontSize="small" />
-              </IconButton>
-            </span>
-          </Tooltip>
-        </TableCell>
-      );
-    }
-
-    if (isLoading(word.id, field)) {
-      return (
-        <TableCell>
-          <CircularProgress size={16} />
-        </TableCell>
-      );
-    }
-    if (isError(word.id, field)) {
-      return (
-        <TableCell>
-          <Tooltip title={t("courses.generateFieldError")}>
-            <IconButton size="small" onClick={() => handleGenerateField(word, field)} sx={{ p: 0 }}>
-              <ErrorOutlineIcon fontSize="small" color="error" />
-            </IconButton>
-          </Tooltip>
-        </TableCell>
-      );
-    }
     return (
       <TableCell>
         <Tooltip title={t(tooltipKey)}>
-          <IconButton size="small" onClick={() => handleGenerateField(word, field)} sx={{ p: 0 }}>
-            <AutoFixHighIcon fontSize="small" />
+          <IconButton
+            size="small"
+            onClick={() => openFieldModal(wordId, field)}
+            sx={{ p: 0 }}
+          >
+            {icon}
           </IconButton>
         </Tooltip>
       </TableCell>
@@ -356,120 +339,166 @@ export default function WordTable({
 
   return (
     <>
-    <TableContainer component={Paper}>
-      <Table>
-        <TableHead>
-          <TableRow>
-            {isCollocation ? (
-              <>
-                <TableCell>{t("courses.collocation")}</TableCell>
-                <TableCell>{t("courses.meaning")}</TableCell>
-                <TableCell>{t("courses.explanation")}</TableCell>
-                <TableCell>{t("courses.example")}</TableCell>
-                <TableCell>{t("courses.translation")}</TableCell>
-              </>
-            ) : isFamousQuote ? (
-              <>
-                <TableCell>{t("courses.quote")}</TableCell>
-                <TableCell>{t("courses.author")}</TableCell>
-                <TableCell>{t("courses.translation")}</TableCell>
-              </>
-            ) : (
-              <>
-                <TableCell>{t("courses.word")}</TableCell>
-                <TableCell>{t("courses.meaning")}</TableCell>
-                <TableCell>{t("courses.pronunciation")}</TableCell>
-                <TableCell>{t("courses.example")}</TableCell>
-                <TableCell>{t("courses.translation")}</TableCell>
-                {showImageUrl && <TableCell>{t("courses.image", "Image")}</TableCell>}
-              </>
-            )}
-          </TableRow>
-        </TableHead>
-        <TableBody>
-          {words.map((word) => (
-            <TableRow key={word.id}>
-              {isCollocationWord(word) ? (
+      <TableContainer component={Paper}>
+        <Table>
+          <TableHead>
+            <TableRow>
+              {isCollocation ? (
                 <>
-                  <TableCell>{word.collocation}</TableCell>
-                  <TableCell>{word.meaning}</TableCell>
-                  <TableCell>{word.explanation}</TableCell>
-                  <ExampleCell text={word.example} />
-                  <ExampleCell text={word.translation} />
+                  <TableCell>{t("courses.collocation")}</TableCell>
+                  <TableCell>{t("courses.meaning")}</TableCell>
+                  <TableCell>{t("courses.explanation")}</TableCell>
+                  <TableCell>{t("courses.example")}</TableCell>
+                  <TableCell>{t("courses.translation")}</TableCell>
                 </>
-              ) : isFamousQuoteWord(word) ? (
+              ) : isFamousQuote ? (
                 <>
-                  <TableCell>{word.quote}</TableCell>
-                  <TableCell>{word.author}</TableCell>
-                  <TableCell>{word.translation}</TableCell>
+                  <TableCell>{t("courses.quote")}</TableCell>
+                  <TableCell>{t("courses.author")}</TableCell>
+                  <TableCell>{t("courses.translation")}</TableCell>
                 </>
               ) : (
                 <>
-                  <TableCell>{word.word}</TableCell>
-                  <TableCell>{word.meaning}</TableCell>
-                  {canGenerate && !getField(word, "pronunciation") ? (
-                    <AiTriggerCell
-                      word={word}
-                      field="pronunciation"
-                      tooltipKey="courses.generatePronunciation"
-                    />
-                  ) : (
-                    <TableCell>{getField(word, "pronunciation")}</TableCell>
-                  )}
-                  {canGenerate && !getField(word, "example") ? (
-                    <AiTriggerCell
-                      word={word}
-                      field="example"
-                      tooltipKey="courses.generateExample"
-                    />
-                  ) : (
-                    <ExampleCell text={getField(word, "example")} />
-                  )}
-                  {canGenerate && !getField(word, "translation") ? (
-                    <AiTriggerCell
-                      word={word}
-                      field="translation"
-                      tooltipKey="courses.generateTranslation"
-                    />
-                  ) : (
-                    <ExampleCell text={getField(word, "translation")} />
-                  )}
-                  {showImageUrl && (
-                    <TableCell>
-                      <IconButton size="small" onClick={() => setImageModalWord(word)} sx={{ p: 0 }}>
-                        {word.imageUrl ? (
-                          <Box
-                            component="img"
-                            src={word.imageUrl}
-                            alt={word.word}
-                            sx={{ width: 64, height: 64, objectFit: "cover", borderRadius: 1 }}
-                          />
-                        ) : (
-                          <AddPhotoAlternateIcon fontSize="small" />
-                        )}
-                      </IconButton>
-                    </TableCell>
-                  )}
+                  <TableCell>{t("courses.word")}</TableCell>
+                  <TableCell>{t("courses.meaning")}</TableCell>
+                  <TableCell>{t("courses.pronunciation")}</TableCell>
+                  <TableCell>{t("courses.example")}</TableCell>
+                  <TableCell>{t("courses.translation")}</TableCell>
+                  {showImageUrl && <TableCell>{t("courses.image", "Image")}</TableCell>}
                 </>
               )}
             </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-    </TableContainer>
+          </TableHead>
+          <TableBody>
+            {words.map((word) => (
+              <TableRow key={word.id}>
+                {isCollocationWord(word) ? (
+                  <>
+                    <TableCell>{word.collocation}</TableCell>
+                    <TableCell>{word.meaning}</TableCell>
+                    <TableCell>{word.explanation}</TableCell>
+                    {word.example || getResolvedTextField(word.id, "example") ? (
+                      <ExampleCell
+                        text={getResolvedTextField(word.id, "example") || word.example}
+                      />
+                    ) : (
+                      <MissingFieldTrigger
+                        wordId={word.id}
+                        field="example"
+                        tooltipKey="words.generateNewExamples"
+                      />
+                    )}
+                    {word.translation || getResolvedTextField(word.id, "translation") ? (
+                      <ExampleCell
+                        text={
+                          getResolvedTextField(word.id, "translation") || word.translation
+                        }
+                      />
+                    ) : (
+                      <MissingFieldTrigger
+                        wordId={word.id}
+                        field="translation"
+                        tooltipKey="words.generateNewTranslations"
+                      />
+                    )}
+                  </>
+                ) : isFamousQuoteWord(word) ? (
+                  <>
+                    <TableCell>{word.quote}</TableCell>
+                    <TableCell>{word.author}</TableCell>
+                    {word.translation || getResolvedTextField(word.id, "translation") ? (
+                      <TableCell>
+                        {getResolvedTextField(word.id, "translation") || word.translation}
+                      </TableCell>
+                    ) : (
+                      <MissingFieldTrigger
+                        wordId={word.id}
+                        field="translation"
+                        tooltipKey="words.useSharedTranslations"
+                      />
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <TableCell>{word.word}</TableCell>
+                    <TableCell>{word.meaning}</TableCell>
+                    {word.pronunciation || getResolvedTextField(word.id, "pronunciation") ? (
+                      <TableCell>
+                        {getResolvedTextField(word.id, "pronunciation") || word.pronunciation}
+                      </TableCell>
+                    ) : (
+                      <MissingFieldTrigger
+                        wordId={word.id}
+                        field="pronunciation"
+                        tooltipKey="courses.generatePronunciation"
+                      />
+                    )}
+                    {word.example || getResolvedTextField(word.id, "example") ? (
+                      <ExampleCell
+                        text={getResolvedTextField(word.id, "example") || word.example}
+                      />
+                    ) : (
+                      <MissingFieldTrigger
+                        wordId={word.id}
+                        field="example"
+                        tooltipKey="courses.generateExample"
+                      />
+                    )}
+                    {word.translation || getResolvedTextField(word.id, "translation") ? (
+                      <ExampleCell
+                        text={
+                          getResolvedTextField(word.id, "translation") || word.translation
+                        }
+                      />
+                    ) : (
+                      <MissingFieldTrigger
+                        wordId={word.id}
+                        field="translation"
+                        tooltipKey="courses.generateTranslation"
+                      />
+                    )}
+                    {showImageUrl && (
+                      <TableCell>
+                        {word.imageUrl || getResolvedImage(word.id) ? (
+                          <Box
+                            component="img"
+                            src={getResolvedImage(word.id) || word.imageUrl}
+                            alt={word.word}
+                            sx={{
+                              width: 64,
+                              height: 64,
+                              objectFit: "cover",
+                              borderRadius: 1,
+                            }}
+                          />
+                        ) : (
+                          <Tooltip title={t("words.generateNewImage")}>
+                            <IconButton
+                              size="small"
+                              onClick={() => openFieldModal(word.id, "image")}
+                              sx={{ p: 0 }}
+                            >
+                              <AddPhotoAlternateIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        )}
+                      </TableCell>
+                    )}
+                  </>
+                )}
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </TableContainer>
 
-      {imageModalWord && courseId && coursePath && dayId && (
-        <WordImageModal
-          open={true}
-          word={imageModalWord}
-          courseId={courseId}
-          coursePath={coursePath}
-          dayId={dayId}
-          onClose={() => setImageModalWord(null)}
-          onImageSaved={(wordId, imageUrl) => {
-            onWordImageUpdated?.(wordId, imageUrl);
-            setImageModalWord(null);
-          }}
+      {activeResult && (
+        <WordFinderMissingFieldDialog
+          open={Boolean(activeField)}
+          field={activeField}
+          result={activeResult}
+          onClose={closeFieldModal}
+          onResolved={handleResolved}
         />
       )}
     </>

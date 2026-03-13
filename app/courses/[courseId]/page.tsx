@@ -146,6 +146,8 @@ export default function CourseDaysPage({
             words={quotes}
             isCollocation={false}
             isFamousQuote={true}
+            courseId={courseId}
+            coursePath={course?.path}
           />
         )
       ) : /* ── Standard course: day-card grid ────────────────────────── */

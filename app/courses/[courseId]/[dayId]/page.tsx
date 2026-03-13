@@ -148,6 +148,11 @@ export default function DayWordsPage({
               prev.map((w) => (w.id === wordId ? { ...w, imageUrl } : w)),
             )
           }
+          onWordFieldsUpdated={(wordId, fields) =>
+            setWords((prev) =>
+              prev.map((w) => (w.id === wordId ? { ...w, ...fields } : w)),
+            )
+          }
         />
       )}
     </PageLayout>
