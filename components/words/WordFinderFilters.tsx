@@ -138,10 +138,10 @@ export default function WordFinderFilters({
       </Stack>
 
       <Stack direction="row" spacing={1} justifyContent="flex-end">
-        <Button onClick={onReset} disabled={isSubmitting}>
+        <Button onClick={onReset} disabled={isSubmitting} sx={{ borderRadius: "20px" }}>
           {t("words.clearFilters")}
         </Button>
-        <Button variant="contained" onClick={onSubmit} disabled={isSubmitting}>
+        <Button variant="contained" onClick={onSubmit} disabled={isSubmitting} sx={{ borderRadius: "20px" }}>
           {t("words.searchAction")}
         </Button>
       </Stack>
