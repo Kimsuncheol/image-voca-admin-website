@@ -77,7 +77,37 @@ export default function WordFinderTable({
   const { t } = useTranslation();
 
   return (
-    <TableContainer component={Paper} variant="outlined">
+    <TableContainer
+      component={Paper}
+      variant="outlined"
+      sx={{
+        "&::-webkit-scrollbar": { height: 6 },
+        "&::-webkit-scrollbar-track": {
+          borderRadius: 3,
+          bgcolor: "transparent",
+        },
+        "&::-webkit-scrollbar-thumb": {
+          borderRadius: 3,
+          bgcolor: "transparent",
+          transition: "background-color 0.2s",
+        },
+        "&:hover::-webkit-scrollbar-track": {
+          bgcolor: "action.hover",
+        },
+        "&:hover::-webkit-scrollbar-thumb": {
+          bgcolor: "text.disabled",
+        },
+        "&:hover::-webkit-scrollbar-thumb:hover": {
+          bgcolor: "text.secondary",
+        },
+        scrollbarWidth: "thin",
+        scrollbarColor: "transparent transparent",
+        "&:hover": {
+          scrollbarColor: (theme) =>
+            `${theme.palette.text.disabled} ${theme.palette.action.hover}`,
+        },
+      }}
+    >
       <Table>
         <TableHead>
           <TableRow>
