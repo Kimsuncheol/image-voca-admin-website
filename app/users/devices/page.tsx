@@ -1,11 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import Alert from "@mui/material/Alert";
-import Button from "@mui/material/Button";
-import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import { useTranslation } from "react-i18next";
 
@@ -33,13 +30,6 @@ export default function UserDevicesPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user, authLoading } = useAdminGuard();
-  const navigationButtonSx = {
-    borderRadius: 999,
-    px: 2.5,
-    py: 1,
-    textTransform: "none",
-    fontWeight: 600,
-  } as const;
 
   const [deviceUsers, setDeviceUsers] = useState<AdminManagedDeviceListItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -271,25 +261,9 @@ export default function UserDevicesPage() {
 
   return (
     <PageLayout>
-      <Stack
-        direction={{ xs: "column", sm: "row" }}
-        justifyContent="space-between"
-        alignItems={{ xs: "flex-start", sm: "center" }}
-        spacing={1.5}
-        sx={{ mb: 2 }}
-      >
-        <Typography variant="h4" fontWeight={600}>
-          {t("users.devices.title")}
-        </Typography>
-        <Button
-          component={Link}
-          href="/users"
-          variant="outlined"
-          sx={navigationButtonSx}
-        >
-          {t("users.devices.backToUsers")}
-        </Button>
-      </Stack>
+      <Typography variant="h4" gutterBottom fontWeight={600}>
+        {t("users.devices.title")}
+      </Typography>
 
       {error && (
         <Alert severity="error" sx={{ mb: 2 }}>

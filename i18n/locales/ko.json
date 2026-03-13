@@ -207,9 +207,7 @@
     "adminPermissionsUpdateError": "관리자 권한 변경에 실패했습니다",
     "devices": {
       "title": "등록된 기기 관리",
-      "backToUsers": "사용자 관리로 돌아가기",
       "manageAction": "기기 관리",
-      "manageAllAction": "기기 관리",
       "search": "사용자, 이메일, 기기 모델명 또는 기기 ID로 검색",
       "platformFilter": "플랫폼",
       "allPlatforms": "전체 플랫폼",

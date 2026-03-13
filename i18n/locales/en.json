@@ -207,9 +207,7 @@
     "adminPermissionsUpdateError": "Failed to update administrator permissions",
     "devices": {
       "title": "Registered Devices",
-      "backToUsers": "Back to users",
       "manageAction": "Manage devices",
-      "manageAllAction": "Manage devices",
       "search": "Search by user, email, device model, or device ID",
       "platformFilter": "Platform",
       "allPlatforms": "All platforms",
