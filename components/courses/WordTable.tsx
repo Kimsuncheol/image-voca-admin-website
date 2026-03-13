@@ -17,7 +17,7 @@ import AutoFixHighIcon from "@mui/icons-material/AutoFixHigh";
 import { useTranslation } from "react-i18next";
 
 import WordFinderMissingFieldDialog from "@/components/words/WordFinderMissingFieldDialog";
-import { getCourseById } from "@/types/course";
+import { getCourseById, type CourseId } from "@/types/course";
 import type { Word, StandardWord } from "@/types/word";
 import { isCollocationWord, isFamousQuoteWord } from "@/types/word";
 import {
@@ -189,7 +189,7 @@ interface WordTableProps {
   isCollocation: boolean;
   isFamousQuote?: boolean;
   showImageUrl?: boolean;
-  courseId?: string;
+  courseId?: CourseId;
   coursePath?: string;
   dayId?: string;
   onWordImageUpdated?: (wordId: string, imageUrl: string) => void;

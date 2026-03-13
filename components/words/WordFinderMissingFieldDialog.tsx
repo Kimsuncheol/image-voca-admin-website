@@ -399,7 +399,10 @@ export default function WordFinderMissingFieldDialog({
           | { error?: string };
 
         if (!response.ok) {
-          throw new Error(payload.error || t("words.generateActionError"));
+          throw new Error(
+            ("error" in payload ? payload.error : undefined) ||
+              t("words.generateActionError"),
+          );
         }
 
         const imageUrl =

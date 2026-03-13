@@ -146,7 +146,7 @@ export default function CourseDaysPage({
             words={quotes}
             isCollocation={false}
             isFamousQuote={true}
-            courseId={courseId}
+            courseId={course.id}
             coursePath={course?.path}
           />
         )

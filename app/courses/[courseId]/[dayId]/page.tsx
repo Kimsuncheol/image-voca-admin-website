@@ -140,7 +140,7 @@ export default function DayWordsPage({
           isCollocation={isCollocation}
           isFamousQuote={isFamousQuote}
           showImageUrl={isSupportedImageGenerationCourseId(courseId)}
-          courseId={courseId}
+          courseId={course.id}
           coursePath={course.path}
           dayId={dayId}
           onWordImageUpdated={(wordId, imageUrl) =>
