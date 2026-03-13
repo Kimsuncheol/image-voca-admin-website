@@ -14,6 +14,8 @@ import Chip from "@mui/material/Chip";
 import Button from "@mui/material/Button";
 import Switch from "@mui/material/Switch";
 import DeleteIcon from "@mui/icons-material/Delete";
+import DevicesIcon from "@mui/icons-material/Devices";
+import { useRouter } from "next/navigation";
 import { useTranslation } from "react-i18next";
 import {
   ADMIN_PERMISSION_KEYS,
@@ -59,7 +61,15 @@ export default function UserDetailModal({
   onActionSelect,
 }: UserDetailModalProps) {
   const { t } = useTranslation();
+  const router = useRouter();
   const effectivePermissions = getEffectiveAdminPermissions(user);
+  const navigationButtonSx = {
+    borderRadius: 999,
+    px: 2.5,
+    py: 1,
+    textTransform: "none",
+    fontWeight: 600,
+  } as const;
 
   const canDelete = (target: AppUser): boolean => {
     if (target.uid === currentUserUid) return false;
@@ -106,7 +116,7 @@ export default function UserDetailModal({
       fullWidth
     >
       <DialogTitle>{t("users.detailTitle")}</DialogTitle>
-      <DialogContent>
+      <DialogContent sx={{ overflowX: "hidden" }}>
         <Stack spacing={2} sx={{ mt: 0.5 }}>
           <Stack direction="row" alignItems="center" spacing={2}>
             <Avatar
@@ -115,11 +125,18 @@ export default function UserDetailModal({
             >
               {(user.displayName || user.email || "?")[0].toUpperCase()}
             </Avatar>
-            <Box>
-              <Typography fontWeight={600}>
+            <Box sx={{ minWidth: 0 }}>
+              <Typography
+                fontWeight={600}
+                sx={{ overflowWrap: "anywhere", wordBreak: "break-word" }}
+              >
                 {user.displayName || "-"}
               </Typography>
-              <Typography variant="body2" color="text.secondary">
+              <Typography
+                variant="body2"
+                color="text.secondary"
+                sx={{ overflowWrap: "anywhere", wordBreak: "break-word" }}
+              >
                 {user.email}
               </Typography>
             </Box>
@@ -301,22 +318,36 @@ export default function UserDetailModal({
         </Stack>
       </DialogContent>
       <DialogActions sx={{ justifyContent: "space-between", px: 3, pb: 2 }}>
-        {canDelete(user) ? (
+        <Stack direction="row" spacing={1}>
           <Button
-            color="error"
-            startIcon={<DeleteIcon />}
-            onClick={() =>
-              onActionSelect({
-                type: "delete",
-                uid: user.uid,
-              })
-            }
+            variant="outlined"
+            startIcon={<DevicesIcon />}
+            sx={navigationButtonSx}
+            onClick={() => {
+              if (isConfirmSubmitting) return;
+              onClose();
+              router.push(`/users/devices?uid=${encodeURIComponent(user.uid)}`);
+            }}
           >
-            {t("users.delete")}
+            {t("users.devices.manageAction")}
           </Button>
-        ) : (
-          <Box />
-        )}
+          {canDelete(user) ? (
+            <Button
+              color="error"
+              startIcon={<DeleteIcon />}
+              onClick={() =>
+                onActionSelect({
+                  type: "delete",
+                  uid: user.uid,
+                })
+              }
+            >
+              {t("users.delete")}
+            </Button>
+          ) : (
+            <Box />
+          )}
+        </Stack>
         <Button
           onClick={() => {
             if (!isConfirmSubmitting) {

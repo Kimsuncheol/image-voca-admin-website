@@ -30,8 +30,11 @@
  */
 
 import { useState, useEffect, useCallback } from "react";
+import Link from "next/link";
 import Typography from "@mui/material/Typography";
 import Alert from "@mui/material/Alert";
+import Button from "@mui/material/Button";
+import Stack from "@mui/material/Stack";
 
 // ── Layout ────────────────────────────────────────────────────────────
 import PageLayout from "@/components/layout/PageLayout";
@@ -50,6 +53,13 @@ import { useAdminGuard } from "@/hooks/useAdminGuard";
 
 export default function UsersPage() {
   const { t } = useTranslation();
+  const navigationButtonSx = {
+    borderRadius: 999,
+    px: 2.5,
+    py: 1,
+    textTransform: "none",
+    fontWeight: 600,
+  } as const;
 
   // ── Auth guard ────────────────────────────────────────────────────
   // Redirects non-admin users to "/" once auth resolves.
@@ -205,9 +215,25 @@ export default function UsersPage() {
   return (
     <PageLayout>
       {/* ── Page heading ─────────────────────────────────────────────── */}
-      <Typography variant="h4" gutterBottom fontWeight={600}>
-        {t("users.title")}
-      </Typography>
+      <Stack
+        direction={{ xs: "column", sm: "row" }}
+        justifyContent="space-between"
+        alignItems={{ xs: "flex-start", sm: "center" }}
+        spacing={1.5}
+        sx={{ mb: 2 }}
+      >
+        <Typography variant="h4" fontWeight={600}>
+          {t("users.title")}
+        </Typography>
+        <Button
+          component={Link}
+          href="/users/devices"
+          variant="outlined"
+          sx={navigationButtonSx}
+        >
+          {t("users.devices.manageAllAction")}
+        </Button>
+      </Stack>
 
       {/* ── Error / feedback alerts ───────────────────────────────────── */}
       {/* Fetch error (non-dismissible; indicates a systemic problem) */}
