@@ -597,17 +597,16 @@ export default function WordTable({
                     <TableCell>
                       {renderEditableTextCell(mergedWord, "meaning", mergedWord.meaning)}
                     </TableCell>
-                    {mergedWord.pronunciation || getResolvedTextField(word.id, "pronunciation") ? (
-                      <TableCell>
-                        {getResolvedTextField(word.id, "pronunciation") || mergedWord.pronunciation}
-                      </TableCell>
-                    ) : (
-                      <MissingFieldTrigger
-                        wordId={word.id}
-                        field="pronunciation"
-                        tooltipKey="courses.generatePronunciation"
-                      />
-                    )}
+                    <TableCell
+                      onClick={() => openFieldModal(word.id, "pronunciation")}
+                      sx={{ cursor: "pointer", "&:hover": { bgcolor: "action.hover" } }}
+                    >
+                      {getResolvedTextField(word.id, "pronunciation") || mergedWord.pronunciation || (
+                        <Tooltip title={t("courses.generatePronunciation")}>
+                          <AutoFixHighIcon fontSize="small" color="action" />
+                        </Tooltip>
+                      )}
+                    </TableCell>
                     {mergedWord.example || getResolvedTextField(word.id, "example") ? (
                       <ExampleCell
                         text={getResolvedTextField(word.id, "example") || mergedWord.example}

@@ -25,6 +25,7 @@ import {
   updateWordImageUrl,
 } from "@/lib/firebase/firestore";
 import { uploadWordImage } from "@/lib/firebase/storage";
+import { getIpaUSUK } from "@/lib/utils/ipaLookup";
 import { useAdminAIAccess } from "@/lib/hooks/useAdminAccess";
 import {
   filterSharedWordFinderCandidates,
@@ -426,6 +427,15 @@ export default function WordFinderMissingFieldDialog({
         return;
       }
 
+      if (field === "pronunciation") {
+        const ipa = await getIpaUSUK(result.primaryText);
+        if (!ipa) {
+          throw new Error(t("words.generateActionError"));
+        }
+        await handleResolved({ pronunciation: ipa.us });
+        return;
+      }
+
       const response = await fetch("/api/admin/generate-word-field", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -440,7 +450,6 @@ export default function WordFinderMissingFieldDialog({
       });
       const payload = (await response.json()) as {
         error?: string;
-        pronunciation?: string;
         example?: string;
         translation?: string;
       };
@@ -450,9 +459,6 @@ export default function WordFinderMissingFieldDialog({
       }
 
       const updates: WordFinderResultFieldUpdates = {};
-      if (payload.pronunciation) {
-        updates.pronunciation = payload.pronunciation;
-      }
       if (payload.example) {
         updates.example = payload.example;
       }

@@ -70,17 +70,19 @@ function renderStatusChip(
   label: string,
   filled: boolean,
   onMissingFieldClick?: WordFinderTableProps["onMissingFieldClick"],
+  forceClickable = false,
 ) {
   const isMissing = isWordFinderFieldMissing(result, field);
+  const isClickable = (isMissing || forceClickable) && Boolean(onMissingFieldClick);
 
-  if (!isMissing) {
+  if (!isClickable) {
     return <Chip size="small" variant={filled ? "filled" : "outlined"} label={label} />;
   }
 
   return (
     <Chip
       size="small"
-      variant="outlined"
+      variant={filled ? "filled" : "outlined"}
       label={label}
       onClick={onMissingFieldClick ? () => onMissingFieldClick(result, field) : undefined}
       clickable={Boolean(onMissingFieldClick)}
@@ -307,6 +309,7 @@ export default function WordFinderTable({
                         : t("words.missingPronunciation"),
                       Boolean(result.pronunciation),
                       onMissingFieldClick,
+                      true,
                     )
                   )}
                   {result.type !== "famousQuote" && (
