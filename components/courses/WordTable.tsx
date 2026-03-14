@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, type ReactNode } from "react";
+import { useCallback, useMemo, useState, type ReactNode } from "react";
 import Table from "@mui/material/Table";
 import TableBody from "@mui/material/TableBody";
 import TableCell from "@mui/material/TableCell";
@@ -16,14 +16,21 @@ import AddPhotoAlternateIcon from "@mui/icons-material/AddPhotoAlternate";
 import AutoFixHighIcon from "@mui/icons-material/AutoFixHigh";
 import { useTranslation } from "react-i18next";
 
+import InlineEditableText from "@/components/shared/InlineEditableText";
 import WordFinderMissingFieldDialog from "@/components/words/WordFinderMissingFieldDialog";
+import { updateWordTextField } from "@/lib/firebase/firestore";
 import { getCourseById, type CourseId } from "@/types/course";
-import type { Word, StandardWord } from "@/types/word";
+import type { CollocationWord, StandardWord, Word } from "@/types/word";
 import { isCollocationWord, isFamousQuoteWord } from "@/types/word";
 import {
   adaptCourseWordToWordFinderResult,
   applyCourseWordResolvedUpdates,
 } from "@/lib/wordFinderCourseAdapter";
+import {
+  applyCourseInlineEdit,
+  resolveCourseInlineEditField,
+  type InlineEditableWordFinderField,
+} from "@/lib/wordFinderInlineEdit";
 import type {
   WordFinderActionField,
   WordFinderResultFieldUpdates,
@@ -183,6 +190,18 @@ function ExampleCell({ text }: { text: string | undefined }) {
 }
 
 type GeneratableField = "pronunciation" | "example" | "translation";
+type WordTableLocalUpdates = Partial<
+  Pick<StandardWord, "word" | "meaning" | "pronunciation" | "example" | "translation" | "imageUrl"> &
+    Pick<CollocationWord, "collocation" | "meaning" | "example" | "translation">
+>;
+
+interface EditingCellState {
+  wordId: string;
+  field: InlineEditableWordFinderField;
+  draft: string;
+  saving: boolean;
+  error: string;
+}
 
 interface WordTableProps {
   words: Word[];
@@ -211,11 +230,12 @@ export default function WordTable({
   onWordFieldsUpdated,
 }: WordTableProps) {
   const { t } = useTranslation();
-  const [localResolvedFields, setLocalResolvedFields] = useState<
-    Record<string, WordFinderResultFieldUpdates>
-  >({});
+  const [localWordUpdates, setLocalWordUpdates] = useState<Record<string, WordTableLocalUpdates>>(
+    {},
+  );
   const [activeWordId, setActiveWordId] = useState("");
   const [activeField, setActiveField] = useState<WordFinderActionField | null>(null);
+  const [editingCell, setEditingCell] = useState<EditingCellState | null>(null);
 
   const courseLabel = useMemo(() => {
     if (!courseId) return "";
@@ -229,7 +249,7 @@ export default function WordTable({
 
   const activeResult = useMemo(() => {
     if (!activeWord || !courseId || !coursePath || !courseLabel) return null;
-    const mergedWord = { ...activeWord, ...localResolvedFields[activeWord.id] } as Word;
+    const mergedWord = { ...activeWord, ...localWordUpdates[activeWord.id] } as Word;
 
     return adaptCourseWordToWordFinderResult({
       word: mergedWord,
@@ -248,7 +268,7 @@ export default function WordTable({
     dayId,
     isCollocation,
     isFamousQuote,
-    localResolvedFields,
+    localWordUpdates,
   ]);
 
   const openFieldModal = (wordId: string, field: WordFinderActionField) => {
@@ -262,7 +282,7 @@ export default function WordTable({
   };
 
   const getResolvedTextField = (wordId: string, field: GeneratableField): string => {
-    const resolved = localResolvedFields[wordId];
+    const resolved = localWordUpdates[wordId];
     if (field === "pronunciation") {
       return resolved?.pronunciation ?? "";
     }
@@ -273,7 +293,7 @@ export default function WordTable({
   };
 
   const getResolvedImage = (wordId: string): string => {
-    return localResolvedFields[wordId]?.imageUrl ?? "";
+    return localWordUpdates[wordId]?.imageUrl ?? "";
   };
 
   const handleResolved = (updates: WordFinderResultFieldUpdates) => {
@@ -281,7 +301,7 @@ export default function WordTable({
 
     const mappedUpdates = applyCourseWordResolvedUpdates(activeWord, updates);
 
-    setLocalResolvedFields((prev) => ({
+    setLocalWordUpdates((prev) => ({
       ...prev,
       [activeWordId]: {
         ...prev[activeWordId],
@@ -310,6 +330,148 @@ export default function WordTable({
       onWordFieldsUpdated?.(activeWordId, fieldUpdates);
     }
   };
+
+  const activateInlineEdit = useCallback(
+    (word: Word, field: InlineEditableWordFinderField) => {
+      const editable = resolveCourseInlineEditField({
+        word,
+        isCollocation,
+        isFamousQuote,
+        field,
+      });
+
+      if (!editable) return;
+
+      setEditingCell({
+        wordId: word.id,
+        field,
+        draft: editable.value,
+        saving: false,
+        error: "",
+      });
+    },
+    [isCollocation, isFamousQuote],
+  );
+
+  const updateInlineDraft = useCallback((draft: string) => {
+    setEditingCell((prev) => (prev ? { ...prev, draft, error: "" } : prev));
+  }, []);
+
+  const cancelInlineEdit = useCallback(() => {
+    setEditingCell(null);
+  }, []);
+
+  const commitInlineEdit = useCallback(
+    async (word: Word) => {
+      if (!editingCell || editingCell.wordId !== word.id || editingCell.saving) {
+        return;
+      }
+
+      const editable = resolveCourseInlineEditField({
+        word,
+        isCollocation,
+        isFamousQuote,
+        field: editingCell.field,
+      });
+
+      if (!editable || !coursePath || !dayId) {
+        setEditingCell(null);
+        return;
+      }
+
+      const nextValue = editingCell.draft.trim();
+      if (!nextValue || nextValue === editable.value) {
+        setEditingCell(null);
+        return;
+      }
+
+      setEditingCell((prev) => (prev ? { ...prev, saving: true, error: "" } : prev));
+
+      try {
+        await updateWordTextField(
+          coursePath,
+          dayId,
+          word.id,
+          editable.sourceField,
+          nextValue,
+        );
+
+        const localUpdate = applyCourseInlineEdit(word, editingCell.field, nextValue);
+        if (localUpdate) {
+          setLocalWordUpdates((prev) => ({
+            ...prev,
+            [word.id]: {
+              ...prev[word.id],
+              ...localUpdate,
+            },
+          }));
+        }
+
+        setEditingCell(null);
+      } catch {
+        setEditingCell((prev) =>
+          prev ? { ...prev, saving: false, error: t("words.generateActionError") } : prev,
+        );
+      }
+    },
+    [coursePath, dayId, editingCell, isCollocation, isFamousQuote, t],
+  );
+
+  const renderEditableTextCell = useCallback(
+    (
+      word: Word,
+      field: InlineEditableWordFinderField,
+      value: string,
+      options?: {
+        fontWeight?: number;
+        textVariant?: "body1" | "body2";
+      },
+    ) => {
+      const editable = resolveCourseInlineEditField({
+        word,
+        isCollocation,
+        isFamousQuote,
+        field,
+      });
+      const isEditing =
+        editingCell?.wordId === word.id && editingCell.field === field;
+
+      if (!editable) {
+        return (
+          <Typography variant={options?.textVariant ?? "body1"} fontWeight={options?.fontWeight}>
+            {value}
+          </Typography>
+        );
+      }
+
+      return (
+        <InlineEditableText
+          value={value}
+          isEditing={isEditing}
+          draft={isEditing ? editingCell.draft : value}
+          saving={isEditing ? editingCell.saving : false}
+          error={isEditing ? editingCell.error : ""}
+          textVariant={options?.textVariant}
+          fontWeight={options?.fontWeight}
+          onActivate={() => activateInlineEdit(word, field)}
+          onDraftChange={updateInlineDraft}
+          onCommit={() => {
+            void commitInlineEdit(word);
+          }}
+          onCancel={cancelInlineEdit}
+        />
+      );
+    },
+    [
+      activateInlineEdit,
+      cancelInlineEdit,
+      commitInlineEdit,
+      editingCell,
+      isCollocation,
+      isFamousQuote,
+      updateInlineDraft,
+    ],
+  );
 
   function MissingFieldTrigger({
     wordId,
@@ -370,16 +532,23 @@ export default function WordTable({
             </TableRow>
           </TableHead>
           <TableBody>
-            {words.map((word) => (
-              <TableRow key={word.id}>
-                {isCollocationWord(word) ? (
+            {words.map((word) => {
+              const mergedWord = { ...word, ...localWordUpdates[word.id] } as Word;
+
+              return (
+                <TableRow key={word.id}>
+                  {isCollocationWord(mergedWord) ? (
                   <>
-                    <TableCell>{word.collocation}</TableCell>
-                    <TableCell>{word.meaning}</TableCell>
-                    <TableCell>{word.explanation}</TableCell>
-                    {word.example || getResolvedTextField(word.id, "example") ? (
+                    <TableCell>
+                      {renderEditableTextCell(mergedWord, "primaryText", mergedWord.collocation)}
+                    </TableCell>
+                    <TableCell>
+                      {renderEditableTextCell(mergedWord, "meaning", mergedWord.meaning)}
+                    </TableCell>
+                    <TableCell>{mergedWord.explanation}</TableCell>
+                    {mergedWord.example || getResolvedTextField(word.id, "example") ? (
                       <ExampleCell
-                        text={getResolvedTextField(word.id, "example") || word.example}
+                        text={getResolvedTextField(word.id, "example") || mergedWord.example}
                       />
                     ) : (
                       <MissingFieldTrigger
@@ -388,10 +557,10 @@ export default function WordTable({
                         tooltipKey="words.generateNewExamples"
                       />
                     )}
-                    {word.translation || getResolvedTextField(word.id, "translation") ? (
+                    {mergedWord.translation || getResolvedTextField(word.id, "translation") ? (
                       <ExampleCell
                         text={
-                          getResolvedTextField(word.id, "translation") || word.translation
+                          getResolvedTextField(word.id, "translation") || mergedWord.translation
                         }
                       />
                     ) : (
@@ -402,13 +571,13 @@ export default function WordTable({
                       />
                     )}
                   </>
-                ) : isFamousQuoteWord(word) ? (
+                  ) : isFamousQuoteWord(mergedWord) ? (
                   <>
-                    <TableCell>{word.quote}</TableCell>
-                    <TableCell>{word.author}</TableCell>
-                    {word.translation || getResolvedTextField(word.id, "translation") ? (
+                    <TableCell>{mergedWord.quote}</TableCell>
+                    <TableCell>{mergedWord.author}</TableCell>
+                    {mergedWord.translation || getResolvedTextField(word.id, "translation") ? (
                       <TableCell>
-                        {getResolvedTextField(word.id, "translation") || word.translation}
+                        {getResolvedTextField(word.id, "translation") || mergedWord.translation}
                       </TableCell>
                     ) : (
                       <MissingFieldTrigger
@@ -418,13 +587,19 @@ export default function WordTable({
                       />
                     )}
                   </>
-                ) : (
+                  ) : (
                   <>
-                    <TableCell>{word.word}</TableCell>
-                    <TableCell>{word.meaning}</TableCell>
-                    {word.pronunciation || getResolvedTextField(word.id, "pronunciation") ? (
+                    <TableCell>
+                      {renderEditableTextCell(mergedWord, "primaryText", mergedWord.word, {
+                        fontWeight: 500,
+                      })}
+                    </TableCell>
+                    <TableCell>
+                      {renderEditableTextCell(mergedWord, "meaning", mergedWord.meaning)}
+                    </TableCell>
+                    {mergedWord.pronunciation || getResolvedTextField(word.id, "pronunciation") ? (
                       <TableCell>
-                        {getResolvedTextField(word.id, "pronunciation") || word.pronunciation}
+                        {getResolvedTextField(word.id, "pronunciation") || mergedWord.pronunciation}
                       </TableCell>
                     ) : (
                       <MissingFieldTrigger
@@ -433,9 +608,9 @@ export default function WordTable({
                         tooltipKey="courses.generatePronunciation"
                       />
                     )}
-                    {word.example || getResolvedTextField(word.id, "example") ? (
+                    {mergedWord.example || getResolvedTextField(word.id, "example") ? (
                       <ExampleCell
-                        text={getResolvedTextField(word.id, "example") || word.example}
+                        text={getResolvedTextField(word.id, "example") || mergedWord.example}
                       />
                     ) : (
                       <MissingFieldTrigger
@@ -444,10 +619,10 @@ export default function WordTable({
                         tooltipKey="courses.generateExample"
                       />
                     )}
-                    {word.translation || getResolvedTextField(word.id, "translation") ? (
+                    {mergedWord.translation || getResolvedTextField(word.id, "translation") ? (
                       <ExampleCell
                         text={
-                          getResolvedTextField(word.id, "translation") || word.translation
+                          getResolvedTextField(word.id, "translation") || mergedWord.translation
                         }
                       />
                     ) : (
@@ -459,35 +634,36 @@ export default function WordTable({
                     )}
                     {showImageUrl && (
                       <TableCell>
-                        {word.imageUrl || getResolvedImage(word.id) ? (
-                          <Box
-                            component="img"
-                            src={getResolvedImage(word.id) || word.imageUrl}
-                            alt={word.word}
-                            sx={{
-                              width: 64,
-                              height: 64,
-                              objectFit: "cover",
-                              borderRadius: 1,
-                            }}
-                          />
-                        ) : (
-                          <Tooltip title={t("words.generateNewImage")}>
-                            <IconButton
-                              size="small"
-                              onClick={() => openFieldModal(word.id, "image")}
-                              sx={{ p: 0 }}
-                            >
+                        <Tooltip title={t("words.generateNewImage")}>
+                          <IconButton
+                            size="small"
+                            onClick={() => openFieldModal(word.id, "image")}
+                            sx={{ p: 0 }}
+                          >
+                            {mergedWord.imageUrl || getResolvedImage(word.id) ? (
+                              <Box
+                                component="img"
+                                src={getResolvedImage(word.id) || mergedWord.imageUrl}
+                                alt={mergedWord.word}
+                                sx={{
+                                  width: 64,
+                                  height: 64,
+                                  objectFit: "cover",
+                                  borderRadius: 1,
+                                }}
+                              />
+                            ) : (
                               <AddPhotoAlternateIcon fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-                        )}
+                            )}
+                          </IconButton>
+                        </Tooltip>
                       </TableCell>
                     )}
                   </>
-                )}
-              </TableRow>
-            ))}
+                  )}
+                </TableRow>
+              );
+            })}
           </TableBody>
         </Table>
       </TableContainer>

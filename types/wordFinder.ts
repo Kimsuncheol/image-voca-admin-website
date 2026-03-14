@@ -29,7 +29,10 @@ export interface WordFinderResult {
 }
 
 export type WordFinderResultFieldUpdates = Partial<
-  Pick<WordFinderResult, "imageUrl" | "pronunciation" | "example" | "translation">
+  Pick<
+    WordFinderResult,
+    "primaryText" | "meaning" | "imageUrl" | "pronunciation" | "example" | "translation"
+  >
 >;
 
 export interface WordFinderResponse {

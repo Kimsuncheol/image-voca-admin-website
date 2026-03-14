@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useCallback, useState } from "react";
 import LaunchIcon from "@mui/icons-material/Launch";
 import Button from "@mui/material/Button";
 import Chip from "@mui/material/Chip";
@@ -15,10 +16,15 @@ import TableRow from "@mui/material/TableRow";
 import Typography from "@mui/material/Typography";
 import { useTranslation } from "react-i18next";
 
+import InlineEditableText from "@/components/shared/InlineEditableText";
 import {
   formatWordFinderLocation,
   isWordFinderFieldMissing,
 } from "@/lib/wordFinderMissingFieldActions";
+import {
+  resolveWordFinderInlineEditField,
+  type InlineEditableWordFinderField,
+} from "@/lib/wordFinderInlineEdit";
 import type { WordFinderResult } from "@/types/wordFinder";
 import type { WordFinderActionField } from "@/types/wordFinder";
 
@@ -28,6 +34,19 @@ interface WordFinderTableProps {
     result: WordFinderResult,
     field: WordFinderActionField,
   ) => void;
+  onTextEdit?: (
+    result: WordFinderResult,
+    field: InlineEditableWordFinderField,
+    value: string,
+  ) => Promise<void>;
+}
+
+interface EditingCellState {
+  resultKey: string;
+  field: InlineEditableWordFinderField;
+  draft: string;
+  saving: boolean;
+  error: string;
 }
 
 function getTypeLabel(
@@ -73,8 +92,117 @@ function renderStatusChip(
 export default function WordFinderTable({
   results,
   onMissingFieldClick,
+  onTextEdit,
 }: WordFinderTableProps) {
   const { t } = useTranslation();
+  const [editingCell, setEditingCell] = useState<EditingCellState | null>(null);
+
+  const activateInlineEdit = useCallback((result: WordFinderResult, field: InlineEditableWordFinderField) => {
+    const editable = resolveWordFinderInlineEditField(result, field);
+    if (!editable || !onTextEdit) return;
+
+    setEditingCell({
+      resultKey: `${result.courseId}:${result.dayId ?? "root"}:${result.id}`,
+      field,
+      draft: editable.value,
+      saving: false,
+      error: "",
+    });
+  }, [onTextEdit]);
+
+  const updateInlineDraft = useCallback((draft: string) => {
+    setEditingCell((prev) => (prev ? { ...prev, draft, error: "" } : prev));
+  }, []);
+
+  const cancelInlineEdit = useCallback(() => {
+    setEditingCell(null);
+  }, []);
+
+  const commitInlineEdit = useCallback(
+    async (result: WordFinderResult) => {
+      if (!editingCell || editingCell.saving || !onTextEdit) return;
+
+      const resultKey = `${result.courseId}:${result.dayId ?? "root"}:${result.id}`;
+      if (editingCell.resultKey !== resultKey) return;
+
+      const editable = resolveWordFinderInlineEditField(result, editingCell.field);
+      if (!editable) {
+        setEditingCell(null);
+        return;
+      }
+
+      const nextValue = editingCell.draft.trim();
+      if (!nextValue || nextValue === editable.value) {
+        setEditingCell(null);
+        return;
+      }
+
+      setEditingCell((prev) => (prev ? { ...prev, saving: true, error: "" } : prev));
+
+      try {
+        await onTextEdit(result, editingCell.field, nextValue);
+        setEditingCell(null);
+      } catch {
+        setEditingCell((prev) =>
+          prev ? { ...prev, saving: false, error: t("words.generateActionError") } : prev,
+        );
+      }
+    },
+    [editingCell, onTextEdit, t],
+  );
+
+  const renderEditableText = useCallback(
+    (
+      result: WordFinderResult,
+      field: InlineEditableWordFinderField,
+      value: string,
+      options?: {
+        textVariant?: "body1" | "body2";
+        fontWeight?: number;
+      },
+    ) => {
+      const editable = resolveWordFinderInlineEditField(result, field);
+      const resultKey = `${result.courseId}:${result.dayId ?? "root"}:${result.id}`;
+      const isEditing =
+        editingCell?.resultKey === resultKey && editingCell.field === field;
+
+      if (!editable || !onTextEdit) {
+        return (
+          <Typography variant={options?.textVariant ?? "body1"} fontWeight={options?.fontWeight}>
+            {value || t("words.none")}
+          </Typography>
+        );
+      }
+
+      return (
+        <InlineEditableText
+          value={value}
+          emptyLabel={t("words.none")}
+          isEditing={isEditing}
+          draft={isEditing ? editingCell.draft : value}
+          saving={isEditing ? editingCell.saving : false}
+          error={isEditing ? editingCell.error : ""}
+          textVariant={options?.textVariant}
+          fontWeight={options?.fontWeight}
+          onActivate={() => activateInlineEdit(result, field)}
+          onDraftChange={updateInlineDraft}
+          onCommit={() => {
+            void commitInlineEdit(result);
+          }}
+          onCancel={cancelInlineEdit}
+        />
+      );
+    },
+    [
+      activateInlineEdit,
+      cancelInlineEdit,
+      commitInlineEdit,
+      editingCell,
+      onTextEdit,
+      t,
+      updateInlineDraft,
+    ],
+  );
 
   return (
     <TableContainer
@@ -124,7 +252,9 @@ export default function WordFinderTable({
             <TableRow key={`${result.courseId}:${result.dayId ?? "root"}:${result.id}`}>
               <TableCell sx={{ minWidth: 220 }}>
                 <Stack spacing={0.75}>
-                  <Typography fontWeight={600}>{result.primaryText}</Typography>
+                  {renderEditableText(result, "primaryText", result.primaryText, {
+                    fontWeight: 600,
+                  })}
                   <Chip
                     label={getTypeLabel(result.type, t)}
                     size="small"
@@ -134,9 +264,12 @@ export default function WordFinderTable({
               </TableCell>
               <TableCell sx={{ minWidth: 260 }}>
                 <Stack spacing={0.5}>
-                  <Typography variant="body2">
-                    {result.meaning || result.secondaryText || t("words.none")}
-                  </Typography>
+                  {renderEditableText(
+                    result,
+                    "meaning",
+                    result.meaning || result.secondaryText || "",
+                    { textVariant: "body2" },
+                  )}
                   {result.secondaryText && result.secondaryText !== result.meaning && (
                     <Typography variant="caption" color="text.secondary">
                       {result.secondaryText}

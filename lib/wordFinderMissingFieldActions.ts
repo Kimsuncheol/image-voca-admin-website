@@ -104,8 +104,14 @@ export function applyWordFinderResultUpdates(
   result: WordFinderResult,
   updates: WordFinderResultFieldUpdates,
 ): WordFinderResult {
-  return {
+  const next: WordFinderResult = {
     ...result,
     ...updates,
   };
+
+  if (typeof updates.meaning === "string" && result.type === "standard") {
+    next.secondaryText = updates.meaning;
+  }
+
+  return next;
 }

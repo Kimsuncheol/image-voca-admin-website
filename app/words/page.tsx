@@ -13,10 +13,16 @@ import WordFinderFilters from "@/components/words/WordFinderFilters";
 import WordFinderMissingFieldDialog from "@/components/words/WordFinderMissingFieldDialog";
 import WordFinderTable from "@/components/words/WordFinderTable";
 import { useAdminGuard } from "@/hooks/useAdminGuard";
+import { updateWordTextField } from "@/lib/firebase/firestore";
 import {
   applyWordFinderResultUpdates,
   getWordFinderResultKey,
 } from "@/lib/wordFinderMissingFieldActions";
+import {
+  applyWordFinderInlineEdit,
+  resolveWordFinderInlineEditField,
+  type InlineEditableWordFinderField,
+} from "@/lib/wordFinderInlineEdit";
 import type {
   WordFinderActionField,
   WordFinderMissingField,
@@ -196,6 +202,36 @@ function WordsPageContent({
     [activeResultKey],
   );
 
+  const handleTextEdit = useCallback(
+    async (
+      result: WordFinderResult,
+      field: InlineEditableWordFinderField,
+      value: string,
+    ) => {
+      const editable = resolveWordFinderInlineEditField(result, field);
+      if (!editable || !result.dayId) {
+        throw new Error("Inline edit unavailable");
+      }
+
+      await updateWordTextField(
+        result.coursePath,
+        result.dayId,
+        result.id,
+        editable.sourceField,
+        value,
+      );
+
+      setResults((prev) =>
+        prev.map((entry) =>
+          getWordFinderResultKey(entry) === getWordFinderResultKey(result)
+            ? applyWordFinderInlineEdit(entry, field, value)
+            : entry,
+        ),
+      );
+    },
+    [],
+  );
+
   return (
     <PageLayout>
       <Typography variant="h4" gutterBottom fontWeight={600}>
@@ -243,6 +279,7 @@ function WordsPageContent({
           <WordFinderTable
             results={results}
             onMissingFieldClick={handleMissingFieldClick}
+            onTextEdit={handleTextEdit}
           />
         </Stack>
       )}

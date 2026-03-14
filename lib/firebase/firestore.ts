@@ -100,6 +100,17 @@ export async function updateWordField(
   await updateDoc(wordRef, { [field]: value });
 }
 
+export async function updateWordTextField(
+  coursePath: string,
+  dayId: string,
+  wordId: string,
+  field: 'word' | 'meaning' | 'collocation',
+  value: string,
+): Promise<void> {
+  const wordRef = doc(collection(doc(db, coursePath), dayId), wordId);
+  await updateDoc(wordRef, { [field]: value });
+}
+
 export async function updateFlatCourseField(
   coursePath: string,
   wordId: string,

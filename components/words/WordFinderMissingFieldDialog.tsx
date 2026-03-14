@@ -333,8 +333,19 @@ export default function WordFinderMissingFieldDialog({
       if (!result) return;
 
       const tasks = Object.entries(updates)
-        .filter((entry): entry is [keyof WordFinderResultFieldUpdates, string] =>
-          typeof entry[1] === "string" && entry[1].trim().length > 0,
+        .filter(
+          (
+            entry,
+          ): entry is [
+            "imageUrl" | "pronunciation" | "example" | "translation",
+            string,
+          ] =>
+            (entry[0] === "imageUrl" ||
+              entry[0] === "pronunciation" ||
+              entry[0] === "example" ||
+              entry[0] === "translation") &&
+            typeof entry[1] === "string" &&
+            entry[1].trim().length > 0,
         )
         .map(([updateField, value]) => {
           if (updateField === "imageUrl") {
