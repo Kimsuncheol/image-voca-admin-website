@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server.js';
 import { enrichWords, hasText, type WordInput } from '../enrich/enrichWords';
-import { getIpaUSUK } from '@/lib/utils/ipaLookup';
+import { getPersistedPronunciation } from '@/lib/utils/ipaLookup';
 import {
   createGeminiEnrichmentGenerator,
   createChatGPTEnrichmentGenerator,
@@ -56,16 +56,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const ipa = await Promise.race([
-      getIpaUSUK(word),
+    const pronunciation = await Promise.race([
+      getPersistedPronunciation(word),
       new Promise<null>((resolve) => setTimeout(() => resolve(null), 5000)),
     ]);
 
-    if (!ipa) {
+    if (!pronunciation) {
       return NextResponse.json({ error: 'Pronunciation not found' }, { status: 422 });
     }
 
-    const pronunciation = ipa.us === ipa.uk ? ipa.us : `US: ${ipa.us} / UK: ${ipa.uk}`;
     return NextResponse.json({ pronunciation });
   }
 

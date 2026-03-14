@@ -6,6 +6,10 @@ import type {
   Word,
 } from "../types/word.ts";
 import type {
+  CourseDayActionableMissingField,
+  CourseDayMissingField,
+} from "../types/courseDayMissingField.ts";
+import type {
   WordFinderActionField,
   WordFinderResult,
   WordFinderResultFieldUpdates,
@@ -27,6 +31,10 @@ export type CourseWordResolvedUpdates = Partial<
     Pick<CollocationWord, "example" | "translation"> &
     Pick<FamousQuoteWord, "translation">
 >;
+
+function hasTrimmedText(value: string | null | undefined): boolean {
+  return typeof value === "string" && value.trim().length > 0;
+}
 
 function getWordFinderType(
   args: Pick<AdaptCourseWordToWordFinderResultArgs, "isCollocation" | "isFamousQuote">,
@@ -119,26 +127,96 @@ export function getWordTableMissingActionField(
     showImageUrl?: boolean;
   },
 ): WordFinderActionField[] {
+  const actionOrder: WordFinderActionField[] = [
+    "image",
+    "pronunciation",
+    "example",
+    "translation",
+  ];
+
+  const missingActions = getCourseWordMissingFields(word, args).filter(
+    (field): field is CourseDayActionableMissingField =>
+      field !== "primaryText" && field !== "meaning",
+  );
+
+  return actionOrder.filter((field) => missingActions.includes(field));
+}
+
+export function isCourseWordFieldMissing(
+  word: Word,
+  args: {
+    isCollocation: boolean;
+    isFamousQuote?: boolean;
+    showImageUrl?: boolean;
+  },
+  field: Exclude<CourseDayMissingField, "all">,
+): boolean {
   if (args.isFamousQuote) {
+    if (field !== "translation") return false;
     const quote = word as FamousQuoteWord;
-    return quote.translation ? [] : ["translation"];
+    return !hasTrimmedText(quote.translation);
   }
 
   if (args.isCollocation) {
     const collocation = word as CollocationWord;
-    const fields: WordFinderActionField[] = [];
-    if (!collocation.example) fields.push("example");
-    if (!collocation.translation) fields.push("translation");
-    return fields;
+
+    switch (field) {
+      case "primaryText":
+        return !hasTrimmedText(collocation.collocation);
+      case "meaning":
+        return !hasTrimmedText(collocation.meaning);
+      case "example":
+        return !hasTrimmedText(collocation.example);
+      case "translation":
+        return !hasTrimmedText(collocation.translation);
+      case "pronunciation":
+      case "image":
+        return false;
+      default:
+        return false;
+    }
   }
 
   const standard = word as StandardWord;
-  const fields: WordFinderActionField[] = [];
-  if (args.showImageUrl && !standard.imageUrl) fields.push("image");
-  if (!standard.pronunciation) fields.push("pronunciation");
-  if (!standard.example) fields.push("example");
-  if (!standard.translation) fields.push("translation");
-  return fields;
+
+  switch (field) {
+    case "primaryText":
+      return !hasTrimmedText(standard.word);
+    case "meaning":
+      return !hasTrimmedText(standard.meaning);
+    case "pronunciation":
+      return !hasTrimmedText(standard.pronunciation);
+    case "example":
+      return !hasTrimmedText(standard.example);
+    case "translation":
+      return !hasTrimmedText(standard.translation);
+    case "image":
+      return Boolean(args.showImageUrl) && !hasTrimmedText(standard.imageUrl);
+    default:
+      return false;
+  }
+}
+
+export function getCourseWordMissingFields(
+  word: Word,
+  args: {
+    isCollocation: boolean;
+    isFamousQuote?: boolean;
+    showImageUrl?: boolean;
+  },
+): Exclude<CourseDayMissingField, "all">[] {
+  const orderedFields: Exclude<CourseDayMissingField, "all">[] = [
+    "primaryText",
+    "meaning",
+    "pronunciation",
+    "example",
+    "translation",
+    "image",
+  ];
+
+  return orderedFields.filter((field) =>
+    isCourseWordFieldMissing(word, args, field),
+  );
 }
 
 export function applyCourseWordResolvedUpdates(

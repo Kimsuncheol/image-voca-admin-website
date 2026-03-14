@@ -42,3 +42,17 @@ export async function getIpaUSUK(
     return null;
   }
 }
+
+export function formatPersistedPronunciation(ipa: {
+  us: string;
+  uk: string;
+}): string {
+  return ipa.us === ipa.uk ? ipa.us : `US: ${ipa.us} / UK: ${ipa.uk}`;
+}
+
+export async function getPersistedPronunciation(
+  word: string,
+): Promise<string | null> {
+  const ipa = await getIpaUSUK(word);
+  return ipa ? formatPersistedPronunciation(ipa) : null;
+}

@@ -25,6 +25,7 @@ import { isCollocationWord, isFamousQuoteWord } from "@/types/word";
 import {
   adaptCourseWordToWordFinderResult,
   applyCourseWordResolvedUpdates,
+  isCourseWordFieldMissing,
 } from "@/lib/wordFinderCourseAdapter";
 import {
   applyCourseInlineEdit,
@@ -423,6 +424,7 @@ export default function WordTable({
       field: InlineEditableWordFinderField,
       value: string,
       options?: {
+        emptyLabel?: string;
         fontWeight?: number;
         textVariant?: "body1" | "body2";
       },
@@ -447,6 +449,7 @@ export default function WordTable({
       return (
         <InlineEditableText
           value={value}
+          emptyLabel={options?.emptyLabel}
           isEditing={isEditing}
           draft={isEditing ? editingCell.draft : value}
           saving={isEditing ? editingCell.saving : false}
@@ -499,6 +502,16 @@ export default function WordTable({
     );
   }
 
+  const isMissingField = useCallback(
+    (word: Word, field: WordFinderActionField | "primaryText" | "meaning") =>
+      isCourseWordFieldMissing(
+        word,
+        { isCollocation, isFamousQuote, showImageUrl },
+        field,
+      ),
+    [isCollocation, isFamousQuote, showImageUrl],
+  );
+
   return (
     <>
       <TableContainer component={Paper}>
@@ -540,13 +553,17 @@ export default function WordTable({
                   {isCollocationWord(mergedWord) ? (
                   <>
                     <TableCell>
-                      {renderEditableTextCell(mergedWord, "primaryText", mergedWord.collocation)}
+                      {renderEditableTextCell(mergedWord, "primaryText", mergedWord.collocation, {
+                        emptyLabel: t("courses.missingCollocationValue"),
+                      })}
                     </TableCell>
                     <TableCell>
-                      {renderEditableTextCell(mergedWord, "meaning", mergedWord.meaning)}
+                      {renderEditableTextCell(mergedWord, "meaning", mergedWord.meaning, {
+                        emptyLabel: t("courses.missingMeaningValue"),
+                      })}
                     </TableCell>
                     <TableCell>{mergedWord.explanation}</TableCell>
-                    {mergedWord.example || getResolvedTextField(word.id, "example") ? (
+                    {!isMissingField(mergedWord, "example") ? (
                       <ExampleCell
                         text={getResolvedTextField(word.id, "example") || mergedWord.example}
                       />
@@ -557,7 +574,7 @@ export default function WordTable({
                         tooltipKey="words.generateNewExamples"
                       />
                     )}
-                    {mergedWord.translation || getResolvedTextField(word.id, "translation") ? (
+                    {!isMissingField(mergedWord, "translation") ? (
                       <ExampleCell
                         text={
                           getResolvedTextField(word.id, "translation") || mergedWord.translation
@@ -591,23 +608,28 @@ export default function WordTable({
                   <>
                     <TableCell>
                       {renderEditableTextCell(mergedWord, "primaryText", mergedWord.word, {
+                        emptyLabel: t("courses.missingWordValue"),
                         fontWeight: 500,
                       })}
                     </TableCell>
                     <TableCell>
-                      {renderEditableTextCell(mergedWord, "meaning", mergedWord.meaning)}
+                      {renderEditableTextCell(mergedWord, "meaning", mergedWord.meaning, {
+                        emptyLabel: t("courses.missingMeaningValue"),
+                      })}
                     </TableCell>
                     <TableCell
                       onClick={() => openFieldModal(word.id, "pronunciation")}
                       sx={{ cursor: "pointer", "&:hover": { bgcolor: "action.hover" } }}
                     >
-                      {getResolvedTextField(word.id, "pronunciation") || mergedWord.pronunciation || (
+                      {!isMissingField(mergedWord, "pronunciation") ? (
+                        getResolvedTextField(word.id, "pronunciation") || mergedWord.pronunciation
+                      ) : (
                         <Tooltip title={t("courses.generatePronunciation")}>
                           <AutoFixHighIcon fontSize="small" color="action" />
                         </Tooltip>
                       )}
                     </TableCell>
-                    {mergedWord.example || getResolvedTextField(word.id, "example") ? (
+                    {!isMissingField(mergedWord, "example") ? (
                       <ExampleCell
                         text={getResolvedTextField(word.id, "example") || mergedWord.example}
                       />
@@ -618,7 +640,7 @@ export default function WordTable({
                         tooltipKey="courses.generateExample"
                       />
                     )}
-                    {mergedWord.translation || getResolvedTextField(word.id, "translation") ? (
+                    {!isMissingField(mergedWord, "translation") ? (
                       <ExampleCell
                         text={
                           getResolvedTextField(word.id, "translation") || mergedWord.translation
@@ -639,7 +661,7 @@ export default function WordTable({
                             onClick={() => openFieldModal(word.id, "image")}
                             sx={{ p: 0 }}
                           >
-                            {mergedWord.imageUrl || getResolvedImage(word.id) ? (
+                            {!isMissingField(mergedWord, "image") ? (
                               <Box
                                 component="img"
                                 src={getResolvedImage(word.id) || mergedWord.imageUrl}

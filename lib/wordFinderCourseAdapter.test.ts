@@ -4,7 +4,9 @@ import test from "node:test";
 import {
   adaptCourseWordToWordFinderResult,
   applyCourseWordResolvedUpdates,
+  getCourseWordMissingFields,
   getWordTableMissingActionField,
+  isCourseWordFieldMissing,
 } from "./wordFinderCourseAdapter.ts";
 
 test("adapter maps standard word rows for modal usage", () => {
@@ -112,6 +114,88 @@ test("missing action helper exposes correct modal fields by row type", () => {
   ]);
   assert.deepEqual(collocationFields, ["example", "translation"]);
   assert.deepEqual(quoteFields, ["translation"]);
+});
+
+test("course missing-field helper includes primary text and meaning for standard and collocation rows", () => {
+  const standardMissingFields = getCourseWordMissingFields(
+    {
+      id: "word-1",
+      word: "   ",
+      meaning: "   ",
+      pronunciation: "",
+      example: "",
+      translation: "",
+      imageUrl: "   ",
+    },
+    { isCollocation: false, showImageUrl: true },
+  );
+  const collocationMissingFields = getCourseWordMissingFields(
+    {
+      id: "col-1",
+      collocation: "   ",
+      meaning: " ",
+      explanation: "",
+      example: "",
+      translation: "",
+    },
+    { isCollocation: true },
+  );
+
+  assert.deepEqual(standardMissingFields, [
+    "primaryText",
+    "meaning",
+    "pronunciation",
+    "example",
+    "translation",
+    "image",
+  ]);
+  assert.deepEqual(collocationMissingFields, [
+    "primaryText",
+    "meaning",
+    "example",
+    "translation",
+  ]);
+});
+
+test("course missing-field helper preserves existing type gating", () => {
+  const quote = {
+    id: "quote-1",
+    quote: "Stay hungry, stay foolish.",
+    author: "Steve Jobs",
+    translation: "",
+  };
+
+  assert.equal(
+    isCourseWordFieldMissing(
+      quote,
+      { isCollocation: false, isFamousQuote: true },
+      "translation",
+    ),
+    true,
+  );
+  assert.equal(
+    isCourseWordFieldMissing(
+      quote,
+      { isCollocation: false, isFamousQuote: true },
+      "meaning",
+    ),
+    false,
+  );
+  assert.equal(
+    isCourseWordFieldMissing(
+      {
+        id: "col-1",
+        collocation: "take off",
+        meaning: "remove",
+        explanation: "",
+        example: "",
+        translation: "",
+      },
+      { isCollocation: true },
+      "pronunciation",
+    ),
+    false,
+  );
 });
 
 test("resolved updates map back onto course table rows", () => {
