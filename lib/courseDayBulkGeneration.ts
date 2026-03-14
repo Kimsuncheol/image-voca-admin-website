@@ -24,7 +24,9 @@ export interface CourseDayBulkSkippedItem {
   reason: CourseDayBulkSkipReason;
 }
 
-export function hasTrimmedText(value: string | null | undefined): boolean {
+export function hasTrimmedText(
+  value: string | null | undefined,
+): value is string {
   return typeof value === "string" && value.trim().length > 0;
 }
 
