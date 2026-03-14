@@ -118,12 +118,12 @@ export default function SettingsPage() {
           </CardContent>
         </Card>
 
-        {/* Example & translation generation model */}
+        {/* Example & translation settings */}
         <Card>
           <CardContent>
             <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 2 }}>
               <TranslateIcon color="primary" />
-              <Typography variant="h6">{t("settings.enrichGeneration")}</Typography>
+              <Typography variant="h6">{t("settings.exampleTranslation")}</Typography>
             </Stack>
             {settings === null ? (
               <Stack spacing={1}>
@@ -155,10 +155,34 @@ export default function SettingsPage() {
                   onChange={(e) =>
                     handleChange({ ...settings, enrichModel: e.target.value as AISettings["enrichModel"] })
                   }
-                  aria-label={t("settings.enrichGeneration")}
+                  aria-label={t("settings.exampleTranslation")}
                 >
                   <FormControlLabel value="gemini" control={<Radio />} label="Gemini" disabled={!settings.enrichGenerationEnabled} />
                   <FormControlLabel value="chatgpt" control={<Radio />} label="ChatGPT" disabled={!settings.enrichGenerationEnabled} />
+                </RadioGroup>
+                <FormLabel sx={{ mt: 2, mb: 1 }}>{t("settings.selectTranslationApi")}</FormLabel>
+                <RadioGroup
+                  value={settings.exampleTranslationApi}
+                  onChange={(e) =>
+                    handleChange({
+                      ...settings,
+                      exampleTranslationApi: e.target.value as AISettings["exampleTranslationApi"],
+                    })
+                  }
+                  aria-label={t("settings.selectTranslationApi")}
+                >
+                  <FormControlLabel
+                    value="deepl"
+                    control={<Radio />}
+                    label={t("settings.exampleTranslationApiDeepL")}
+                    disabled={!settings.enrichGenerationEnabled}
+                  />
+                  <FormControlLabel
+                    value="google-translate"
+                    control={<Radio />}
+                    label={t("settings.exampleTranslationApiGoogle")}
+                    disabled={!settings.enrichGenerationEnabled}
+                  />
                 </RadioGroup>
               </FormControl>
             )}

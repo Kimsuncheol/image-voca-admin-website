@@ -15,12 +15,17 @@ test("normalizeAISettings merges partial settings with defaults", () => {
     normalizeAISettings({
       imageGenerationEnabled: false,
       enrichModel: "chatgpt",
+      exampleTranslationApi: "google-translate",
     }),
     {
       imageGenerationEnabled: false,
       imageModel: "nano-banana2",
       enrichGenerationEnabled: true,
       enrichModel: "chatgpt",
+      exampleTranslationApi: "google-translate",
+      pronunciationApi: "free-dictionary",
+      oxfordAppId: "",
+      oxfordAppKey: "",
     },
   );
 });

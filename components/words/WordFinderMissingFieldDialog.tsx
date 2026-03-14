@@ -5,6 +5,7 @@ import { useDropzone } from "react-dropzone";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
+import TextField from "@mui/material/TextField";
 import CircularProgress from "@mui/material/CircularProgress";
 import Dialog from "@mui/material/Dialog";
 import DialogActions from "@mui/material/DialogActions";
@@ -174,6 +175,10 @@ function getSharedCandidateContent(
   };
 }
 
+function hasTrimmedText(value: string | null | undefined): value is string {
+  return typeof value === "string" && value.trim().length > 0;
+}
+
 export default function WordFinderMissingFieldDialog({
   open,
   field,
@@ -201,6 +206,7 @@ export default function WordFinderMissingFieldDialog({
   const [selectedSharedKey, setSelectedSharedKey] = useState("");
   const [droppedFile, setDroppedFile] = useState<File | null>(null);
   const [dropPreview, setDropPreview] = useState<string | null>(null);
+  const [textValue, setTextValue] = useState("");
 
   const fieldLabel = field ? getFieldLabel(field, t) : "";
   const noDayLabel = t("words.noDay");
@@ -251,7 +257,12 @@ export default function WordFinderMissingFieldDialog({
       setSharedLookupError("");
       setSharedCandidates([]);
       setSelectedSharedKey("");
+      setTextValue("");
       return;
+    }
+
+    if (field === "example" || field === "translation") {
+      setTextValue(getWordFinderFieldValue(result, field) ?? "");
     }
 
     const controller = new AbortController();
@@ -321,6 +332,7 @@ export default function WordFinderMissingFieldDialog({
     setSharedLookupError("");
     setSharedCandidates([]);
     setSelectedSharedKey("");
+    setTextValue("");
     resetUploadState();
   }, [resetUploadState]);
 
@@ -481,7 +493,75 @@ export default function WordFinderMissingFieldDialog({
     } finally {
       setActionLoading(null);
     }
-  }, [field, generateDisabledReason, handleResolved, result, t]);
+  }, [field, generateDisabledReason, handleResolved, result, settings, t]);
+
+  const handleApplyText = useCallback(async () => {
+    if (!field || !result || !textValue.trim()) return;
+    setActionLoading("generate");
+    setError("");
+    try {
+      const trimmedValue = textValue.trim();
+      const updates: WordFinderResultFieldUpdates = {
+        [field]: trimmedValue,
+      };
+
+      if (field === "example" && !hasTrimmedText(result.translation)) {
+        const response = await fetch("/api/admin/translate-word-field", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            field,
+            example: trimmedValue,
+          }),
+        });
+        const payload = (await response.json()) as {
+          error?: string;
+          translation?: string;
+        };
+
+        if (!response.ok) {
+          throw new Error(payload.error || t("words.generateActionError"));
+        }
+        if (!hasTrimmedText(payload.translation)) {
+          throw new Error(t("words.generateActionError"));
+        }
+
+        updates.translation = payload.translation.trim();
+      }
+
+      if (field === "translation" && !hasTrimmedText(result.example)) {
+        const response = await fetch("/api/admin/translate-word-field", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            field,
+            translation: trimmedValue,
+          }),
+        });
+        const payload = (await response.json()) as {
+          error?: string;
+          example?: string;
+        };
+
+        if (!response.ok) {
+          throw new Error(payload.error || t("words.generateActionError"));
+        }
+        if (!hasTrimmedText(payload.example)) {
+          throw new Error(t("words.generateActionError"));
+        }
+
+        updates.example = payload.example.trim();
+      }
+
+      await handleResolved(updates);
+    } catch (applyError) {
+      setError(
+        applyError instanceof Error ? applyError.message : t("words.generateActionError"),
+      );
+    } finally {
+      setActionLoading(null);
+    }
+  }, [field, handleResolved, result, t, textValue]);
 
   const handleUpload = useCallback(async () => {
     if (!result || !droppedFile || !result.dayId) return;
@@ -620,6 +700,38 @@ export default function WordFinderMissingFieldDialog({
             </Typography>
           )}
         </Stack>
+
+        {(field === "example" || field === "translation") && (
+          <>
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+              <Divider sx={{ flex: 1 }} />
+              <Typography variant="caption" color="text.secondary">
+                {t("common.or", "or")}
+              </Typography>
+              <Divider sx={{ flex: 1 }} />
+            </Box>
+
+            <Stack spacing={1}>
+              <TextField
+                multiline
+                minRows={2}
+                fullWidth
+                size="small"
+                label={fieldLabel}
+                value={textValue}
+                onChange={(e) => setTextValue(e.target.value)}
+                disabled={Boolean(actionLoading)}
+              />
+              <Button
+                variant="outlined"
+                onClick={handleApplyText}
+                disabled={!textValue.trim() || Boolean(actionLoading)}
+              >
+                {t("common.apply")}
+              </Button>
+            </Stack>
+          </>
+        )}
 
         {field === "image" && (
           <>

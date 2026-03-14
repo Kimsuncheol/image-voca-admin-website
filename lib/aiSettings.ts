@@ -3,6 +3,7 @@ export interface AISettings {
   imageModel: "nano-banana2" | "gpt-image-1";
   enrichGenerationEnabled: boolean;
   enrichModel: "gemini" | "chatgpt";
+  exampleTranslationApi: "deepl" | "google-translate";
   pronunciationApi: "free-dictionary" | "oxford";
   oxfordAppId: string;
   oxfordAppKey: string;
@@ -13,6 +14,7 @@ export const DEFAULT_AI_SETTINGS: AISettings = {
   imageModel: "nano-banana2",
   enrichGenerationEnabled: true,
   enrichModel: "gemini",
+  exampleTranslationApi: "deepl",
   pronunciationApi: "free-dictionary",
   oxfordAppId: "",
   oxfordAppKey: "",
