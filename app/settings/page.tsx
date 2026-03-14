@@ -11,10 +11,12 @@ import Radio from "@mui/material/Radio";
 import FormControl from "@mui/material/FormControl";
 import FormLabel from "@mui/material/FormLabel";
 import Switch from "@mui/material/Switch";
+import TextField from "@mui/material/TextField";
 import Alert from "@mui/material/Alert";
 import Skeleton from "@mui/material/Skeleton";
 import Stack from "@mui/material/Stack";
 import ImageIcon from "@mui/icons-material/Image";
+import RecordVoiceOverIcon from "@mui/icons-material/RecordVoiceOver";
 import TranslateIcon from "@mui/icons-material/Translate";
 import PageLayout from "@/components/layout/PageLayout";
 import { DEFAULT_AI_SETTINGS } from "@/lib/aiSettings";
@@ -158,6 +160,71 @@ export default function SettingsPage() {
                   <FormControlLabel value="gemini" control={<Radio />} label="Gemini" disabled={!settings.enrichGenerationEnabled} />
                   <FormControlLabel value="chatgpt" control={<Radio />} label="ChatGPT" disabled={!settings.enrichGenerationEnabled} />
                 </RadioGroup>
+              </FormControl>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Pronunciation generation API */}
+        <Card>
+          <CardContent>
+            <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 2 }}>
+              <RecordVoiceOverIcon color="primary" />
+              <Typography variant="h6">{t("settings.pronunciationGeneration")}</Typography>
+            </Stack>
+            {settings === null ? (
+              <Stack spacing={1}>
+                <Skeleton width={200} height={36} />
+                <Skeleton width={180} height={36} />
+              </Stack>
+            ) : (
+              <FormControl>
+                <FormLabel sx={{ mb: 1 }}>{t("settings.selectModel")}</FormLabel>
+                <RadioGroup
+                  value={settings.pronunciationApi}
+                  onChange={(e) =>
+                    handleChange({
+                      ...settings,
+                      pronunciationApi: e.target.value as "free-dictionary" | "oxford",
+                    })
+                  }
+                  aria-label={t("settings.pronunciationGeneration")}
+                >
+                  <FormControlLabel
+                    value="free-dictionary"
+                    control={<Radio />}
+                    label={t("settings.pronunciationApiFreeDictionary")}
+                  />
+                  <FormControlLabel
+                    value="oxford"
+                    control={<Radio />}
+                    label={t("settings.pronunciationApiOxford")}
+                    disabled
+                  />
+                </RadioGroup>
+                {settings.pronunciationApi === "oxford" && (
+                  <Stack spacing={1.5} sx={{ mt: 2 }}>
+                    <TextField
+                      label={t("settings.oxfordAppId")}
+                      value={settings.oxfordAppId}
+                      onChange={(e) =>
+                        handleChange({ ...settings, oxfordAppId: e.target.value })
+                      }
+                      size="small"
+                      fullWidth
+                    />
+                    <TextField
+                      label={t("settings.oxfordAppKey")}
+                      value={settings.oxfordAppKey}
+                      onChange={(e) =>
+                        handleChange({ ...settings, oxfordAppKey: e.target.value })
+                      }
+                      size="small"
+                      fullWidth
+                      type="password"
+                    />
+                  </Stack>
+                )}
               </FormControl>
             )}
           </CardContent>

@@ -241,6 +241,7 @@ export default function DayWordsPage({
   const { t } = useTranslation();
   const {
     loading: aiAccessLoading,
+    settings,
     imageGenerationBlockedByPermissions,
     imageGenerationBlockedBySettings,
     exampleTranslationBlockedByPermissions,
@@ -461,7 +462,7 @@ export default function DayWordsPage({
       } else if (bulkField === "pronunciation") {
         for (const result of eligible) {
           try {
-            const pronunciation = await getPersistedPronunciation(result.primaryText);
+            const pronunciation = await getPersistedPronunciation(result.primaryText, settings);
             if (!pronunciation) {
               failed += 1;
               continue;
@@ -540,6 +541,7 @@ export default function DayWordsPage({
     courseId,
     filteredResults,
     persistResolvedUpdates,
+    settings,
     t,
   ]);
 

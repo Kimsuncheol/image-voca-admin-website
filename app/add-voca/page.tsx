@@ -129,6 +129,7 @@ function isUrlItem(item: QueueItem): item is UrlItem {
 export default function AddVocaPage() {
   const { t } = useTranslation();
   const {
+    settings,
     canUseImageGeneration,
     canUseExampleTranslationGeneration,
     imageGenerationBlockedByPermissions,
@@ -406,7 +407,7 @@ export default function AddVocaPage() {
             words.map(async (w) => {
               const sw = w as StandardWordInput;
               if (sw.pronunciation || sw.word.includes(" ")) return w;
-              const ipa = await getIpaUSUK(sw.word);
+              const ipa = await getIpaUSUK(sw.word, settings);
               return ipa ? { ...w, pronunciation: ipa.us } : w;
             }),
           );

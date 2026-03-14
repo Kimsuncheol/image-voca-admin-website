@@ -185,6 +185,7 @@ export default function WordFinderMissingFieldDialog({
   const { t } = useTranslation();
   const {
     loading: aiAccessLoading,
+    settings,
     imageGenerationBlockedByPermissions,
     imageGenerationBlockedBySettings,
     exampleTranslationBlockedByPermissions,
@@ -428,7 +429,7 @@ export default function WordFinderMissingFieldDialog({
       }
 
       if (field === "pronunciation") {
-        const pronunciation = await getPersistedPronunciation(result.primaryText);
+        const pronunciation = await getPersistedPronunciation(result.primaryText, settings);
         if (!pronunciation) {
           throw new Error(t("words.generateActionError"));
         }
