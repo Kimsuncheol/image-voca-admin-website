@@ -612,6 +612,13 @@ export default function WordFinderMissingFieldDialog({
               {generateDisabledReason}
             </Typography>
           )}
+          {field === "pronunciation" && !generateDisabledReason && (
+            <Typography variant="caption" color="text.secondary">
+              {settings.pronunciationApi === "oxford"
+                ? t("settings.pronunciationApiOxford")
+                : t("settings.pronunciationApiFreeDictionary")}
+            </Typography>
+          )}
         </Stack>
 
         {field === "image" && (

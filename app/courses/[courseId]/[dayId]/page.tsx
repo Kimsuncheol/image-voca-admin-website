@@ -654,7 +654,16 @@ export default function DayWordsPage({
                 ) : undefined
               }
             >
-              {getBulkActionLabel(bulkField, t)}
+              <Stack alignItems="flex-start" spacing={0}>
+                <span>{getBulkActionLabel(bulkField, t)}</span>
+                {bulkField === "pronunciation" && !bulkDisabledReason && (
+                  <Typography component="span" sx={{ fontSize: "0.65rem", opacity: 0.8, lineHeight: 1.2 }}>
+                    {settings.pronunciationApi === "oxford"
+                      ? t("settings.pronunciationApiOxford")
+                      : t("settings.pronunciationApiFreeDictionary")}
+                  </Typography>
+                )}
+              </Stack>
             </Button>
           )}
         </Stack>
