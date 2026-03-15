@@ -91,7 +91,7 @@ function createCollocationResult(
     translation: normalizeNullableWordFinderText(data.translation),
     example: normalizeNullableWordFinderText(data.example),
     pronunciation: null,
-    imageUrl: null,
+    imageUrl: normalizeNullableWordFinderText(data.imageUrl),
   };
 }
 

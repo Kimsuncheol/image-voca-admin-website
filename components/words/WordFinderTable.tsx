@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useState } from "react";
 import LaunchIcon from "@mui/icons-material/Launch";
+import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Chip from "@mui/material/Chip";
 import Paper from "@mui/material/Paper";
@@ -244,6 +245,7 @@ export default function WordFinderTable({
             <TableCell>{t("words.primaryText")}</TableCell>
             <TableCell>{t("words.secondaryText")}</TableCell>
             <TableCell>{t("words.translationLabel")}</TableCell>
+            <TableCell>{t("courses.image", "Image")}</TableCell>
             <TableCell>{t("words.location")}</TableCell>
             <TableCell>{t("words.status")}</TableCell>
             <TableCell align="right">{t("words.actions")}</TableCell>
@@ -284,6 +286,30 @@ export default function WordFinderTable({
                   {result.translation || t("words.none")}
                 </Typography>
               </TableCell>
+              <TableCell sx={{ minWidth: 120 }}>
+                {result.type === "famousQuote" ? null : result.imageUrl ? (
+                  <Box
+                    component="img"
+                    src={result.imageUrl}
+                    alt={result.primaryText}
+                    sx={{
+                      width: 64,
+                      height: 64,
+                      objectFit: "cover",
+                      borderRadius: 1,
+                      display: "block",
+                    }}
+                  />
+                ) : (
+                  renderStatusChip(
+                    result,
+                    "image",
+                    t("words.missingImage"),
+                    false,
+                    onMissingFieldClick,
+                  )
+                )}
+              </TableCell>
               <TableCell sx={{ minWidth: 180 }}>
                 <Typography variant="body2">
                   {formatWordFinderLocation(result, t("words.noDay"))}
@@ -291,7 +317,7 @@ export default function WordFinderTable({
               </TableCell>
               <TableCell sx={{ minWidth: 220 }}>
                 <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap>
-                  {result.type === "standard" && (
+                  {result.type !== "famousQuote" && (
                     renderStatusChip(
                       result,
                       "image",

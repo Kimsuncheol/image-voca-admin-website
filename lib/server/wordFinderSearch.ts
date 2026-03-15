@@ -81,7 +81,7 @@ export function matchesMissingField(
     case "all":
       return true;
     case "image":
-      return result.type === "standard" && !result.imageUrl;
+      return result.type !== "famousQuote" && !result.imageUrl;
     case "pronunciation":
       return result.type === "standard" && !result.pronunciation;
     case "example":

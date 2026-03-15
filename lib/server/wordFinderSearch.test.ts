@@ -122,6 +122,32 @@ test("filters still narrow exact matches by type, missing field, and course", ()
   assert.deepEqual(matchedIds, ["kept"]);
 });
 
+test("missing-image filtering also matches collocation results", () => {
+  const collocation = createResult({
+    id: "collocation-missing-image",
+    courseId: "COLLOCATIONS",
+    courseLabel: "Collocations",
+    coursePath: "courses/COLLOCATIONS",
+    sourceHref: "/courses/COLLOCATIONS/Day1",
+    type: "collocation",
+    pronunciation: null,
+    imageUrl: null,
+  });
+  const collocationWithImage = createResult({
+    id: "collocation-has-image",
+    courseId: "COLLOCATIONS",
+    courseLabel: "Collocations",
+    coursePath: "courses/COLLOCATIONS",
+    sourceHref: "/courses/COLLOCATIONS/Day1",
+    type: "collocation",
+    pronunciation: null,
+    imageUrl: "https://example.com/collocation.png",
+  });
+
+  assert.equal(matchesMissingField(collocation, "image"), true);
+  assert.equal(matchesMissingField(collocationWithImage, "image"), false);
+});
+
 test("browse behavior without a query keeps all results and uses deterministic ordering", () => {
   const results = [
     createResult({

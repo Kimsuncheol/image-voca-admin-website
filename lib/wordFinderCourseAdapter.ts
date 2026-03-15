@@ -28,7 +28,7 @@ interface AdaptCourseWordToWordFinderResultArgs {
 
 export type CourseWordResolvedUpdates = Partial<
   Pick<StandardWord, "pronunciation" | "example" | "translation" | "imageUrl"> &
-    Pick<CollocationWord, "example" | "translation"> &
+    Pick<CollocationWord, "example" | "translation" | "imageUrl"> &
     Pick<FamousQuoteWord, "translation">
 >;
 
@@ -96,7 +96,7 @@ export function adaptCourseWordToWordFinderResult(
       translation: collocation.translation || null,
       example: collocation.example || null,
       pronunciation: null,
-      imageUrl: null,
+      imageUrl: collocation.imageUrl || null,
     };
   }
 
@@ -169,8 +169,9 @@ export function isCourseWordFieldMissing(
         return !hasTrimmedText(collocation.example);
       case "translation":
         return !hasTrimmedText(collocation.translation);
-      case "pronunciation":
       case "image":
+        return Boolean(args.showImageUrl) && !hasTrimmedText(collocation.imageUrl);
+      case "pronunciation":
         return false;
       default:
         return false;
@@ -233,7 +234,7 @@ export function applyCourseWordResolvedUpdates(
   if (typeof updates.translation === "string") {
     next.translation = updates.translation;
   }
-  if (typeof updates.imageUrl === "string" && "word" in word) {
+  if (typeof updates.imageUrl === "string" && !("quote" in word)) {
     next.imageUrl = updates.imageUrl;
   }
   return next;

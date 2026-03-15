@@ -42,6 +42,7 @@ test("adapter maps collocation and famous-quote rows for modal usage", () => {
       explanation: "remove clothing",
       example: "",
       translation: "",
+      imageUrl: "https://example.com/collocation.png",
     },
     courseId: "COLLOCATIONS",
     courseLabel: "Collocations",
@@ -66,6 +67,7 @@ test("adapter maps collocation and famous-quote rows for modal usage", () => {
   assert.equal(collocation.type, "collocation");
   assert.equal(collocation.primaryText, "take off");
   assert.equal(collocation.secondaryText, "remove clothing");
+  assert.equal(collocation.imageUrl, "https://example.com/collocation.png");
   assert.equal(quote.type, "famousQuote");
   assert.equal(quote.primaryText, "Stay hungry, stay foolish.");
   assert.equal(quote.secondaryText, "Steve Jobs");
@@ -93,8 +95,9 @@ test("missing action helper exposes correct modal fields by row type", () => {
       explanation: "remove clothing",
       example: "",
       translation: "",
+      imageUrl: "",
     },
-    { isCollocation: true },
+    { isCollocation: true, showImageUrl: true },
   );
   const quoteFields = getWordTableMissingActionField(
     {
@@ -112,7 +115,7 @@ test("missing action helper exposes correct modal fields by row type", () => {
     "example",
     "translation",
   ]);
-  assert.deepEqual(collocationFields, ["example", "translation"]);
+  assert.deepEqual(collocationFields, ["image", "example", "translation"]);
   assert.deepEqual(quoteFields, ["translation"]);
 });
 
@@ -137,8 +140,9 @@ test("course missing-field helper includes primary text and meaning for standard
       explanation: "",
       example: "",
       translation: "",
+      imageUrl: " ",
     },
-    { isCollocation: true },
+    { isCollocation: true, showImageUrl: true },
   );
 
   assert.deepEqual(standardMissingFields, [
@@ -154,6 +158,7 @@ test("course missing-field helper includes primary text and meaning for standard
     "meaning",
     "example",
     "translation",
+    "image",
   ]);
 });
 
@@ -190,11 +195,28 @@ test("course missing-field helper preserves existing type gating", () => {
         explanation: "",
         example: "",
         translation: "",
+        imageUrl: "",
       },
-      { isCollocation: true },
+      { isCollocation: true, showImageUrl: true },
       "pronunciation",
     ),
     false,
+  );
+  assert.equal(
+    isCourseWordFieldMissing(
+      {
+        id: "col-1",
+        collocation: "take off",
+        meaning: "remove",
+        explanation: "",
+        example: "",
+        translation: "",
+        imageUrl: "",
+      },
+      { isCollocation: true, showImageUrl: true },
+      "image",
+    ),
+    true,
   );
 });
 
@@ -226,6 +248,21 @@ test("resolved updates map back onto course table rows", () => {
       translation: "늘 갈망하고 우직하게 나아가라.",
     },
   );
+  const collocationUpdates = applyCourseWordResolvedUpdates(
+    {
+      id: "col-1",
+      collocation: "take off",
+      meaning: "remove",
+      explanation: "",
+      example: "",
+      translation: "",
+      imageUrl: "",
+    },
+    {
+      imageUrl: "https://example.com/collocation.png",
+      translation: "벗다",
+    },
+  );
 
   assert.deepEqual(standardUpdates, {
     example: "1. We wander through the park.",
@@ -234,5 +271,9 @@ test("resolved updates map back onto course table rows", () => {
   });
   assert.deepEqual(quoteUpdates, {
     translation: "늘 갈망하고 우직하게 나아가라.",
+  });
+  assert.deepEqual(collocationUpdates, {
+    imageUrl: "https://example.com/collocation.png",
+    translation: "벗다",
   });
 });

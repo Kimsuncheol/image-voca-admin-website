@@ -193,7 +193,7 @@ function ExampleCell({ text }: { text: string | undefined }) {
 type GeneratableField = "pronunciation" | "example" | "translation";
 type WordTableLocalUpdates = Partial<
   Pick<StandardWord, "word" | "meaning" | "pronunciation" | "example" | "translation" | "imageUrl"> &
-    Pick<CollocationWord, "collocation" | "meaning" | "example" | "translation">
+    Pick<CollocationWord, "collocation" | "meaning" | "example" | "translation" | "imageUrl">
 >;
 
 interface EditingCellState {
@@ -525,6 +525,7 @@ export default function WordTable({
                   <TableCell>{t("courses.explanation")}</TableCell>
                   <TableCell>{t("courses.example")}</TableCell>
                   <TableCell>{t("courses.translation")}</TableCell>
+                  {showImageUrl && <TableCell>{t("courses.image", "Image")}</TableCell>}
                 </>
               ) : isFamousQuote ? (
                 <>
@@ -586,6 +587,33 @@ export default function WordTable({
                         field="translation"
                         tooltipKey="words.generateNewTranslations"
                       />
+                    )}
+                    {showImageUrl && (
+                      <TableCell>
+                        <Tooltip title={t("words.generateNewImage")}>
+                          <IconButton
+                            size="small"
+                            onClick={() => openFieldModal(word.id, "image")}
+                            sx={{ p: 0 }}
+                          >
+                            {!isMissingField(mergedWord, "image") ? (
+                              <Box
+                                component="img"
+                                src={getResolvedImage(word.id) || mergedWord.imageUrl}
+                                alt={mergedWord.collocation}
+                                sx={{
+                                  width: 64,
+                                  height: 64,
+                                  objectFit: "cover",
+                                  borderRadius: 1,
+                                }}
+                              />
+                            ) : (
+                              <AddPhotoAlternateIcon fontSize="small" />
+                            )}
+                          </IconButton>
+                        </Tooltip>
+                      </TableCell>
                     )}
                   </>
                   ) : isFamousQuoteWord(mergedWord) ? (

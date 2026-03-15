@@ -35,6 +35,15 @@ function createResult(
 
 test("missing-field helpers detect only interactive missing chips", () => {
   const standard = createResult({});
+  const collocation = createResult({
+    type: "collocation",
+    courseId: "COLLOCATIONS",
+    courseLabel: "Collocations",
+    coursePath: "courses/COLLOCATIONS",
+    sourceHref: "/courses/COLLOCATIONS/Day1",
+    pronunciation: null,
+    imageUrl: null,
+  });
   const quote = createResult({
     type: "famousQuote",
     dayId: null,
@@ -47,6 +56,8 @@ test("missing-field helpers detect only interactive missing chips", () => {
   assert.equal(isWordFinderFieldMissing(standard, "pronunciation"), true);
   assert.equal(isWordFinderFieldMissing(standard, "example"), true);
   assert.equal(isWordFinderFieldMissing(standard, "translation"), true);
+  assert.equal(isWordFinderFieldMissing(collocation, "image"), true);
+  assert.equal(isWordFinderFieldMissing(collocation, "pronunciation"), false);
   assert.equal(isWordFinderFieldMissing(quote, "example"), false);
   assert.equal(isWordFinderFieldMissing(quote, "translation"), true);
 });

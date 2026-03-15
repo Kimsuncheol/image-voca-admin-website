@@ -110,7 +110,7 @@
     "generateImages": "Generate images",
     "generateExamples": "Generate examples",
     "generateTranslations": "Generate translations",
-    "generateImagesUnsupported": "Image generation is only available for CSAT, IELTS, TOEFL, and TOEIC.",
+    "generateImagesUnsupported": "Image generation is only available for CSAT, IELTS, TOEFL, TOEIC, and Collocations.",
     "generateImagesDisabled": "Image generation is disabled in AI settings.",
     "generateEnrichDisabled": "Example and translation generation is disabled in AI settings.",
     "generateImagesPermissionDenied": "Your administrator account cannot run image generation.",

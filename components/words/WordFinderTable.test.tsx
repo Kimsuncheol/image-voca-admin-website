@@ -1,0 +1,129 @@
+import React from "react";
+import assert from "node:assert/strict";
+import { renderToStaticMarkup } from "react-dom/server";
+import { describe, expect, it, vi } from "vitest";
+
+import WordFinderTable from "./WordFinderTable";
+import type { WordFinderResult } from "@/types/wordFinder";
+
+vi.mock("next/link", () => ({
+  default: ({
+    href,
+    children,
+    ...props
+  }: {
+    href: string;
+    children: React.ReactNode;
+  }) => (
+    <a href={href} {...props}>
+      {children}
+    </a>
+  ),
+}));
+
+vi.mock("react-i18next", () => ({
+  useTranslation: () => ({
+    t: (key: string, fallback?: string) => {
+      if (typeof fallback === "string") return fallback;
+
+      const labels: Record<string, string> = {
+        "words.primaryText": "Primary Text",
+        "words.secondaryText": "Secondary Text",
+        "words.translationLabel": "Translation",
+        "courses.image": "Image",
+        "words.location": "Location",
+        "words.status": "Status",
+        "words.actions": "Actions",
+        "words.typeStandard": "Standard",
+        "words.typeCollocation": "Collocation",
+        "words.typeFamousQuote": "Famous Quote",
+        "words.hasImage": "Has image",
+        "words.missingImage": "Missing image",
+        "words.hasPronunciation": "Has pronunciation",
+        "words.missingPronunciation": "Missing pronunciation",
+        "words.hasExample": "Has example",
+        "words.missingExample": "Missing example",
+        "words.hasTranslation": "Has translation",
+        "words.missingTranslation": "Missing translation",
+        "words.openSource": "Open source",
+        "words.noDay": "No day",
+        "words.none": "None",
+      };
+
+      return labels[key] ?? key;
+    },
+  }),
+}));
+
+vi.mock("@/components/shared/InlineEditableText", () => ({
+  default: ({ value, emptyLabel }: { value?: string; emptyLabel?: string }) => (
+    <span>{value || emptyLabel || ""}</span>
+  ),
+}));
+
+function createResult(overrides: Partial<WordFinderResult>): WordFinderResult {
+  return {
+    id: "word-1",
+    courseId: "TOEIC",
+    courseLabel: "TOEIC",
+    coursePath: "courses/TOEIC",
+    dayId: "Day1",
+    sourceHref: "/courses/TOEIC/Day1",
+    type: "standard",
+    primaryText: "wander",
+    secondaryText: "to move around",
+    meaning: "to move around",
+    translation: "돌아다니다",
+    example: "We wander through the city.",
+    pronunciation: "wan-der",
+    imageUrl: "https://example.com/wander.png",
+    ...overrides,
+  };
+}
+
+describe("WordFinderTable", () => {
+  it("renders the image column for standard and collocation rows but not famous quotes", () => {
+    const markup = renderToStaticMarkup(
+      <WordFinderTable
+        results={[
+          createResult({}),
+          createResult({
+            id: "col-1",
+            courseId: "COLLOCATIONS",
+            courseLabel: "Collocations",
+            coursePath: "courses/COLLOCATIONS",
+            sourceHref: "/courses/COLLOCATIONS/Day2",
+            dayId: "Day2",
+            type: "collocation",
+            primaryText: "take off",
+            secondaryText: "remove clothing",
+            meaning: "remove clothing",
+            pronunciation: null,
+            imageUrl: "https://example.com/collocation.png",
+          }),
+          createResult({
+            id: "quote-1",
+            courseId: "FAMOUS_QUOTE",
+            courseLabel: "Famous Quote",
+            coursePath: "famous_quotes",
+            sourceHref: "/courses/FAMOUS_QUOTE",
+            dayId: null,
+            type: "famousQuote",
+            primaryText: "Stay hungry, stay foolish.",
+            secondaryText: "Steve Jobs",
+            meaning: null,
+            translation: "늘 갈망하고 우직하게 나아가라.",
+            example: null,
+            pronunciation: null,
+            imageUrl: null,
+          }),
+        ]}
+      />,
+    );
+
+    assert.ok(markup.includes("Image"));
+    assert.ok(markup.includes("https://example.com/wander.png"));
+    assert.ok(markup.includes("https://example.com/collocation.png"));
+    expect(markup).not.toContain("Missing image");
+  });
+});

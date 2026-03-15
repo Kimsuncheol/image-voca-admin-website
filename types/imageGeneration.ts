@@ -4,7 +4,7 @@ import type { CourseId } from "./course";
 
 export type ImageGenerationCourseId = Extract<
   CourseId,
-  "CSAT" | "IELTS" | "TOEFL" | "TOEIC"
+  "CSAT" | "IELTS" | "TOEFL" | "TOEIC" | "COLLOCATIONS"
 >;
 
 export const IMAGE_GENERATION_MODEL = "gemini-3.1-flash-image-preview";
@@ -14,6 +14,7 @@ export const SUPPORTED_IMAGE_GENERATION_COURSE_IDS = [
   "IELTS",
   "TOEFL",
   "TOEIC",
+  "COLLOCATIONS",
 ] as const satisfies readonly ImageGenerationCourseId[];
 
 export type GenerateImageErrorCode =
@@ -151,7 +152,7 @@ export function getGenerateImageErrorMessage(
     case "INVALID_WORD":
       return "Please enter an English word.";
     case "UNSUPPORTED_COURSE":
-      return "Image generation is only supported for CSAT, IELTS, TOEFL, and TOEIC.";
+      return "Image generation is only supported for CSAT, IELTS, TOEFL, TOEIC, and COLLOCATIONS.";
     case "FEATURE_DISABLED":
       return "Image generation is disabled in AI settings.";
     case "PERMISSION_DENIED":
