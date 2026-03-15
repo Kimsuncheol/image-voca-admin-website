@@ -66,7 +66,7 @@ import {
   isCourseWordFieldMissing,
 } from "@/lib/wordFinderCourseAdapter";
 import { useAdminAIAccess } from "@/lib/hooks/useAdminAccess";
-import { getPersistedPronunciation } from "@/lib/utils/ipaLookup";
+import { formatPersistedPronunciation, getIpaUSUKBatch } from "@/lib/utils/ipaLookup";
 import type { CourseDayMissingField } from "@/types/courseDayMissingField";
 import type { WordFinderResult, WordFinderResultFieldUpdates } from "@/types/wordFinder";
 
@@ -460,21 +460,27 @@ export default function DayWordsPage({
           }
         }
       } else if (bulkField === "pronunciation") {
-        for (const result of eligible) {
-          try {
-            const pronunciation = await getPersistedPronunciation(result.primaryText, settings);
-            if (!pronunciation) {
+        const ipaMap = await getIpaUSUKBatch(
+          eligible.map((r) => r.primaryText),
+          settings,
+        );
+        await Promise.all(
+          eligible.map(async (result) => {
+            try {
+              const ipa = ipaMap.get(result.primaryText);
+              if (!ipa) {
+                failed += 1;
+                return;
+              }
+              const pronunciation = formatPersistedPronunciation(ipa);
+              await persistResolvedUpdates(result, { pronunciation });
+              applyResolvedUpdatesToState(result.id, { pronunciation });
+              updated += 1;
+            } catch {
               failed += 1;
-              continue;
             }
-
-            await persistResolvedUpdates(result, { pronunciation });
-            applyResolvedUpdatesToState(result.id, { pronunciation });
-            updated += 1;
-          } catch {
-            failed += 1;
-          }
-        }
+          }),
+        );
       } else {
         for (const result of eligible) {
           const requestBody = createCourseDayGenerateWordFieldRequest(

@@ -137,3 +137,46 @@ export async function getPersistedPronunciation(
   const ipa = await getIpaUSUK(word, settings);
   return ipa ? formatPersistedPronunciation(ipa) : null;
 }
+
+/**
+ * Fetches IPA for multiple words concurrently with a bounded concurrency pool.
+ * Returns a Map from word → { us, uk } (or null when the word is not found).
+ * Default concurrency of 5 avoids overwhelming the API while still being fast.
+ */
+export async function getIpaUSUKBatch(
+  words: string[],
+  settings?: PronunciationSettings,
+  concurrency = 5,
+): Promise<Map<string, { us: string; uk: string } | null>> {
+  const result = new Map<string, { us: string; uk: string } | null>();
+  if (words.length === 0) return result;
+
+  const queue = [...words];
+  let done = 0;
+  const total = words.length;
+
+  await new Promise<void>((resolve) => {
+    const inFlight = new Set<Promise<void>>();
+
+    const launch = () => {
+      while (inFlight.size < concurrency && queue.length > 0) {
+        const word = queue.shift()!;
+        const p: Promise<void> = getIpaUSUK(word, settings)
+          .then((ipa) => {
+            result.set(word, ipa);
+          })
+          .finally(() => {
+            inFlight.delete(p);
+            done++;
+            if (done === total) resolve();
+            else launch();
+          });
+        inFlight.add(p);
+      }
+    };
+
+    launch();
+  });
+
+  return result;
+}

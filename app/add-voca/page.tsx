@@ -77,7 +77,7 @@ import {
 // ── Firebase / data helpers ───────────────────────────────────────────
 import { checkDayExists } from "@/lib/firebase/firestore";
 import { uploadCsvBackup } from "@/lib/firebase/storage";
-import { getIpaUSUK } from "@/lib/utils/ipaLookup";
+import { getIpaUSUKBatch } from "@/lib/utils/ipaLookup";
 import { supportsDerivativeCourse } from "@/constants/supportedDerivativeCourses";
 import {
   buildDerivativeAwareWordsForUpload,
@@ -403,14 +403,17 @@ export default function AddVocaPage() {
         let words = item.data!.words;
 
         if (schemaType === "standard") {
-          words = await Promise.all(
-            words.map(async (w) => {
-              const sw = w as StandardWordInput;
-              if (sw.pronunciation || sw.word.includes(" ")) return w;
-              const ipa = await getIpaUSUK(sw.word, settings);
-              return ipa ? { ...w, pronunciation: ipa.us } : w;
-            }),
-          );
+          const wordsNeedingIpa = (words as StandardWordInput[])
+            .filter((w) => !w.pronunciation && !w.word.includes(" "))
+            .map((w) => w.word);
+          if (wordsNeedingIpa.length > 0) {
+            const ipaMap = await getIpaUSUKBatch(wordsNeedingIpa, settings);
+            words = (words as StandardWordInput[]).map((w) =>
+              w.pronunciation || w.word.includes(" ")
+                ? w
+                : { ...w, pronunciation: ipaMap.get(w.word)?.us ?? w.pronunciation },
+            );
+          }
 
           if (
             isExampleAndTranslationGenerationEnabled &&
