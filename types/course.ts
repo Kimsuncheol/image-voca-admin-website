@@ -1,4 +1,4 @@
-export type CourseId = 'CSAT' | 'IELTS' | 'TOEFL' | 'TOEIC' | 'COLLOCATIONS' | 'FAMOUS_QUOTE';
+export type CourseId = 'CSAT' | 'TOEFL_IELTS' | 'TOEIC' | 'COLLOCATIONS' | 'FAMOUS_QUOTE';
 
 export interface Course {
   id: CourseId;
@@ -19,8 +19,7 @@ export interface Day {
 
 export const COURSES: Course[] = [
   { id: 'CSAT', label: 'CSAT', path: process.env.NEXT_PUBLIC_COURSE_PATH_CSAT || '' },
-  { id: 'IELTS', label: 'IELTS', path: process.env.NEXT_PUBLIC_COURSE_PATH_IELTS || '' },
-  { id: 'TOEFL', label: 'TOEFL', path: process.env.NEXT_PUBLIC_COURSE_PATH_TOEFL || '' },
+  { id: 'TOEFL_IELTS', label: 'TOEFL / IELTS', path: process.env.NEXT_PUBLIC_COURSE_PATH_TOEFL_IELTS || '' },
   { id: 'TOEIC', label: 'TOEIC', path: process.env.NEXT_PUBLIC_COURSE_PATH_TOEIC || '' },
   { id: 'COLLOCATIONS', label: 'Collocations', path: process.env.NEXT_PUBLIC_COURSE_PATH_COLLOCATION || '' },
   { id: 'FAMOUS_QUOTE', label: 'Famous Quote', path: process.env.NEXT_PUBLIC_COURSE_PATH_FAMOUS_QUOTE || '', flat: true },

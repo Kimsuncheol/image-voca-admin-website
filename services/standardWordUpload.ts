@@ -3,8 +3,7 @@ import type { CourseId } from "../types/course.ts";
 
 const IMAGE_URL_COURSE_IDS = new Set<CourseId>([
   "CSAT",
-  "IELTS",
-  "TOEFL",
+  "TOEFL_IELTS",
   "TOEIC",
 ]);
 

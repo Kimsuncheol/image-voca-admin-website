@@ -3,8 +3,7 @@ import type { CourseId } from "@/types/course";
 export const SUPPORTED_DERIVATIVE_COURSES = [
   "CSAT",
   "TOEIC",
-  "TOEFL",
-  "IELTS",
+  "TOEFL_IELTS",
 ] as const satisfies readonly CourseId[];
 
 export type SupportedDerivativeCourseId =

@@ -7,17 +7,15 @@ import CardContent from "@mui/material/CardContent";
 import Typography from "@mui/material/Typography";
 import Box from "@mui/material/Box";
 import SchoolIcon from "@mui/icons-material/School";
-import PublicIcon from "@mui/icons-material/Public";
-import FlightIcon from "@mui/icons-material/Flight";
 import WorkIcon from "@mui/icons-material/Work";
 import LinkIcon from "@mui/icons-material/Link";
 import FormatQuoteIcon from "@mui/icons-material/FormatQuote";
+import LanguageIcon from "@mui/icons-material/Language";
 import type { Course, CourseId } from "@/types/course";
 
 const courseIcons: Record<CourseId, React.ReactNode> = {
   CSAT: <SchoolIcon sx={{ fontSize: 48 }} />,
-  IELTS: <PublicIcon sx={{ fontSize: 48 }} />,
-  TOEFL: <FlightIcon sx={{ fontSize: 48 }} />,
+  TOEFL_IELTS: <LanguageIcon sx={{ fontSize: 48 }} />,
   TOEIC: <WorkIcon sx={{ fontSize: 48 }} />,
   COLLOCATIONS: <LinkIcon sx={{ fontSize: 48 }} />,
   FAMOUS_QUOTE: <FormatQuoteIcon sx={{ fontSize: 48 }} />,

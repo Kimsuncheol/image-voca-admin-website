@@ -76,10 +76,10 @@ test("shared image and pronunciation matching uses normalized word only", () => 
     }),
     createResult({
       id: "other-course-match",
-      courseId: "IELTS",
-      courseLabel: "IELTS",
-      coursePath: "courses/IELTS",
-      sourceHref: "/courses/IELTS/Day3",
+      courseId: "TOEFL_IELTS",
+      courseLabel: "TOEFL / IELTS",
+      coursePath: "courses/TOEFL_IELTS",
+      sourceHref: "/courses/TOEFL_IELTS/Day3",
       dayId: "Day3",
       primaryText: "  WANDER  ",
       meaning: "different sense entirely",
@@ -88,10 +88,10 @@ test("shared image and pronunciation matching uses normalized word only", () => 
     }),
     createResult({
       id: "different-word",
-      courseId: "TOEFL",
-      courseLabel: "TOEFL",
-      coursePath: "courses/TOEFL",
-      sourceHref: "/courses/TOEFL/Day2",
+      courseId: "CSAT",
+      courseLabel: "CSAT",
+      coursePath: "courses/CSAT",
+      sourceHref: "/courses/CSAT/Day2",
       dayId: "Day2",
       primaryText: "wanderer",
       imageUrl: "https://example.com/nope.png",
@@ -121,10 +121,10 @@ test("shared example and translation matching uses word plus meaning", () => {
   const candidates = [
     createResult({
       id: "same-meaning",
-      courseId: "IELTS",
-      courseLabel: "IELTS",
-      coursePath: "courses/IELTS",
-      sourceHref: "/courses/IELTS/Day4",
+      courseId: "TOEFL_IELTS",
+      courseLabel: "TOEFL / IELTS",
+      coursePath: "courses/TOEFL_IELTS",
+      sourceHref: "/courses/TOEFL_IELTS/Day4",
       dayId: "Day4",
       meaning: "to move around without purpose",
       example: "1. Tourists wander around the city.",
@@ -132,10 +132,10 @@ test("shared example and translation matching uses word plus meaning", () => {
     }),
     createResult({
       id: "different-meaning",
-      courseId: "TOEFL",
-      courseLabel: "TOEFL",
-      coursePath: "courses/TOEFL",
-      sourceHref: "/courses/TOEFL/Day8",
+      courseId: "CSAT",
+      courseLabel: "CSAT",
+      coursePath: "courses/CSAT",
+      sourceHref: "/courses/CSAT/Day8",
       dayId: "Day8",
       meaning: "to speak off-topic",
       example: "1. He tends to wander in conversation.",
@@ -186,10 +186,10 @@ test("famous-quote translation sharing falls back to quote text only", () => {
     }),
     createResult({
       id: "quote-different",
-      courseId: "IELTS",
-      courseLabel: "IELTS",
-      coursePath: "courses/IELTS",
-      sourceHref: "/courses/IELTS/Day5",
+      courseId: "TOEFL_IELTS",
+      courseLabel: "TOEFL / IELTS",
+      coursePath: "courses/TOEFL_IELTS",
+      sourceHref: "/courses/TOEFL_IELTS/Day5",
       type: "famousQuote",
       dayId: null,
       primaryText: "Your time is limited.",
@@ -209,7 +209,7 @@ test("famous-quote translation sharing falls back to quote text only", () => {
 test("applyWordFinderResultUpdates supports single-field copy and multi-field generation results", () => {
   const current = createResult({});
   const sharedCandidate = createResult({
-    courseId: "IELTS",
+    courseId: "TOEFL_IELTS",
     imageUrl: "https://example.com/shared.png",
     example: "1. Tourists wander around the city.",
     translation: "1. 관광객들이 도시를 돌아다닌다.",
@@ -239,18 +239,18 @@ test("shared candidate filtering preserves multiple matches for explicit admin c
     [
       createResult({
         id: "shared-1",
-        courseId: "IELTS",
-        courseLabel: "IELTS",
-        coursePath: "courses/IELTS",
-        sourceHref: "/courses/IELTS/Day1",
+        courseId: "TOEFL_IELTS",
+        courseLabel: "TOEFL / IELTS",
+        coursePath: "courses/TOEFL_IELTS",
+        sourceHref: "/courses/TOEFL_IELTS/Day1",
         imageUrl: "https://example.com/1.png",
       }),
       createResult({
         id: "shared-2",
-        courseId: "TOEFL",
-        courseLabel: "TOEFL",
-        coursePath: "courses/TOEFL",
-        sourceHref: "/courses/TOEFL/Day1",
+        courseId: "CSAT",
+        courseLabel: "CSAT",
+        coursePath: "courses/CSAT",
+        sourceHref: "/courses/CSAT/Day1",
         imageUrl: "https://example.com/2.png",
       }),
     ],
@@ -258,7 +258,7 @@ test("shared candidate filtering preserves multiple matches for explicit admin c
   );
 
   assert.deepEqual(matches.map((match) => getWordFinderResultKey(match)), [
-    "IELTS:Day1:shared-1",
-    "TOEFL:Day1:shared-2",
+    "TOEFL_IELTS:Day1:shared-1",
+    "CSAT:Day1:shared-2",
   ]);
 });

@@ -27,8 +27,7 @@ const baseWords: StandardWordInput[] = [
 
 test("exam courses include imageUrl", () => {
   assert.equal(shouldIncludeImageUrl("CSAT"), true);
-  assert.equal(shouldIncludeImageUrl("IELTS"), true);
-  assert.equal(shouldIncludeImageUrl("TOEFL"), true);
+  assert.equal(shouldIncludeImageUrl("TOEFL_IELTS"), true);
   assert.equal(shouldIncludeImageUrl("TOEIC"), true);
 });
 
@@ -77,7 +76,7 @@ test("prepareStandardWordsForUpload preserves derivative-like fields", () => {
     },
   ] as unknown as StandardWordInput[];
 
-  const result = prepareStandardWordsForUpload(derivativeLikeWords, "IELTS");
+  const result = prepareStandardWordsForUpload(derivativeLikeWords, "TOEFL_IELTS");
 
   assert.deepEqual(result, [
     {
