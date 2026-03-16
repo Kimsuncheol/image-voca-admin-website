@@ -80,9 +80,26 @@ export async function POST(request: NextRequest) {
   }
 
   const settings = await getServerAISettings();
+  const startedAt = Date.now();
+  let previewMetrics = {
+    uniqueBaseWordCount: 0,
+    uniqueCandidateCount: 0,
+  };
   const items = await getAdjectiveDerivativesPreview(
     body.items,
     settings.adjectiveDerivativeApi,
+    {
+      onMetrics: (metrics) => {
+        previewMetrics = metrics;
+      },
+    },
   );
+  console.log("[derivatives] Preview generated", {
+    provider: settings.adjectiveDerivativeApi,
+    itemCount: body.items.length,
+    uniqueBaseWordCount: previewMetrics.uniqueBaseWordCount,
+    uniqueCandidateCount: previewMetrics.uniqueCandidateCount,
+    durationMs: Date.now() - startedAt,
+  });
   return NextResponse.json({ items } satisfies DerivativePreviewResponse);
 }

@@ -6,18 +6,40 @@ import type { DerivativeSource } from "@/types/vocabulary";
 
 type AdjectiveDerivativeApi = AISettings["adjectiveDerivativeApi"];
 
-interface AdjectiveDefinitionResult {
+export interface AdjectiveDefinitionResult {
   meaning: string;
   attribution?: string;
 }
 
+export interface AdjectiveDerivativeDiscoveryInput {
+  baseWord: string;
+  baseMeaning: string;
+}
+
+export interface BatchedDiscoveryResult {
+  candidatesByWord: Map<string, string[]>;
+  errorsByWord: Map<string, string[]>;
+}
+
+export interface BatchedDefinitionResult {
+  definitionsByWord: Map<string, AdjectiveDefinitionResult | null>;
+  errorsByWord: Map<string, string[]>;
+}
+
+export interface BatchExecutionOptions {
+  concurrency?: number;
+}
+
 export interface AdjectiveDerivativeProvider {
   source: DerivativeSource;
-  discoverCandidates: (
-    baseWord: string,
-    baseMeaning: string,
-  ) => Promise<string[]>;
-  getDefinition: (word: string) => Promise<AdjectiveDefinitionResult | null>;
+  discoverCandidatesBatch: (
+    inputs: readonly AdjectiveDerivativeDiscoveryInput[],
+    options?: BatchExecutionOptions,
+  ) => Promise<BatchedDiscoveryResult>;
+  getDefinitionsBatch: (
+    words: readonly string[],
+    options?: BatchExecutionOptions,
+  ) => Promise<BatchedDefinitionResult>;
 }
 
 interface ProviderOptions {
@@ -27,7 +49,8 @@ interface ProviderOptions {
 }
 
 const DATAMUSE_API_URL = "https://api.datamuse.com/words";
-const FREE_DICTIONARY_API_URL = "https://api.dictionaryapi.dev/api/v2/entries/en";
+const FREE_DICTIONARY_API_URL =
+  "https://api.dictionaryapi.dev/api/v2/entries/en";
 const DEFAULT_WORD_SENSE_API_URL =
   "https://dictionary-api.cambridge.org/api/v1/dictionaries/british-english/entries";
 const COMMON_ADJECTIVE_SUFFIXES = [
@@ -52,6 +75,8 @@ const COMMON_ADJECTIVE_SUFFIXES = [
   "ous",
   "y",
 ] as const;
+const DEFAULT_DISCOVERY_CONCURRENCY = 6;
+const DEFAULT_DEFINITION_CONCURRENCY = 12;
 
 interface DatamuseItem {
   word?: string;
@@ -86,7 +111,9 @@ function parseDatamuseDefinition(item: DatamuseItem): string {
   if (!directDef) return "";
 
   const tabIndex = directDef.indexOf("\t");
-  return trimDefinition(tabIndex >= 0 ? directDef.slice(tabIndex + 1) : directDef);
+  return trimDefinition(
+    tabIndex >= 0 ? directDef.slice(tabIndex + 1) : directDef,
+  );
 }
 
 function hasAdjectiveTag(tags: string[] | undefined): boolean {
@@ -115,11 +142,124 @@ function buildHeuristicAdjectiveCandidates(baseWord: string): string[] {
     });
   });
 
-  return uniqueStrings(candidates).filter((candidate) => candidate !== normalizedBaseWord);
+  return uniqueStrings(candidates).filter(
+    (candidate) => candidate !== normalizedBaseWord,
+  );
 }
 
 function createDefinitionCache() {
   return new Map<string, Promise<AdjectiveDefinitionResult | null>>();
+}
+
+function createCandidateCache() {
+  return new Map<string, Promise<string[]>>();
+}
+
+function appendError(
+  target: Map<string, string[]>,
+  key: string,
+  message: string,
+): void {
+  const existing = target.get(key) ?? [];
+  target.set(key, [...existing, message]);
+}
+
+export async function mapWithConcurrencyLimit<T, R>(
+  items: readonly T[],
+  concurrency: number,
+  worker: (item: T, index: number) => Promise<R>,
+): Promise<R[]> {
+  if (items.length === 0) return [];
+
+  const limit = Math.max(1, Math.floor(concurrency));
+  const results = new Array<R>(items.length);
+  let nextIndex = 0;
+
+  async function runWorker(): Promise<void> {
+    while (true) {
+      const currentIndex = nextIndex;
+      nextIndex += 1;
+      if (currentIndex >= items.length) return;
+
+      results[currentIndex] = await worker(items[currentIndex], currentIndex);
+    }
+  }
+
+  await Promise.all(
+    Array.from({ length: Math.min(limit, items.length) }, () => runWorker()),
+  );
+
+  return results;
+}
+
+async function runDiscoveryBatch(
+  inputs: readonly AdjectiveDerivativeDiscoveryInput[],
+  concurrency: number,
+  worker: (input: AdjectiveDerivativeDiscoveryInput) => Promise<string[]>,
+): Promise<BatchedDiscoveryResult> {
+  const candidatesByWord = new Map<string, string[]>();
+  const errorsByWord = new Map<string, string[]>();
+
+  await mapWithConcurrencyLimit(inputs, concurrency, async (input) => {
+    const normalizedBaseWord = normalizeCandidateWord(input.baseWord);
+    if (!normalizedBaseWord) {
+      candidatesByWord.set(input.baseWord, []);
+      return null;
+    }
+
+    try {
+      candidatesByWord.set(
+        normalizedBaseWord,
+        uniqueStrings(await worker(input)),
+      );
+    } catch (error) {
+      appendError(
+        errorsByWord,
+        normalizedBaseWord,
+        error instanceof Error ? error.message : String(error),
+      );
+      candidatesByWord.set(normalizedBaseWord, []);
+    }
+
+    return null;
+  });
+
+  return {
+    candidatesByWord,
+    errorsByWord,
+  };
+}
+
+async function runDefinitionBatch(
+  words: readonly string[],
+  concurrency: number,
+  worker: (word: string) => Promise<AdjectiveDefinitionResult | null>,
+): Promise<BatchedDefinitionResult> {
+  const definitionsByWord = new Map<string, AdjectiveDefinitionResult | null>();
+  const errorsByWord = new Map<string, string[]>();
+
+  await mapWithConcurrencyLimit(words, concurrency, async (word) => {
+    const normalizedWord = normalizeCandidateWord(word);
+    if (!normalizedWord) return null;
+
+    try {
+      definitionsByWord.set(normalizedWord, await worker(normalizedWord));
+    } catch (error) {
+      appendError(
+        errorsByWord,
+        normalizedWord,
+        error instanceof Error ? error.message : String(error),
+      );
+      definitionsByWord.set(normalizedWord, null);
+    }
+
+    return null;
+  });
+
+  return {
+    definitionsByWord,
+    errorsByWord,
+  };
 }
 
 export function createDatamuseDerivativeProvider(
@@ -127,10 +267,14 @@ export function createDatamuseDerivativeProvider(
 ): AdjectiveDerivativeProvider {
   const fetchImpl = options.fetchImpl ?? fetch;
   const definitionCache = createDefinitionCache();
+  const candidateCache = createCandidateCache();
 
-  async function lookupWord(word: string): Promise<AdjectiveDefinitionResult | null> {
+  async function lookupWord(
+    word: string,
+  ): Promise<AdjectiveDefinitionResult | null> {
     const normalizedWord = normalizeCandidateWord(word);
     if (!normalizedWord) return null;
+
     const existing = definitionCache.get(normalizedWord);
     if (existing) return existing;
 
@@ -140,10 +284,13 @@ export function createDatamuseDerivativeProvider(
         md: "dp",
         max: "10",
       });
-      const response = await fetchImpl(`${DATAMUSE_API_URL}?${searchParams.toString()}`, {
-        cache: "no-store",
-        headers: { Accept: "application/json" },
-      });
+      const response = await fetchImpl(
+        `${DATAMUSE_API_URL}?${searchParams.toString()}`,
+        {
+          cache: "no-store",
+          headers: { Accept: "application/json" },
+        },
+      );
       if (!response.ok) {
         throw new Error(`Datamuse request failed with ${response.status}`);
       }
@@ -167,22 +314,31 @@ export function createDatamuseDerivativeProvider(
     return next;
   }
 
-  return {
-    source: "datamuse",
-    async discoverCandidates(baseWord: string) {
-      const normalizedBaseWord = normalizeCandidateWord(baseWord);
-      if (!normalizedBaseWord) return [];
+  async function discoverCandidatesForBaseWord(
+    input: AdjectiveDerivativeDiscoveryInput,
+  ): Promise<string[]> {
+    const normalizedBaseWord = normalizeCandidateWord(input.baseWord);
+    if (!normalizedBaseWord) return [];
 
-      const discovered = new Set<string>(buildHeuristicAdjectiveCandidates(baseWord));
+    const existing = candidateCache.get(normalizedBaseWord);
+    if (existing) return existing;
+
+    const next = (async () => {
+      const discovered = new Set<string>(
+        buildHeuristicAdjectiveCandidates(normalizedBaseWord),
+      );
       const searchParams = new URLSearchParams({
         sp: `${normalizedBaseWord}*`,
         md: "dp",
         max: "30",
       });
-      const response = await fetchImpl(`${DATAMUSE_API_URL}?${searchParams.toString()}`, {
-        cache: "no-store",
-        headers: { Accept: "application/json" },
-      });
+      const response = await fetchImpl(
+        `${DATAMUSE_API_URL}?${searchParams.toString()}`,
+        {
+          cache: "no-store",
+          headers: { Accept: "application/json" },
+        },
+      );
       if (!response.ok) {
         throw new Error(`Datamuse request failed with ${response.status}`);
       }
@@ -198,8 +354,28 @@ export function createDatamuseDerivativeProvider(
         });
 
       return uniqueStrings(discovered);
+    })();
+
+    candidateCache.set(normalizedBaseWord, next);
+    return next;
+  }
+
+  return {
+    source: "datamuse",
+    discoverCandidatesBatch(inputs, options) {
+      return runDiscoveryBatch(
+        inputs,
+        options?.concurrency ?? DEFAULT_DISCOVERY_CONCURRENCY,
+        discoverCandidatesForBaseWord,
+      );
     },
-    getDefinition: lookupWord,
+    getDefinitionsBatch(words, options) {
+      return runDefinitionBatch(
+        words,
+        options?.concurrency ?? DEFAULT_DEFINITION_CONCURRENCY,
+        lookupWord,
+      );
+    },
   };
 }
 
@@ -208,10 +384,14 @@ export function createFreeDictionaryDerivativeProvider(
 ): AdjectiveDerivativeProvider {
   const fetchImpl = options.fetchImpl ?? fetch;
   const definitionCache = createDefinitionCache();
+  const candidateCache = createCandidateCache();
 
-  async function lookupWord(word: string): Promise<AdjectiveDefinitionResult | null> {
+  async function lookupWord(
+    word: string,
+  ): Promise<AdjectiveDefinitionResult | null> {
     const normalizedWord = normalizeCandidateWord(word);
     if (!normalizedWord) return null;
+
     const existing = definitionCache.get(normalizedWord);
     if (existing) return existing;
 
@@ -234,7 +414,8 @@ export function createFreeDictionaryDerivativeProvider(
         for (const meaning of entry.meanings ?? []) {
           if (meaning.partOfSpeech?.toLowerCase() !== "adjective") continue;
           const definition = trimDefinition(
-            meaning.definitions?.find((item) => trimDefinition(item.definition))?.definition,
+            meaning.definitions?.find((item) => trimDefinition(item.definition))
+              ?.definition,
           );
           if (!definition) continue;
 
@@ -252,12 +433,38 @@ export function createFreeDictionaryDerivativeProvider(
     return next;
   }
 
+  async function discoverCandidatesForBaseWord(
+    input: AdjectiveDerivativeDiscoveryInput,
+  ): Promise<string[]> {
+    const normalizedBaseWord = normalizeCandidateWord(input.baseWord);
+    if (!normalizedBaseWord) return [];
+
+    const existing = candidateCache.get(normalizedBaseWord);
+    if (existing) return existing;
+
+    const next = Promise.resolve(
+      buildHeuristicAdjectiveCandidates(normalizedBaseWord),
+    );
+    candidateCache.set(normalizedBaseWord, next);
+    return next;
+  }
+
   return {
     source: "free-dictionary",
-    async discoverCandidates(baseWord: string) {
-      return buildHeuristicAdjectiveCandidates(baseWord);
+    discoverCandidatesBatch(inputs, options) {
+      return runDiscoveryBatch(
+        inputs,
+        options?.concurrency ?? DEFAULT_DISCOVERY_CONCURRENCY,
+        discoverCandidatesForBaseWord,
+      );
     },
-    getDefinition: lookupWord,
+    getDefinitionsBatch(words, options) {
+      return runDefinitionBatch(
+        words,
+        options?.concurrency ?? DEFAULT_DEFINITION_CONCURRENCY,
+        lookupWord,
+      );
+    },
   };
 }
 
@@ -292,7 +499,10 @@ function collectGenericAdjectiveDefinitions(value: unknown): string[] {
               ? record.meaning
               : "";
 
-    if (partOfSpeech.toLowerCase() === "adjective" && trimDefinition(definition)) {
+    if (
+      partOfSpeech.toLowerCase() === "adjective" &&
+      trimDefinition(definition)
+    ) {
       definitions.push(trimDefinition(definition));
     }
 
@@ -311,10 +521,14 @@ export function createWordSenseDerivativeProvider(
   const baseUrl =
     options.baseUrl ?? process.env.WORD_SENSE_API_URL ?? DEFAULT_WORD_SENSE_API_URL;
   const definitionCache = createDefinitionCache();
+  const candidateCache = createCandidateCache();
 
-  async function lookupWord(word: string): Promise<AdjectiveDefinitionResult | null> {
+  async function lookupWord(
+    word: string,
+  ): Promise<AdjectiveDefinitionResult | null> {
     const normalizedWord = normalizeCandidateWord(word);
     if (!normalizedWord || !apiKey) return null;
+
     const existing = definitionCache.get(normalizedWord);
     if (existing) return existing;
 
@@ -351,12 +565,38 @@ export function createWordSenseDerivativeProvider(
     return next;
   }
 
+  async function discoverCandidatesForBaseWord(
+    input: AdjectiveDerivativeDiscoveryInput,
+  ): Promise<string[]> {
+    const normalizedBaseWord = normalizeCandidateWord(input.baseWord);
+    if (!normalizedBaseWord) return [];
+
+    const existing = candidateCache.get(normalizedBaseWord);
+    if (existing) return existing;
+
+    const next = Promise.resolve(
+      buildHeuristicAdjectiveCandidates(normalizedBaseWord),
+    );
+    candidateCache.set(normalizedBaseWord, next);
+    return next;
+  }
+
   return {
     source: "word-sense",
-    async discoverCandidates(baseWord: string) {
-      return buildHeuristicAdjectiveCandidates(baseWord);
+    discoverCandidatesBatch(inputs, options) {
+      return runDiscoveryBatch(
+        inputs,
+        options?.concurrency ?? DEFAULT_DISCOVERY_CONCURRENCY,
+        discoverCandidatesForBaseWord,
+      );
     },
-    getDefinition: lookupWord,
+    getDefinitionsBatch(words, options) {
+      return runDefinitionBatch(
+        words,
+        options?.concurrency ?? DEFAULT_DEFINITION_CONCURRENCY,
+        lookupWord,
+      );
+    },
   };
 }
 
