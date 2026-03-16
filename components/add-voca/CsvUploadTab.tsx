@@ -296,6 +296,7 @@ export default function CsvUploadTab({
         initialData={activeIndex >= 0 ? items[activeIndex]?.data : null}
         schemaType={schemaType}
         hideDayInput={hideDayInput}
+        courseLabel={courseLabel}
         existingDayNames={items
           .filter((_, i) => i !== activeIndex)
           .map((i) => i.dayName)

@@ -47,6 +47,8 @@ interface UploadModalProps {
    * Used for Famous Quote uploads which have no day concept.
    */
   hideDayInput?: boolean;
+  /** Selected course label used to validate the uploaded filename. */
+  courseLabel?: string;
 }
 
 const dayFieldSx = {
@@ -63,6 +65,12 @@ const dayFieldSx = {
   },
 };
 
+function filenameMatchesCourse(filename: string, courseLabel: string): boolean {
+  const lower = filename.toLowerCase();
+  const tokens = courseLabel.split(/[\s/]+/).filter((t) => t.length > 1);
+  return tokens.some((token) => lower.includes(token.toLowerCase()));
+}
+
 export default function UploadModal({
   open,
   onClose,
@@ -72,6 +80,7 @@ export default function UploadModal({
   schemaType,
   existingDayNames = [],
   hideDayInput = false,
+  courseLabel,
 }: UploadModalProps) {
   const { t } = useTranslation();
   const [dayName, setDayName] = useState(
@@ -81,18 +90,22 @@ export default function UploadModal({
     initialData,
   );
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [filenameMismatch, setFilenameMismatch] = useState(false);
 
   const onDrop = useCallback(
     async (acceptedFiles: File[]) => {
       if (acceptedFiles.length > 0) {
         const file = acceptedFiles[0];
+        setFilenameMismatch(
+          !!courseLabel && !filenameMatchesCourse(file.name, courseLabel),
+        );
         setSelectedFile(file);
         const result = await parseCsvFile(file, schemaType);
         console.log("[UploadModal] parsed words:", result.words);
         setParseResult(result);
       }
     },
-    [schemaType],
+    [schemaType, courseLabel],
   );
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
@@ -153,6 +166,7 @@ export default function UploadModal({
     );
     setParseResult(initialData ?? null);
     setSelectedFile(null);
+    setFilenameMismatch(false);
   };
 
   const getBlockingErrorMessage = (code?: ParseResult["blockingError"]) => {
@@ -225,6 +239,14 @@ export default function UploadModal({
               {selectedFile ? selectedFile.name : t("addVoca.dropzone")}
             </Typography>
           </Box>
+
+          {filenameMismatch && (
+            <Alert severity="warning">
+              <Typography variant="body2">
+                {t("addVoca.filenameMismatch", { courseLabel })}
+              </Typography>
+            </Alert>
+          )}
 
           {parseResult?.blockingError ? (
             <Alert severity="error">
@@ -351,7 +373,8 @@ export default function UploadModal({
           disabled={
             (!hideDayInput && !dayName) ||
             !parseResult ||
-            parseResult.words.length === 0
+            parseResult.words.length === 0 ||
+            filenameMismatch
           }
           sx={{ borderRadius: 2 }}
         >

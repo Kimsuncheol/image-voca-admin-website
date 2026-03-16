@@ -151,7 +151,8 @@
     "imageGeneratorErrorUploadFailed": "이미지는 생성되었지만 저장에 실패했습니다. 다시 시도해주세요.",
     "imageGeneratorErrorInternal": "이미지 생성에 실패했습니다. 다시 시도해주세요.",
     "imageGeneratorDisabled": "AI 설정에서 이미지 생성이 비활성화되어 있습니다.",
-    "imageGeneratorPermissionDenied": "현재 관리자 계정은 이미지 생성을 사용할 수 없습니다."
+    "imageGeneratorPermissionDenied": "현재 관리자 계정은 이미지 생성을 사용할 수 없습니다.",
+    "filenameMismatch": "파일명에 코스 이름({{courseLabel}})이 포함되어 있지 않습니다. 해당 코스용 파일을 선택해주세요."
   },
   "courses": {
     "title": "코스",

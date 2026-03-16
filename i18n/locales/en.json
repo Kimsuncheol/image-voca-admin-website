@@ -151,7 +151,8 @@
     "imageGeneratorErrorUploadFailed": "The image was generated, but saving it failed. Please try again.",
     "imageGeneratorErrorInternal": "Image generation failed. Please try again.",
     "imageGeneratorDisabled": "Image generation is disabled in AI settings.",
-    "imageGeneratorPermissionDenied": "Image generation is disabled for your administrator account."
+    "imageGeneratorPermissionDenied": "Image generation is disabled for your administrator account.",
+    "filenameMismatch": "The file name does not include the course name ({{courseLabel}}). Please use a file intended for this course."
   },
   "courses": {
     "title": "Courses",
