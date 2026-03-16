@@ -83,7 +83,7 @@ import {
   buildDerivativeAwareWordsForUpload,
   type DerivativeSelectionMap,
 } from "@/services/vocaSaveService";
-import { assignDeterministicUploadIdsForSchema } from "@/lib/uploadWordIds";
+import { assignDeterministicUploadIdsForItems } from "@/lib/uploadWordIds";
 import { prepareStandardWordsForUpload } from "@/services/standardWordUpload";
 import { useAdminAIAccess } from "@/lib/hooks/useAdminAccess";
 import {
@@ -488,18 +488,6 @@ export default function AddVocaPage() {
           );
         }
 
-        if (
-          (schemaType === "standard" || schemaType === "collocation") &&
-          item.dayName
-        ) {
-          words = assignDeterministicUploadIdsForSchema(
-            words as NonNullable<QueueItem["data"]>["words"],
-            schemaType,
-            course.label,
-            item.dayName,
-          );
-        }
-
         processedMap.set(item.id, words);
       } catch (e) {
         console.error(`[Preprocess] ${item.dayName} failed:`, e);
@@ -540,12 +528,37 @@ export default function AddVocaPage() {
       setProgressCounts((prev) => ({ ...prev, failed: errorMap.size }));
     }
 
-    const daysToUpload = queue
+    let daysToUpload = queue
       .filter((item) => processedMap.has(item.id))
       .map((item) => ({
         dayName: item.dayName,
         words: processedMap.get(item.id)!,
       }));
+
+    if (
+      daysToUpload.length > 0 &&
+      (schemaType === "standard" || schemaType === "collocation")
+    ) {
+      const startedAt = Date.now();
+      const normalizedDays = assignDeterministicUploadIdsForItems(
+        daysToUpload as Array<{
+          dayName: string;
+          words: NonNullable<QueueItem["data"]>["words"];
+        }>,
+        schemaType,
+        course.label,
+      );
+      const totalWordCount = normalizedDays.reduce(
+        (sum, day) => sum + day.words.length,
+        0,
+      );
+      console.log("[add-voca] Batched word ID generation", {
+        itemCount: normalizedDays.length,
+        totalWordCount,
+        durationMs: Date.now() - startedAt,
+      });
+      daysToUpload = normalizedDays;
+    }
 
     if (daysToUpload.length > 0) {
       setStatusText(t("addVoca.statusWriting"));

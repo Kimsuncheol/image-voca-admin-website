@@ -25,7 +25,6 @@ import { getFamousQuotes } from '@/lib/firebase/firestore';
 import FileListItem from './FileListItem';
 import UploadModal from './UploadModal';
 import { type ParseResult, type SchemaType } from '@/lib/utils/csvParser';
-import { assignDeterministicUploadIdsForSchema } from '@/lib/uploadWordIds';
 
 export interface CsvItem {
   id: string;
@@ -56,18 +55,6 @@ const sectionSx = {
 function escapeCsvCell(value: string): string {
   if (/[",\n\r]/.test(value)) return `"${value.replace(/"/g, '""')}"`;
   return value;
-}
-
-function shouldAssignUploadIds(
-  schemaType: SchemaType | undefined,
-  hideDayInput: boolean,
-  courseLabel: string | undefined,
-): boolean {
-  return Boolean(
-    courseLabel &&
-      !hideDayInput &&
-      (schemaType === 'standard' || schemaType === 'collocation'),
-  );
 }
 
 export default function CsvUploadTab({
@@ -143,20 +130,6 @@ export default function CsvUploadTab({
   };
 
   const handleModalConfirm = (dayName: string, data: ParseResult, file?: File) => {
-    const resolvedSchemaType = schemaType ?? data.schemaType;
-    const nextData =
-      shouldAssignUploadIds(resolvedSchemaType, Boolean(hideDayInput), courseLabel)
-        ? {
-            ...data,
-            words: assignDeterministicUploadIdsForSchema(
-              data.words,
-              resolvedSchemaType,
-              courseLabel!,
-              dayName,
-            ),
-          }
-        : data;
-
     if (activeIndex === -1) {
       // Adding a new item. If user confirmed Replace, overwrite the existing entry.
       const existingIndex = items.findIndex((i) => i.dayName === dayName);
@@ -167,7 +140,7 @@ export default function CsvUploadTab({
           fileName: file?.name ?? updated[existingIndex].fileName,
           file: file ?? updated[existingIndex].file,
           dayName,
-          data: nextData,
+          data,
         };
         onItemsChange(updated);
       } else {
@@ -178,7 +151,7 @@ export default function CsvUploadTab({
             fileName: file?.name ?? (data.words.length > 0 ? `${dayName}.csv` : 'Untitled.csv'),
             file: file ?? null,
             dayName,
-            data: nextData,
+            data,
           },
         ]);
       }
@@ -189,7 +162,7 @@ export default function CsvUploadTab({
       updated[activeIndex] = {
         ...updated[activeIndex],
         dayName,
-        data: nextData,
+        data,
         file: file ?? updated[activeIndex].file,
       };
       updated = updated.filter((item, i) => i === activeIndex || item.dayName !== dayName);

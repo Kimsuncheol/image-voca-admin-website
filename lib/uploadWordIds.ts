@@ -10,6 +10,10 @@ type UploadParseWord =
   | StandardWordInput
   | CollocationWordInput
   | FamousQuoteWordInput;
+type UploadBatchItem<TWord extends UploadParseWord = UploadParseWord> = {
+  dayName: string;
+  words: readonly TWord[];
+};
 
 export function normalizeCourseLabelForWordId(label: string): string {
   return label
@@ -58,4 +62,30 @@ export function assignDeterministicUploadIdsForSchema<
   }
 
   return [...words];
+}
+
+export function assignDeterministicUploadIdsForItems<
+  TItem extends UploadBatchItem,
+>(
+  items: readonly TItem[],
+  schemaType: SchemaType,
+  courseLabel: string,
+): TItem[] {
+  if (schemaType !== "standard" && schemaType !== "collocation") {
+    return items.map((item) => ({
+      ...item,
+      words: [...item.words],
+    }));
+  }
+
+  const normalizedCourseLabel = normalizeCourseLabelForWordId(courseLabel);
+
+  return items.map((item) => ({
+    ...item,
+    words: assignDeterministicUploadWordIds(
+      item.words as readonly UploadWordWithOptionalId[],
+      normalizedCourseLabel,
+      item.dayName,
+    ) as TItem["words"],
+  }));
 }
