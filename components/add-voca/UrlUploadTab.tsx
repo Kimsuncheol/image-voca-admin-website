@@ -31,6 +31,7 @@ import Stack from "@mui/material/Stack";
 import { useGoogleSheetsAuth } from "@/lib/hooks/useGoogleSheetsAuth";
 import { fetchSheetWithToken } from "@/lib/utils/sheetsApi";
 import type { ParseResult, SchemaType } from "@/lib/utils/csvParser";
+import { assignDeterministicUploadIdsForSchema } from "@/lib/uploadWordIds";
 import UploadModal from "./UploadModal";
 
 // ─── 서브 컴포넌트 ─────────────────────────────────────────────────────────
@@ -59,6 +60,19 @@ interface UrlUploadTabProps {
   schemaType?: SchemaType;
   /** Day 입력 필드를 숨기고 UUID를 자동 할당합니다 (Famous Quote용) */
   hideDayInput?: boolean;
+  courseLabel?: string;
+}
+
+function shouldAssignUploadIds(
+  schemaType: SchemaType | undefined,
+  hideDayInput: boolean,
+  courseLabel: string | undefined,
+): boolean {
+  return Boolean(
+    courseLabel &&
+      !hideDayInput &&
+      (schemaType === "standard" || schemaType === "collocation"),
+  );
 }
 
 // ─── 컴포넌트 ──────────────────────────────────────────────────────────────
@@ -67,6 +81,7 @@ export default function UrlUploadTab({
   onItemsChange,
   schemaType,
   hideDayInput,
+  courseLabel,
 }: UrlUploadTabProps) {
   // Google Sheets OAuth 훅
   const {
@@ -91,6 +106,11 @@ export default function UrlUploadTab({
   const [urlFetchError, setUrlFetchError] = useState("");
   const [urlValidationError, setUrlValidationError] =
     useState<ParseResult | null>(null);
+  const shouldAssignIds = shouldAssignUploadIds(
+    schemaType,
+    Boolean(hideDayInput),
+    courseLabel,
+  );
 
   // ── 이벤트 핸들러 ─────────────────────────────────────────────────────
 
@@ -127,9 +147,26 @@ export default function UrlUploadTab({
         setUrlValidationError(data);
         return;
       }
+      const nextData =
+        shouldAssignIds
+          ? {
+              ...data,
+              words: assignDeterministicUploadIdsForSchema(
+                data.words,
+                schemaType ?? data.schemaType,
+                courseLabel!,
+                effectiveDayName,
+              ),
+            }
+          : data;
       onItemsChange([
         ...items,
-        { id: crypto.randomUUID(), url: urlInput, dayName: effectiveDayName, data },
+        {
+          id: crypto.randomUUID(),
+          url: urlInput,
+          dayName: effectiveDayName,
+          data: nextData,
+        },
       ]);
       setUrlInput("");
       setDayInput("");
@@ -183,8 +220,20 @@ export default function UrlUploadTab({
    * - 같은 dayName을 가진 다른 항목은 제거합니다 (사용자가 Replace를 확인한 경우).
    */
   const handleModalConfirm = (dayName: string, data: ParseResult) => {
+    const nextData =
+      shouldAssignIds
+        ? {
+            ...data,
+            words: assignDeterministicUploadIdsForSchema(
+              data.words,
+              schemaType ?? data.schemaType,
+              courseLabel!,
+              dayName,
+            ),
+          }
+        : data;
     let updated = [...items];
-    updated[activeIndex] = { ...updated[activeIndex], dayName, data };
+    updated[activeIndex] = { ...updated[activeIndex], dayName, data: nextData };
     // 동일 dayName을 가진 다른 항목 제거
     updated = updated.filter(
       (item, i) => i === activeIndex || item.dayName !== dayName,

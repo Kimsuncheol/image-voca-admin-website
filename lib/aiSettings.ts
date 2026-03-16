@@ -5,6 +5,7 @@ export interface AISettings {
   enrichModel: "gemini" | "chatgpt";
   exampleTranslationApi: "deepl" | "google-translate";
   pronunciationApi: "free-dictionary" | "oxford";
+  adjectiveDerivativeApi: "word-sense" | "datamuse" | "free-dictionary";
   oxfordAppId: string;
   oxfordAppKey: string;
 }
@@ -16,6 +17,7 @@ export const DEFAULT_AI_SETTINGS: AISettings = {
   enrichModel: "gemini",
   exampleTranslationApi: "deepl",
   pronunciationApi: "free-dictionary",
+  adjectiveDerivativeApi: "word-sense",
   oxfordAppId: "",
   oxfordAppKey: "",
 };

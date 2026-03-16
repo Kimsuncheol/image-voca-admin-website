@@ -1,0 +1,375 @@
+import "server-only";
+
+import type { AISettings } from "@/lib/aiSettings";
+import { normalizeVocabularyWord } from "@/lib/word-derivation/shared";
+import type { DerivativeSource } from "@/types/vocabulary";
+
+type AdjectiveDerivativeApi = AISettings["adjectiveDerivativeApi"];
+
+interface AdjectiveDefinitionResult {
+  meaning: string;
+  attribution?: string;
+}
+
+export interface AdjectiveDerivativeProvider {
+  source: DerivativeSource;
+  discoverCandidates: (
+    baseWord: string,
+    baseMeaning: string,
+  ) => Promise<string[]>;
+  getDefinition: (word: string) => Promise<AdjectiveDefinitionResult | null>;
+}
+
+interface ProviderOptions {
+  fetchImpl?: typeof fetch;
+  apiKey?: string;
+  baseUrl?: string;
+}
+
+const DATAMUSE_API_URL = "https://api.datamuse.com/words";
+const FREE_DICTIONARY_API_URL = "https://api.dictionaryapi.dev/api/v2/entries/en";
+const DEFAULT_WORD_SENSE_API_URL =
+  "https://dictionary-api.cambridge.org/api/v1/dictionaries/british-english/entries";
+const COMMON_ADJECTIVE_SUFFIXES = [
+  "able",
+  "al",
+  "an",
+  "ant",
+  "ary",
+  "ed",
+  "ent",
+  "ful",
+  "ic",
+  "ical",
+  "id",
+  "ile",
+  "ine",
+  "ish",
+  "ive",
+  "less",
+  "like",
+  "ory",
+  "ous",
+  "y",
+] as const;
+
+interface DatamuseItem {
+  word?: string;
+  tags?: string[];
+  defs?: string[];
+}
+
+interface FreeDictionaryMeaning {
+  partOfSpeech?: string;
+  definitions?: Array<{ definition?: string }>;
+}
+
+interface FreeDictionaryEntry {
+  meanings?: FreeDictionaryMeaning[];
+  sourceUrls?: string[];
+}
+
+function normalizeCandidateWord(value: string): string {
+  return normalizeVocabularyWord(value);
+}
+
+function uniqueStrings(values: Iterable<string>): string[] {
+  return [...new Set([...values].filter(Boolean))];
+}
+
+function trimDefinition(value: string | undefined): string {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function parseDatamuseDefinition(item: DatamuseItem): string {
+  const directDef = item.defs?.find(Boolean);
+  if (!directDef) return "";
+
+  const tabIndex = directDef.indexOf("\t");
+  return trimDefinition(tabIndex >= 0 ? directDef.slice(tabIndex + 1) : directDef);
+}
+
+function hasAdjectiveTag(tags: string[] | undefined): boolean {
+  return Boolean(tags?.some((tag) => tag === "adj"));
+}
+
+function buildHeuristicAdjectiveCandidates(baseWord: string): string[] {
+  const normalizedBaseWord = normalizeCandidateWord(baseWord);
+  if (!normalizedBaseWord) return [];
+
+  const stems = new Set<string>([normalizedBaseWord]);
+  if (normalizedBaseWord.endsWith("e")) {
+    stems.add(normalizedBaseWord.slice(0, -1));
+  }
+  if (normalizedBaseWord.endsWith("y")) {
+    stems.add(`${normalizedBaseWord.slice(0, -1)}i`);
+  }
+  if (normalizedBaseWord.endsWith("ion")) {
+    stems.add(normalizedBaseWord.slice(0, -3));
+  }
+
+  const candidates = new Set<string>();
+  stems.forEach((stem) => {
+    COMMON_ADJECTIVE_SUFFIXES.forEach((suffix) => {
+      candidates.add(`${stem}${suffix}`);
+    });
+  });
+
+  return uniqueStrings(candidates).filter((candidate) => candidate !== normalizedBaseWord);
+}
+
+function createDefinitionCache() {
+  return new Map<string, Promise<AdjectiveDefinitionResult | null>>();
+}
+
+export function createDatamuseDerivativeProvider(
+  options: ProviderOptions = {},
+): AdjectiveDerivativeProvider {
+  const fetchImpl = options.fetchImpl ?? fetch;
+  const definitionCache = createDefinitionCache();
+
+  async function lookupWord(word: string): Promise<AdjectiveDefinitionResult | null> {
+    const normalizedWord = normalizeCandidateWord(word);
+    if (!normalizedWord) return null;
+    const existing = definitionCache.get(normalizedWord);
+    if (existing) return existing;
+
+    const next = (async () => {
+      const searchParams = new URLSearchParams({
+        sp: normalizedWord,
+        md: "dp",
+        max: "10",
+      });
+      const response = await fetchImpl(`${DATAMUSE_API_URL}?${searchParams.toString()}`, {
+        cache: "no-store",
+        headers: { Accept: "application/json" },
+      });
+      if (!response.ok) {
+        throw new Error(`Datamuse request failed with ${response.status}`);
+      }
+
+      const payload = (await response.json()) as DatamuseItem[];
+      const exactMatch = payload.find(
+        (item) => normalizeCandidateWord(item.word ?? "") === normalizedWord,
+      );
+      if (!exactMatch || !hasAdjectiveTag(exactMatch.tags)) return null;
+
+      const meaning = parseDatamuseDefinition(exactMatch);
+      if (!meaning) return null;
+
+      return {
+        meaning,
+        attribution: "Datamuse",
+      };
+    })();
+
+    definitionCache.set(normalizedWord, next);
+    return next;
+  }
+
+  return {
+    source: "datamuse",
+    async discoverCandidates(baseWord: string) {
+      const normalizedBaseWord = normalizeCandidateWord(baseWord);
+      if (!normalizedBaseWord) return [];
+
+      const discovered = new Set<string>(buildHeuristicAdjectiveCandidates(baseWord));
+      const searchParams = new URLSearchParams({
+        sp: `${normalizedBaseWord}*`,
+        md: "dp",
+        max: "30",
+      });
+      const response = await fetchImpl(`${DATAMUSE_API_URL}?${searchParams.toString()}`, {
+        cache: "no-store",
+        headers: { Accept: "application/json" },
+      });
+      if (!response.ok) {
+        throw new Error(`Datamuse request failed with ${response.status}`);
+      }
+
+      const payload = (await response.json()) as DatamuseItem[];
+      payload
+        .filter((item) => hasAdjectiveTag(item.tags))
+        .forEach((item) => {
+          const normalizedWord = normalizeCandidateWord(item.word ?? "");
+          if (normalizedWord) {
+            discovered.add(normalizedWord);
+          }
+        });
+
+      return uniqueStrings(discovered);
+    },
+    getDefinition: lookupWord,
+  };
+}
+
+export function createFreeDictionaryDerivativeProvider(
+  options: ProviderOptions = {},
+): AdjectiveDerivativeProvider {
+  const fetchImpl = options.fetchImpl ?? fetch;
+  const definitionCache = createDefinitionCache();
+
+  async function lookupWord(word: string): Promise<AdjectiveDefinitionResult | null> {
+    const normalizedWord = normalizeCandidateWord(word);
+    if (!normalizedWord) return null;
+    const existing = definitionCache.get(normalizedWord);
+    if (existing) return existing;
+
+    const next = (async () => {
+      const response = await fetchImpl(
+        `${FREE_DICTIONARY_API_URL}/${encodeURIComponent(normalizedWord)}`,
+        {
+          cache: "no-store",
+          headers: { Accept: "application/json" },
+        },
+      );
+
+      if (response.status === 404) return null;
+      if (!response.ok) {
+        throw new Error(`Free Dictionary request failed with ${response.status}`);
+      }
+
+      const payload = (await response.json()) as FreeDictionaryEntry[];
+      for (const entry of payload) {
+        for (const meaning of entry.meanings ?? []) {
+          if (meaning.partOfSpeech?.toLowerCase() !== "adjective") continue;
+          const definition = trimDefinition(
+            meaning.definitions?.find((item) => trimDefinition(item.definition))?.definition,
+          );
+          if (!definition) continue;
+
+          return {
+            meaning: definition,
+            attribution: entry.sourceUrls?.[0] ?? "Free Dictionary API",
+          };
+        }
+      }
+
+      return null;
+    })();
+
+    definitionCache.set(normalizedWord, next);
+    return next;
+  }
+
+  return {
+    source: "free-dictionary",
+    async discoverCandidates(baseWord: string) {
+      return buildHeuristicAdjectiveCandidates(baseWord);
+    },
+    getDefinition: lookupWord,
+  };
+}
+
+function collectGenericAdjectiveDefinitions(value: unknown): string[] {
+  const definitions: string[] = [];
+
+  function visit(node: unknown) {
+    if (Array.isArray(node)) {
+      node.forEach(visit);
+      return;
+    }
+
+    if (!node || typeof node !== "object") return;
+
+    const record = node as Record<string, unknown>;
+    const partOfSpeech =
+      typeof record.partOfSpeech === "string"
+        ? record.partOfSpeech
+        : typeof record.pos === "string"
+          ? record.pos
+          : typeof record.lexicalCategory === "string"
+            ? record.lexicalCategory
+            : "";
+    const definition =
+      typeof record.definition === "string"
+        ? record.definition
+        : typeof record.text === "string"
+          ? record.text
+          : typeof record.def === "string"
+            ? record.def
+            : typeof record.meaning === "string"
+              ? record.meaning
+              : "";
+
+    if (partOfSpeech.toLowerCase() === "adjective" && trimDefinition(definition)) {
+      definitions.push(trimDefinition(definition));
+    }
+
+    Object.values(record).forEach(visit);
+  }
+
+  visit(value);
+  return definitions;
+}
+
+export function createWordSenseDerivativeProvider(
+  options: ProviderOptions = {},
+): AdjectiveDerivativeProvider {
+  const fetchImpl = options.fetchImpl ?? fetch;
+  const apiKey = options.apiKey ?? process.env.WORD_SENSE_API_KEY ?? "";
+  const baseUrl =
+    options.baseUrl ?? process.env.WORD_SENSE_API_URL ?? DEFAULT_WORD_SENSE_API_URL;
+  const definitionCache = createDefinitionCache();
+
+  async function lookupWord(word: string): Promise<AdjectiveDefinitionResult | null> {
+    const normalizedWord = normalizeCandidateWord(word);
+    if (!normalizedWord || !apiKey) return null;
+    const existing = definitionCache.get(normalizedWord);
+    if (existing) return existing;
+
+    const next = (async () => {
+      const response = await fetchImpl(
+        `${baseUrl.replace(/\/$/, "")}/${encodeURIComponent(normalizedWord)}`,
+        {
+          cache: "no-store",
+          headers: {
+            Accept: "application/json",
+            Authorization: `Bearer ${apiKey}`,
+            "X-API-Key": apiKey,
+            apikey: apiKey,
+          },
+        },
+      );
+
+      if (response.status === 404) return null;
+      if (!response.ok) {
+        throw new Error(`Word Sense request failed with ${response.status}`);
+      }
+
+      const payload = (await response.json()) as unknown;
+      const definitions = collectGenericAdjectiveDefinitions(payload);
+      if (definitions.length === 0) return null;
+
+      return {
+        meaning: definitions[0],
+        attribution: "Word Sense API",
+      };
+    })();
+
+    definitionCache.set(normalizedWord, next);
+    return next;
+  }
+
+  return {
+    source: "word-sense",
+    async discoverCandidates(baseWord: string) {
+      return buildHeuristicAdjectiveCandidates(baseWord);
+    },
+    getDefinition: lookupWord,
+  };
+}
+
+export function createDerivativeProvider(
+  providerApi: AdjectiveDerivativeApi,
+): AdjectiveDerivativeProvider {
+  if (providerApi === "datamuse") {
+    return createDatamuseDerivativeProvider();
+  }
+
+  if (providerApi === "free-dictionary") {
+    return createFreeDictionaryDerivativeProvider();
+  }
+
+  return createWordSenseDerivativeProvider();
+}

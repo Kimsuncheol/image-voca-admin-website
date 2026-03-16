@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 export const standardWordSchema = z.object({
+  id: z.string().optional(),
   word: z.string().min(1),
   meaning: z.string().min(1),
   pronunciation: z.string().optional().default(''),
@@ -10,6 +11,7 @@ export const standardWordSchema = z.object({
 });
 
 export const collocationWordSchema = z.object({
+  id: z.string().optional(),
   collocation: z.string().min(1),
   meaning: z.string().min(1),
   explanation: z.string().optional().default(''),

@@ -18,6 +18,7 @@ import Stack from "@mui/material/Stack";
 import ImageIcon from "@mui/icons-material/Image";
 import RecordVoiceOverIcon from "@mui/icons-material/RecordVoiceOver";
 import TranslateIcon from "@mui/icons-material/Translate";
+import AutoAwesomeIcon from "@mui/icons-material/AutoAwesome";
 import PageLayout from "@/components/layout/PageLayout";
 import { DEFAULT_AI_SETTINGS } from "@/lib/aiSettings";
 import { getAISettings, saveAISettings, type AISettings } from "@/lib/firebase/settings";
@@ -249,6 +250,52 @@ export default function SettingsPage() {
                     />
                   </Stack>
                 )}
+              </FormControl>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent>
+            <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 2 }}>
+              <AutoAwesomeIcon color="primary" />
+              <Typography variant="h6">{t("settings.adjectiveDerivatives")}</Typography>
+            </Stack>
+            {settings === null ? (
+              <Stack spacing={1}>
+                <Skeleton width={220} height={36} />
+                <Skeleton width={180} height={36} />
+              </Stack>
+            ) : (
+              <FormControl>
+                <FormLabel sx={{ mb: 1 }}>{t("settings.selectDerivativeApi")}</FormLabel>
+                <RadioGroup
+                  value={settings.adjectiveDerivativeApi}
+                  onChange={(e) =>
+                    handleChange({
+                      ...settings,
+                      adjectiveDerivativeApi:
+                        e.target.value as AISettings["adjectiveDerivativeApi"],
+                    })
+                  }
+                  aria-label={t("settings.adjectiveDerivatives")}
+                >
+                  <FormControlLabel
+                    value="word-sense"
+                    control={<Radio />}
+                    label={t("settings.adjectiveDerivativeApiWordSense")}
+                  />
+                  <FormControlLabel
+                    value="datamuse"
+                    control={<Radio />}
+                    label={t("settings.adjectiveDerivativeApiDatamuse")}
+                  />
+                  <FormControlLabel
+                    value="free-dictionary"
+                    control={<Radio />}
+                    label={t("settings.adjectiveDerivativeApiFreeDictionary")}
+                  />
+                </RadioGroup>
               </FormControl>
             )}
           </CardContent>

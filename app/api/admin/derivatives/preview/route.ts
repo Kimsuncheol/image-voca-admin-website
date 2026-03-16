@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { supportsDerivativeCourse } from "@/constants/supportedDerivativeCourses";
 import { adminAuth } from "@/lib/firebase/admin";
+import { getServerAISettings } from "@/lib/server/aiSettings";
 import { getAdjectiveDerivativesPreview } from "@/lib/word-derivation/getAdjectiveDerivatives";
 import type { StandardWordInput } from "@/lib/schemas/vocaSchemas";
 import type { CourseId } from "@/types/course";
@@ -78,6 +79,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(emptyResponse);
   }
 
-  const items = await getAdjectiveDerivativesPreview(body.items);
+  const settings = await getServerAISettings();
+  const items = await getAdjectiveDerivativesPreview(
+    body.items,
+    settings.adjectiveDerivativeApi,
+  );
   return NextResponse.json({ items } satisfies DerivativePreviewResponse);
 }

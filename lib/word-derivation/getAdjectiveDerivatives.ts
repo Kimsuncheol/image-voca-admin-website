@@ -1,125 +1,33 @@
 import "server-only";
 
+import type { AISettings } from "@/lib/aiSettings";
 import { filterAdjectiveCandidates } from "@/lib/word-derivation/filterAdjectiveCandidates";
+import { isSingleTokenWord, normalizeVocabularyWord } from "@/lib/word-derivation/shared";
 import {
-  isSingleTokenWord,
-  mergeDerivativeSource,
-  normalizeVocabularyWord,
-} from "@/lib/word-derivation/shared";
-import {
-  getAdjectiveCandidatesFromAI,
-  getDerivativeMeaningFromAI,
-} from "@/services/AIDerivativeService";
-import {
-  getAdjectiveDefinitionFromWordnik,
-  getRelatedDerivativeWordsFromWordnik,
-  type WordnikAdjectiveDefinition,
-} from "@/services/wordnikService";
+  createDerivativeProvider,
+  type AdjectiveDerivativeProvider,
+} from "@/lib/word-derivation/providerAdapters";
 import type {
   DerivativeCandidate,
   DerivativePreviewItemResult,
   DerivativePreviewRequestItem,
   DerivativePreviewWordResult,
-  DerivativeSource,
 } from "@/types/vocabulary";
+
+type AdjectiveDerivativeApi = AISettings["adjectiveDerivativeApi"];
 
 interface DiscoveryCache {
   previewByBaseWord: Map<string, Promise<DerivativePreviewWordResult>>;
-  definitionByWord: Map<string, Promise<WordnikAdjectiveDefinition | null>>;
 }
 
-function getOrCreateDefinitionPromise(
-  cache: DiscoveryCache,
-  word: string,
-): Promise<WordnikAdjectiveDefinition | null> {
-  const normalizedWord = normalizeVocabularyWord(word);
-  const existing = cache.definitionByWord.get(normalizedWord);
-  if (existing) return existing;
-
-  const next = getAdjectiveDefinitionFromWordnik(normalizedWord).catch(
-    () => null,
-  );
-  cache.definitionByWord.set(normalizedWord, next);
-  return next;
-}
-
-async function buildCandidate(
-  cache: DiscoveryCache,
-  baseWord: string,
-  baseMeaning: string,
-  candidateWord: string,
-  source: DerivativeSource,
-): Promise<DerivativeCandidate | null> {
-  const normalizedCandidate = normalizeVocabularyWord(candidateWord);
-  if (!normalizedCandidate) return null;
-
-  const definition = await getOrCreateDefinitionPromise(cache, normalizedCandidate);
-  let meaning = definition?.text ?? "";
-
-  if (!meaning) {
-    meaning = await getDerivativeMeaningFromAI(
-      baseWord,
-      normalizedCandidate,
-      baseMeaning,
-    );
-  }
-
-  if (!meaning) return null;
-
-  return {
-    word: normalizedCandidate,
-    meaning,
-    source,
-    selectedByDefault: true,
-    attribution: definition?.attribution,
-  };
-}
-
-function mergeCandidates(
-  target: Map<string, DerivativeCandidate>,
-  incoming: DerivativeCandidate[],
-) {
-  for (const candidate of incoming) {
-    const existing = target.get(candidate.word);
-    if (!existing) {
-      target.set(candidate.word, candidate);
-      continue;
-    }
-
-    target.set(candidate.word, {
-      ...existing,
-      meaning: existing.meaning || candidate.meaning,
-      source: mergeDerivativeSource(existing.source, candidate.source),
-      attribution: existing.attribution || candidate.attribution,
-      selectedByDefault: existing.selectedByDefault || candidate.selectedByDefault,
-    });
-  }
-}
-
-async function hydrateCandidates(
-  cache: DiscoveryCache,
-  baseWord: string,
-  baseMeaning: string,
-  candidateWords: string[],
-  source: DerivativeSource,
-): Promise<DerivativeCandidate[]> {
-  const settled = await Promise.allSettled(
-    candidateWords.map((candidateWord) =>
-      buildCandidate(cache, baseWord, baseMeaning, candidateWord, source),
-    ),
-  );
-
-  return settled
-    .filter(
-      (result): result is PromiseFulfilledResult<DerivativeCandidate | null> =>
-        result.status === "fulfilled",
-    )
-    .map((result) => result.value)
-    .filter((value): value is DerivativeCandidate => value !== null);
+interface PreviewDependencies {
+  resolveProvider?: (
+    providerApi: AdjectiveDerivativeApi,
+  ) => AdjectiveDerivativeProvider;
 }
 
 async function discoverForWord(
-  cache: DiscoveryCache,
+  provider: AdjectiveDerivativeProvider,
   baseWord: string,
   baseMeaning: string,
 ): Promise<DerivativePreviewWordResult> {
@@ -134,91 +42,92 @@ async function discoverForWord(
     };
   }
 
-  const candidateMap = new Map<string, DerivativeCandidate>();
-
   try {
-    const wordnikRelatedWords = await getRelatedDerivativeWordsFromWordnik(
-      normalizedBaseWord,
-    );
-    const filteredWordnikCandidates = filterAdjectiveCandidates(
-      normalizedBaseWord,
-      wordnikRelatedWords,
-    ).slice(0, 8);
-    const hydratedWordnikCandidates = await hydrateCandidates(
-      cache,
+    const discoveredCandidates = await provider.discoverCandidates(
       normalizedBaseWord,
       baseMeaning,
-      filteredWordnikCandidates,
-      "wordnik",
     );
-    mergeCandidates(candidateMap, hydratedWordnikCandidates);
-  } catch (error) {
-    console.error("[derivatives] Wordnik lookup failed:", error);
-    errors.push("Wordnik lookup failed");
-  }
+    const filteredCandidates = filterAdjectiveCandidates(
+      normalizedBaseWord,
+      discoveredCandidates,
+    ).slice(0, 8);
 
-  if (candidateMap.size === 0) {
-    try {
-      const openAiCandidates = await getAdjectiveCandidatesFromAI(
-        normalizedBaseWord,
-        baseMeaning,
-      );
-      const filteredOpenAiCandidates = filterAdjectiveCandidates(
-        normalizedBaseWord,
-        openAiCandidates,
-      ).slice(0, 8);
-      const hydratedOpenAiCandidates = await hydrateCandidates(
-        cache,
-        normalizedBaseWord,
-        baseMeaning,
-        filteredOpenAiCandidates,
-        "ai",
-      );
-      mergeCandidates(candidateMap, hydratedOpenAiCandidates);
-    } catch (error) {
-      console.error("[derivatives] AI derivative fallback failed:", error);
-      errors.push("AI fallback failed");
-    }
+    const hydrated = await Promise.allSettled(
+      filteredCandidates.map((candidateWord) =>
+        provider.getDefinition(candidateWord),
+      ),
+    );
+
+    const candidates = hydrated.flatMap((result, index): DerivativeCandidate[] => {
+      if (result.status !== "fulfilled" || !result.value?.meaning) return [];
+
+      return [
+        {
+          word: filteredCandidates[index],
+          meaning: result.value.meaning,
+          source: provider.source,
+          selectedByDefault: true,
+          attribution: result.value.attribution,
+        },
+      ];
+    });
+
+    return {
+      baseWord,
+      baseMeaning,
+      candidates: candidates.sort((left, right) =>
+        left.word.localeCompare(right.word),
+      ),
+      ...(errors.length > 0 ? { errors } : {}),
+    };
+  } catch (error) {
+    console.error(`[derivatives] ${provider.source} lookup failed:`, error);
+    errors.push(`${provider.source} lookup failed`);
   }
 
   return {
     baseWord,
     baseMeaning,
-    candidates: [...candidateMap.values()].sort((left, right) =>
-      left.word.localeCompare(right.word),
-    ),
+    candidates: [],
     ...(errors.length > 0 ? { errors } : {}),
   };
 }
 
 async function getPreviewForBaseWord(
   cache: DiscoveryCache,
+  provider: AdjectiveDerivativeProvider,
   baseWord: string,
   baseMeaning: string,
 ): Promise<DerivativePreviewWordResult> {
   const normalizedBaseWord = normalizeVocabularyWord(baseWord);
-  const cacheKey = `${normalizedBaseWord}::${baseMeaning.trim().toLowerCase()}`;
+  const cacheKey = `${provider.source}::${normalizedBaseWord}::${baseMeaning
+    .trim()
+    .toLowerCase()}`;
   const existing = cache.previewByBaseWord.get(cacheKey);
   if (existing) return existing;
 
-  const next = discoverForWord(cache, baseWord, baseMeaning);
+  const next = discoverForWord(provider, baseWord, baseMeaning);
   cache.previewByBaseWord.set(cacheKey, next);
   return next;
 }
 
 export async function getAdjectiveDerivativesPreview(
   items: DerivativePreviewRequestItem[],
+  providerApi: AdjectiveDerivativeApi,
+  dependencies: PreviewDependencies = {},
 ): Promise<DerivativePreviewItemResult[]> {
   const cache: DiscoveryCache = {
     previewByBaseWord: new Map(),
-    definitionByWord: new Map(),
   };
+  const provider =
+    dependencies.resolveProvider?.(providerApi) ??
+    createDerivativeProvider(providerApi);
 
   return Promise.all(
     items.map(async (item) => {
       const words = await Promise.all(
         item.words.map((word) =>
-          getPreviewForBaseWord(cache, word.word, word.meaning),
+          getPreviewForBaseWord(cache, provider, word.word, word.meaning),
         ),
       );
 

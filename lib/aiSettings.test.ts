@@ -24,6 +24,7 @@ test("normalizeAISettings merges partial settings with defaults", () => {
       enrichModel: "chatgpt",
       exampleTranslationApi: "google-translate",
       pronunciationApi: "free-dictionary",
+      adjectiveDerivativeApi: "word-sense",
       oxfordAppId: "",
       oxfordAppKey: "",
     },

@@ -25,6 +25,7 @@ import { getFamousQuotes } from '@/lib/firebase/firestore';
 import FileListItem from './FileListItem';
 import UploadModal from './UploadModal';
 import { type ParseResult, type SchemaType } from '@/lib/utils/csvParser';
+import { assignDeterministicUploadIdsForSchema } from '@/lib/uploadWordIds';
 
 export interface CsvItem {
   id: string;
@@ -41,6 +42,7 @@ interface CsvUploadTabProps {
   schemaType?: SchemaType;
   hideDayInput?: boolean;
   coursePath?: string;
+  courseLabel?: string;
 }
 
 const sectionSx = {
@@ -56,7 +58,26 @@ function escapeCsvCell(value: string): string {
   return value;
 }
 
-export default function CsvUploadTab({ items, onItemsChange, schemaType, hideDayInput, coursePath }: CsvUploadTabProps) {
+function shouldAssignUploadIds(
+  schemaType: SchemaType | undefined,
+  hideDayInput: boolean,
+  courseLabel: string | undefined,
+): boolean {
+  return Boolean(
+    courseLabel &&
+      !hideDayInput &&
+      (schemaType === 'standard' || schemaType === 'collocation'),
+  );
+}
+
+export default function CsvUploadTab({
+  items,
+  onItemsChange,
+  schemaType,
+  hideDayInput,
+  coursePath,
+  courseLabel,
+}: CsvUploadTabProps) {
   const { t } = useTranslation();
   const [modalOpen, setModalOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState<number>(-1);
@@ -122,6 +143,20 @@ export default function CsvUploadTab({ items, onItemsChange, schemaType, hideDay
   };
 
   const handleModalConfirm = (dayName: string, data: ParseResult, file?: File) => {
+    const resolvedSchemaType = schemaType ?? data.schemaType;
+    const nextData =
+      shouldAssignUploadIds(resolvedSchemaType, Boolean(hideDayInput), courseLabel)
+        ? {
+            ...data,
+            words: assignDeterministicUploadIdsForSchema(
+              data.words,
+              resolvedSchemaType,
+              courseLabel!,
+              dayName,
+            ),
+          }
+        : data;
+
     if (activeIndex === -1) {
       // Adding a new item. If user confirmed Replace, overwrite the existing entry.
       const existingIndex = items.findIndex((i) => i.dayName === dayName);
@@ -132,7 +167,7 @@ export default function CsvUploadTab({ items, onItemsChange, schemaType, hideDay
           fileName: file?.name ?? updated[existingIndex].fileName,
           file: file ?? updated[existingIndex].file,
           dayName,
-          data,
+          data: nextData,
         };
         onItemsChange(updated);
       } else {
@@ -143,7 +178,7 @@ export default function CsvUploadTab({ items, onItemsChange, schemaType, hideDay
             fileName: file?.name ?? (data.words.length > 0 ? `${dayName}.csv` : 'Untitled.csv'),
             file: file ?? null,
             dayName,
-            data,
+            data: nextData,
           },
         ]);
       }
@@ -154,7 +189,7 @@ export default function CsvUploadTab({ items, onItemsChange, schemaType, hideDay
       updated[activeIndex] = {
         ...updated[activeIndex],
         dayName,
-        data,
+        data: nextData,
         file: file ?? updated[activeIndex].file,
       };
       updated = updated.filter((item, i) => i === activeIndex || item.dayName !== dayName);

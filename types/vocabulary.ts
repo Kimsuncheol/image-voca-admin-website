@@ -9,7 +9,14 @@ export interface DerivativeBuckets {
   adverb: string[];
 }
 
-export type DerivativeSource = "wordnik" | "openai" | "ai" | "merged";
+export type DerivativeSource =
+  | "wordnik"
+  | "openai"
+  | "ai"
+  | "word-sense"
+  | "datamuse"
+  | "free-dictionary"
+  | "merged";
 
 export interface PersistedDerivativeInfo {
   type: DerivativeKind;

@@ -83,6 +83,7 @@ import {
   buildDerivativeAwareWordsForUpload,
   type DerivativeSelectionMap,
 } from "@/services/vocaSaveService";
+import { assignDeterministicUploadIdsForSchema } from "@/lib/uploadWordIds";
 import { prepareStandardWordsForUpload } from "@/services/standardWordUpload";
 import { useAdminAIAccess } from "@/lib/hooks/useAdminAccess";
 import {
@@ -270,6 +271,7 @@ export default function AddVocaPage() {
   // Items visible in the currently selected tab
   const currentItems =
     tabIndex === 0 ? csvItems : tabIndex === 1 ? urlItems : quoteItems;
+  const selectedCourseLabel = getCourseById(selectedCourse)?.label;
 
   useEffect(() => {
     // The quote tab exists only for FAMOUS_QUOTE, so leave invalid tab index.
@@ -483,6 +485,18 @@ export default function AddVocaPage() {
           words = prepareStandardWordsForUpload(
             words as StandardWordInput[],
             selectedCourse,
+          );
+        }
+
+        if (
+          (schemaType === "standard" || schemaType === "collocation") &&
+          item.dayName
+        ) {
+          words = assignDeterministicUploadIdsForSchema(
+            words as NonNullable<QueueItem["data"]>["words"],
+            schemaType,
+            course.label,
+            item.dayName,
           );
         }
 
@@ -810,6 +824,7 @@ export default function AddVocaPage() {
           onItemsChange={setCsvItems}
           schemaType={schemaType}
           hideDayInput={isFamousQuote}
+          courseLabel={selectedCourseLabel}
           coursePath={
             isFamousQuote
               ? (getCourseById(selectedCourse)?.path ?? "")
@@ -823,6 +838,7 @@ export default function AddVocaPage() {
           onItemsChange={setUrlItems}
           schemaType={schemaType}
           hideDayInput={isFamousQuote}
+          courseLabel={selectedCourseLabel}
         />
       )}
       {isFamousQuote && tabIndex === 2 && (
