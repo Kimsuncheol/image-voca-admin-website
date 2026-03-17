@@ -19,6 +19,11 @@ const courseIcons: Record<CourseId, React.ReactNode> = {
   TOEFL_IELTS: <LanguageIcon sx={{ fontSize: 48 }} />,
   TOEIC: <WorkIcon sx={{ fontSize: 48 }} />,
   JLPT: <TranslateIcon sx={{ fontSize: 48 }} />,
+  JLPT_N1: <TranslateIcon sx={{ fontSize: 48 }} />,
+  JLPT_N2: <TranslateIcon sx={{ fontSize: 48 }} />,
+  JLPT_N3: <TranslateIcon sx={{ fontSize: 48 }} />,
+  JLPT_N4: <TranslateIcon sx={{ fontSize: 48 }} />,
+  JLPT_N5: <TranslateIcon sx={{ fontSize: 48 }} />,
   COLLOCATIONS: <LinkIcon sx={{ fontSize: 48 }} />,
   FAMOUS_QUOTE: <FormatQuoteIcon sx={{ fontSize: 48 }} />,
 };
