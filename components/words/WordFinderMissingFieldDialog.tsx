@@ -358,6 +358,7 @@ export default function WordFinderMissingFieldDialog({
             | "pronunciation"
             | "pronunciationRoman"
             | "example"
+            | "exampleRoman"
             | "translation"
             | "translationEnglish"
             | "translationKorean",
@@ -367,6 +368,7 @@ export default function WordFinderMissingFieldDialog({
               entry[0] === "pronunciation" ||
               entry[0] === "pronunciationRoman" ||
               entry[0] === "example" ||
+              entry[0] === "exampleRoman" ||
               entry[0] === "translation" ||
               entry[0] === "translationEnglish" ||
               entry[0] === "translationKorean") &&

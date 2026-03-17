@@ -40,6 +40,7 @@ describe("csvParser JLPT schema", () => {
         pronunciation: "ねこ",
         pronunciationRoman: "neko",
         example: "猫がいる。",
+        exampleRoman: "",
         translationEnglish: "There is a cat.",
         translationKorean: "고양이가 있다.",
         imageUrl: "",
@@ -69,7 +70,7 @@ describe("csvParser JLPT schema", () => {
     ]);
   });
 
-  it("accepts optional imageUrl for JLPT uploads", () => {
+  it("accepts optional imageUrl and exampleRoman for JLPT uploads", () => {
     const result = parseRowArrays(
       [
         [
@@ -79,6 +80,7 @@ describe("csvParser JLPT schema", () => {
           "pronunciation",
           "pronunciation(roman)",
           "example",
+          "example(roman)",
           "translation(english)",
           "translation(korean)",
           "imageUrl",
@@ -90,6 +92,7 @@ describe("csvParser JLPT schema", () => {
           "ねこ",
           "neko",
           "猫がいる。",
+          "neko ga iru.",
           "There is a cat.",
           "고양이가 있다.",
           "https://example.com/jlpt.png",
@@ -101,6 +104,7 @@ describe("csvParser JLPT schema", () => {
     expect(result.blockingError).toBeUndefined();
     expect(result.words[0]).toMatchObject({
       word: "猫",
+      exampleRoman: "neko ga iru.",
       imageUrl: "https://example.com/jlpt.png",
     });
   });

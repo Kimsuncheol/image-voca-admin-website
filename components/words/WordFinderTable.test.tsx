@@ -147,6 +147,8 @@ describe("WordFinderTable", () => {
             meaningKorean: "고양이",
             pronunciation: "ねこ",
             pronunciationRoman: "neko",
+            example: "猫がいる。",
+            exampleRoman: "neko ga iru.",
             translation: "There is a cat. / 고양이가 있다.",
             translationEnglish: "There is a cat.",
             translationKorean: "고양이가 있다.",
@@ -158,5 +160,6 @@ describe("WordFinderTable", () => {
 
     expect(markup).toContain("https://example.com/jlpt.png");
     expect(markup).toContain("Has image");
+    expect(markup).toContain("Has example");
   });
 });

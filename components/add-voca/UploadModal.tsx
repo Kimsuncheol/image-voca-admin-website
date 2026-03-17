@@ -306,6 +306,7 @@ export default function UploadModal({
                         "pronunciation",
                         "pronunciationRoman",
                         "example",
+                        "exampleRoman",
                         "translationEnglish",
                         "translationKorean",
                         "imageUrl",

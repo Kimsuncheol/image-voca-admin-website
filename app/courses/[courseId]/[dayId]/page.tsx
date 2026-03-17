@@ -398,6 +398,17 @@ export default function DayWordsPage({
           ),
         );
       }
+      if (typeof updates.exampleRoman === "string" && result.dayId) {
+        tasks.push(
+          updateWordField(
+            result.coursePath,
+            result.dayId,
+            result.id,
+            "exampleRoman",
+            updates.exampleRoman,
+          ),
+        );
+      }
       if (typeof updates.translation === "string" && result.dayId) {
         tasks.push(
           updateWordField(

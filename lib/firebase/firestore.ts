@@ -97,6 +97,7 @@ export async function updateWordField(
     | 'pronunciation'
     | 'pronunciationRoman'
     | 'example'
+    | 'exampleRoman'
     | 'translation'
     | 'translationEnglish'
     | 'translationKorean',
@@ -117,6 +118,7 @@ export async function updateWordTextField(
     | 'meaningEnglish'
     | 'meaningKorean'
     | 'example'
+    | 'exampleRoman'
     | 'translationEnglish'
     | 'translationKorean',
   value: string,

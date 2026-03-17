@@ -338,6 +338,9 @@ export default function WordTable({
     if (typeof mappedUpdates.example === "string") {
       fieldUpdates.example = mappedUpdates.example;
     }
+    if (typeof mappedUpdates.exampleRoman === "string") {
+      fieldUpdates.exampleRoman = mappedUpdates.exampleRoman;
+    }
     if (typeof mappedUpdates.translation === "string") {
       fieldUpdates.translation = mappedUpdates.translation;
     }
