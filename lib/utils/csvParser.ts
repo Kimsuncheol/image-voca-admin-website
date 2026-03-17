@@ -1,17 +1,24 @@
 import Papa from 'papaparse';
 import {
   standardWordSchema,
+  jlptWordSchema,
   collocationWordSchema,
   famousQuoteWordSchema,
   type StandardWordInput,
+  type JlptWordInput,
   type CollocationWordInput,
   type FamousQuoteWordInput,
 } from '@/lib/schemas/vocaSchemas';
 
-export type SchemaType = 'standard' | 'collocation' | 'famousQuote';
+export type SchemaType = 'standard' | 'jlpt' | 'collocation' | 'famousQuote';
 
 export interface ParseResult {
-  words: (StandardWordInput | CollocationWordInput | FamousQuoteWordInput)[];
+  words: (
+    | StandardWordInput
+    | JlptWordInput
+    | CollocationWordInput
+    | FamousQuoteWordInput
+  )[];
   schemaType: SchemaType;
   /** @deprecated use schemaType === 'collocation' */
   isCollocation: boolean;
@@ -22,6 +29,17 @@ export interface ParseResult {
 }
 
 const STANDARD_HEADERS = ['word', 'meaning', 'pronunciation', 'example', 'translation'] as const;
+const JLPT_HEADERS = [
+  'word',
+  'meaning(english)',
+  'meaning(korean)',
+  'pronunciation',
+  'pronunciation(roman)',
+  'example',
+  'translation(english)',
+  'translation(korean)',
+] as const;
+const JLPT_OPTIONAL_HEADERS = ['imageurl'] as const;
 const COLLOCATION_HEADERS = ['collocation', 'meaning', 'explanation', 'example', 'translation'] as const;
 const FAMOUS_QUOTE_HEADERS = ['quote', 'author', 'translation'] as const;
 const STANDARD_THIRD_HEADER_SET = new Set(['pronunciation', 'pronounciation']);
@@ -56,6 +74,61 @@ function normalizeRow(row: Record<string, unknown>, schemaType: SchemaType): Rec
     normalized['quote'] = normalized['quote'] ?? '';
     normalized['author'] = normalized['author'] ?? '';
     normalized['translation'] = normalized['translation'] ?? '';
+    return normalized;
+  }
+
+  if (schemaType === 'jlpt') {
+    const wordAliases = ['word', '_1'];
+    const meaningEnglishAliases = ['meaning(english)', 'meaning english', 'meaning_en', '_2'];
+    const meaningKoreanAliases = ['meaning(korean)', 'meaning korean', 'meaning_ko', '_3'];
+    const pronunciationAliases = ['pronunciation', 'pronounciation', '_4'];
+    const pronunciationRomanAliases = [
+      'pronunciation(roman)',
+      'pronunciation roman',
+      'pronunciation_roman',
+      'roman',
+      '_5',
+    ];
+    const exampleAliases = ['example', 'example sentence', '_6'];
+    const translationEnglishAliases = [
+      'translation(english)',
+      'translation english',
+      'translation_en',
+      '_7',
+    ];
+    const translationKoreanAliases = [
+      'translation(korean)',
+      'translation korean',
+      'translation_ko',
+      '_8',
+    ];
+    const imageUrlAliases = ['imageurl', 'image url', 'image_url', '_9'];
+
+    for (const [key, value] of Object.entries(row)) {
+      const cleanKey = key.trim().toLowerCase();
+      const cleanValue = typeof value === 'string' ? value.trim() : value;
+
+      if (wordAliases.includes(cleanKey)) normalized['word'] = cleanValue;
+      else if (meaningEnglishAliases.includes(cleanKey)) normalized['meaningEnglish'] = cleanValue;
+      else if (meaningKoreanAliases.includes(cleanKey)) normalized['meaningKorean'] = cleanValue;
+      else if (pronunciationAliases.includes(cleanKey)) normalized['pronunciation'] = cleanValue;
+      else if (pronunciationRomanAliases.includes(cleanKey)) normalized['pronunciationRoman'] = cleanValue;
+      else if (exampleAliases.includes(cleanKey)) normalized['example'] = cleanValue;
+      else if (translationEnglishAliases.includes(cleanKey)) normalized['translationEnglish'] = cleanValue;
+      else if (translationKoreanAliases.includes(cleanKey)) normalized['translationKorean'] = cleanValue;
+      else if (imageUrlAliases.includes(cleanKey)) normalized['imageUrl'] = cleanValue;
+      else normalized[cleanKey] = cleanValue;
+    }
+
+    normalized['word'] = normalized['word'] ?? '';
+    normalized['meaningEnglish'] = normalized['meaningEnglish'] ?? '';
+    normalized['meaningKorean'] = normalized['meaningKorean'] ?? '';
+    normalized['pronunciation'] = normalized['pronunciation'] ?? '';
+    normalized['pronunciationRoman'] = normalized['pronunciationRoman'] ?? '';
+    normalized['example'] = normalized['example'] ?? '';
+    normalized['translationEnglish'] = normalized['translationEnglish'] ?? '';
+    normalized['translationKorean'] = normalized['translationKorean'] ?? '';
+    normalized['imageUrl'] = normalized['imageUrl'] ?? '';
     return normalized;
   }
 
@@ -115,6 +188,13 @@ function detectAndParse(
     schemaType = forceSchemaType;
   } else if (headers.includes('collocation')) {
     schemaType = 'collocation';
+  } else if (
+    headers.includes('meaning(english)') ||
+    headers.includes('meaning english') ||
+    headers.includes('meaning(korean)') ||
+    headers.includes('meaning korean')
+  ) {
+    schemaType = 'jlpt';
   } else if (headers.includes('quote')) {
     schemaType = 'famousQuote';
   } else {
@@ -123,10 +203,16 @@ function detectAndParse(
 
   const schema =
     schemaType === 'collocation' ? collocationWordSchema
+    : schemaType === 'jlpt' ? jlptWordSchema
     : schemaType === 'famousQuote' ? famousQuoteWordSchema
     : standardWordSchema;
 
-  const words: (StandardWordInput | CollocationWordInput | FamousQuoteWordInput)[] = [];
+  const words: (
+    | StandardWordInput
+    | JlptWordInput
+    | CollocationWordInput
+    | FamousQuoteWordInput
+  )[] = [];
   const errors: string[] = [];
 
   data.forEach((row, index) => {
@@ -137,6 +223,10 @@ function detectAndParse(
       const quoteVal = String(normalized['quote'] ?? '').toLowerCase();
       const translationVal = String(normalized['translation'] ?? '').toLowerCase();
       if (quoteVal === 'quote' && translationVal === 'translation') return;
+    } else if (schemaType === 'jlpt') {
+      const wordVal = String(normalized['word'] ?? '').toLowerCase();
+      const meaningEnglishVal = String(normalized['meaningEnglish'] ?? '').toLowerCase();
+      if (wordVal === 'word' && meaningEnglishVal === 'meaning(english)') return;
     } else {
       const primaryKey = schemaType === 'collocation' ? 'collocation' : 'word';
       const primaryVal = String(normalized[primaryKey] ?? '').toLowerCase();
@@ -160,10 +250,23 @@ function detectAndParse(
 function getExpectedHeaders(schemaType: SchemaType): string[] {
   if (schemaType === 'collocation') return [...COLLOCATION_HEADERS];
   if (schemaType === 'famousQuote') return [...FAMOUS_QUOTE_HEADERS];
+  if (schemaType === 'jlpt') return [...JLPT_HEADERS];
   return [...STANDARD_HEADERS];
 }
 
-function isExactHeaderSet(headers: string[], expectedHeaders: string[]): boolean {
+function isExactHeaderSet(
+  headers: string[],
+  expectedHeaders: string[],
+  schemaType?: SchemaType,
+): boolean {
+  if (schemaType === 'jlpt') {
+    const allowedHeaders = new Set([...expectedHeaders, ...JLPT_OPTIONAL_HEADERS]);
+    const headerSet = new Set(headers);
+    if (headers.length < expectedHeaders.length) return false;
+    if (!expectedHeaders.every((h) => headerSet.has(h))) return false;
+    return headers.every((header) => allowedHeaders.has(header));
+  }
+
   if (headers.length !== expectedHeaders.length) return false;
   const headerSet = new Set(headers);
   if (headerSet.size !== expectedHeaders.length) return false;
@@ -195,7 +298,7 @@ function isCrossHeaderFirstRow(
   firstDataRow: string[],
   targetSchemaType: SchemaType,
 ): boolean {
-  if (targetSchemaType === 'famousQuote') {
+  if (targetSchemaType === 'famousQuote' || targetSchemaType === 'jlpt') {
     // Famous quote rows are sentences; cross-header detection not applicable
     return false;
   }
@@ -225,8 +328,11 @@ function isCrossHeaderFirstRow(
 // A row qualifies as a header row when ≥2 of its cells match known field names.
 const KNOWN_FIELDS = new Set([
   'word', 'collocation', 'meaning',
+  'meaning(english)', 'meaning english', 'meaning(korean)', 'meaning korean',
   'pronunciation', 'pronounciation',
+  'pronunciation(roman)', 'pronunciation roman', 'roman',
   'explanation', 'example', 'example sentence', 'translation',
+  'translation(english)', 'translation english', 'translation(korean)', 'translation korean',
   'quote', 'author',
 ]);
 
@@ -267,6 +373,13 @@ function processParsedArray(data: string[][], schemaType?: SchemaType): ParseRes
     targetSchemaType = schemaType;
   } else if (firstRowNormAll.includes('collocation')) {
     targetSchemaType = 'collocation';
+  } else if (
+    firstRowNormAll.includes('meaning(english)') ||
+    firstRowNormAll.includes('meaning english') ||
+    firstRowNormAll.includes('meaning(korean)') ||
+    firstRowNormAll.includes('meaning korean')
+  ) {
+    targetSchemaType = 'jlpt';
   } else if (firstRowNormAll.includes('quote')) {
     targetSchemaType = 'famousQuote';
   } else {
@@ -288,7 +401,7 @@ function processParsedArray(data: string[][], schemaType?: SchemaType): ParseRes
         firstRowNorm,
       );
     }
-    if (!isExactHeaderSet(firstRowNorm, expectedHeaders)) {
+    if (!isExactHeaderSet(firstRowNorm, expectedHeaders, targetSchemaType)) {
       return buildBlockingResult(
         targetSchemaType,
         'HEADER_MISMATCH',
@@ -312,8 +425,8 @@ function processParsedArray(data: string[][], schemaType?: SchemaType): ParseRes
     });
     rows = rowsFromFirstNonEmpty.slice(1);
   } else {
-    // Positional fallback: support up to 6 columns.
-    headers = ['_1', '_2', '_3', '_4', '_5', '_6'];
+    // Positional fallback: support up to 8 columns for JLPT uploads.
+    headers = ['_1', '_2', '_3', '_4', '_5', '_6', '_7', '_8', '_9'];
     rows = rowsFromFirstNonEmpty;
 
     // Detect empty or numeric leading column (common in Google Sheets exports

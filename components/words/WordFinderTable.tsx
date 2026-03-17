@@ -344,7 +344,7 @@ export default function WordFinderTable({
                       "example",
                       result.example ? t("words.hasExample") : t("words.missingExample"),
                       Boolean(result.example),
-                      onMissingFieldClick,
+                      result.schemaVariant === "jlpt" ? undefined : onMissingFieldClick,
                     )
                   )}
                   {renderStatusChip(
@@ -354,7 +354,7 @@ export default function WordFinderTable({
                       ? t("words.hasTranslation")
                       : t("words.missingTranslation"),
                     Boolean(result.translation),
-                    onMissingFieldClick,
+                    result.schemaVariant === "jlpt" ? undefined : onMissingFieldClick,
                   )}
                 </Stack>
               </TableCell>

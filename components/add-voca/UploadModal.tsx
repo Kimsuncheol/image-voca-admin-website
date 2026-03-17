@@ -298,6 +298,18 @@ export default function UploadModal({
                       "example",
                       "translation",
                     ]
+                  : resolvedSchema === "jlpt"
+                    ? [
+                        "word",
+                        "meaningEnglish",
+                        "meaningKorean",
+                        "pronunciation",
+                        "pronunciationRoman",
+                        "example",
+                        "translationEnglish",
+                        "translationKorean",
+                        "imageUrl",
+                      ]
                   : resolvedSchema === "famousQuote"
                     ? ["quote", "author", "translation"]
                     : [

@@ -21,6 +21,7 @@ function createResult(
     coursePath: "courses/TOEIC",
     dayId: "Day1",
     sourceHref: "/courses/TOEIC/Day1",
+    schemaVariant: "standard",
     type: "standard",
     primaryText: "wander",
     secondaryText: "to move around",
@@ -60,6 +61,40 @@ test("missing-field helpers detect only interactive missing chips", () => {
   assert.equal(isWordFinderFieldMissing(collocation, "pronunciation"), false);
   assert.equal(isWordFinderFieldMissing(quote, "example"), false);
   assert.equal(isWordFinderFieldMissing(quote, "translation"), true);
+});
+
+test("JLPT composite fields are missing until both halves are present", () => {
+  const jlpt = createResult({
+    courseId: "JLPT",
+    courseLabel: "JLPT",
+    coursePath: "courses/JLPT",
+    sourceHref: "/courses/JLPT/Day1",
+    schemaVariant: "jlpt",
+    primaryText: "猫",
+    meaning: "cat / 고양이",
+    meaningEnglish: "cat",
+    meaningKorean: "고양이",
+    pronunciation: "ねこ",
+    pronunciationRoman: null,
+    translation: "There is a cat. / 고양이가 있다.",
+    translationEnglish: "There is a cat.",
+    translationKorean: "",
+  });
+
+  assert.equal(isWordFinderFieldMissing(jlpt, "pronunciation"), true);
+  assert.equal(isWordFinderFieldMissing(jlpt, "translation"), true);
+  assert.equal(getWordFinderFieldValue(jlpt, "pronunciation"), "ねこ");
+  assert.equal(
+    getWordFinderFieldValue(
+      {
+        ...jlpt,
+        pronunciationRoman: "neko",
+        translationKorean: "고양이가 있다.",
+      },
+      "pronunciation",
+    ),
+    "ねこ / neko",
+  );
 });
 
 test("shared image and pronunciation matching uses normalized word only", () => {

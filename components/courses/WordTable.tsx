@@ -20,8 +20,8 @@ import InlineEditableText from "@/components/shared/InlineEditableText";
 import WordFinderMissingFieldDialog from "@/components/words/WordFinderMissingFieldDialog";
 import { updateWordTextField } from "@/lib/firebase/firestore";
 import { getCourseById, type CourseId } from "@/types/course";
-import type { CollocationWord, StandardWord, Word } from "@/types/word";
-import { isCollocationWord, isFamousQuoteWord } from "@/types/word";
+import type { CollocationWord, JlptWord, StandardWord, Word } from "@/types/word";
+import { isCollocationWord, isFamousQuoteWord, isJlptWord } from "@/types/word";
 import {
   adaptCourseWordToWordFinderResult,
   applyCourseWordResolvedUpdates,
@@ -30,7 +30,7 @@ import {
 import {
   applyCourseInlineEdit,
   resolveCourseInlineEditField,
-  type InlineEditableWordFinderField,
+  type CourseInlineEditableField,
 } from "@/lib/wordFinderInlineEdit";
 import type {
   WordFinderActionField,
@@ -193,12 +193,24 @@ function ExampleCell({ text }: { text: string | undefined }) {
 type GeneratableField = "pronunciation" | "example" | "translation";
 type WordTableLocalUpdates = Partial<
   Pick<StandardWord, "word" | "meaning" | "pronunciation" | "example" | "translation" | "imageUrl"> &
+    Pick<
+      JlptWord,
+      | "word"
+      | "meaningEnglish"
+      | "meaningKorean"
+      | "pronunciation"
+      | "pronunciationRoman"
+      | "example"
+      | "translationEnglish"
+      | "translationKorean"
+      | "imageUrl"
+    > &
     Pick<CollocationWord, "collocation" | "meaning" | "example" | "translation" | "imageUrl">
 >;
 
 interface EditingCellState {
   wordId: string;
-  field: InlineEditableWordFinderField;
+  field: CourseInlineEditableField;
   draft: string;
   saving: boolean;
   error: string;
@@ -207,21 +219,20 @@ interface EditingCellState {
 interface WordTableProps {
   words: Word[];
   isCollocation: boolean;
+  isJlpt?: boolean;
   isFamousQuote?: boolean;
   showImageUrl?: boolean;
   courseId?: CourseId;
   coursePath?: string;
   dayId?: string;
   onWordImageUpdated?: (wordId: string, imageUrl: string) => void;
-  onWordFieldsUpdated?: (
-    wordId: string,
-    fields: Partial<Pick<StandardWord, "pronunciation" | "example" | "translation">>,
-  ) => void;
+  onWordFieldsUpdated?: (wordId: string, fields: WordFinderResultFieldUpdates) => void;
 }
 
 export default function WordTable({
   words,
   isCollocation,
+  isJlpt,
   isFamousQuote,
   showImageUrl,
   courseId,
@@ -259,6 +270,7 @@ export default function WordTable({
       coursePath,
       dayId,
       isCollocation,
+      isJlpt,
       isFamousQuote,
     });
   }, [
@@ -268,6 +280,7 @@ export default function WordTable({
     coursePath,
     dayId,
     isCollocation,
+    isJlpt,
     isFamousQuote,
     localWordUpdates,
   ]);
@@ -314,17 +327,24 @@ export default function WordTable({
       onWordImageUpdated?.(activeWordId, mappedUpdates.imageUrl);
     }
 
-    const fieldUpdates: Partial<
-      Pick<StandardWord, "pronunciation" | "example" | "translation">
-    > = {};
+    const fieldUpdates: WordFinderResultFieldUpdates = {};
     if (typeof mappedUpdates.pronunciation === "string") {
       fieldUpdates.pronunciation = mappedUpdates.pronunciation;
+    }
+    if (typeof mappedUpdates.pronunciationRoman === "string") {
+      fieldUpdates.pronunciationRoman = mappedUpdates.pronunciationRoman;
     }
     if (typeof mappedUpdates.example === "string") {
       fieldUpdates.example = mappedUpdates.example;
     }
     if (typeof mappedUpdates.translation === "string") {
       fieldUpdates.translation = mappedUpdates.translation;
+    }
+    if (typeof mappedUpdates.translationEnglish === "string") {
+      fieldUpdates.translationEnglish = mappedUpdates.translationEnglish;
+    }
+    if (typeof mappedUpdates.translationKorean === "string") {
+      fieldUpdates.translationKorean = mappedUpdates.translationKorean;
     }
 
     if (Object.keys(fieldUpdates).length > 0) {
@@ -333,10 +353,11 @@ export default function WordTable({
   };
 
   const activateInlineEdit = useCallback(
-    (word: Word, field: InlineEditableWordFinderField) => {
+    (word: Word, field: CourseInlineEditableField) => {
       const editable = resolveCourseInlineEditField({
         word,
         isCollocation,
+        isJlpt,
         isFamousQuote,
         field,
       });
@@ -351,7 +372,7 @@ export default function WordTable({
         error: "",
       });
     },
-    [isCollocation, isFamousQuote],
+    [isCollocation, isJlpt, isFamousQuote],
   );
 
   const updateInlineDraft = useCallback((draft: string) => {
@@ -371,6 +392,7 @@ export default function WordTable({
       const editable = resolveCourseInlineEditField({
         word,
         isCollocation,
+        isJlpt,
         isFamousQuote,
         field: editingCell.field,
       });
@@ -415,13 +437,13 @@ export default function WordTable({
         );
       }
     },
-    [coursePath, dayId, editingCell, isCollocation, isFamousQuote, t],
+    [coursePath, dayId, editingCell, isCollocation, isJlpt, isFamousQuote, t],
   );
 
   const renderEditableTextCell = useCallback(
     (
       word: Word,
-      field: InlineEditableWordFinderField,
+      field: CourseInlineEditableField,
       value: string,
       options?: {
         emptyLabel?: string;
@@ -432,6 +454,7 @@ export default function WordTable({
       const editable = resolveCourseInlineEditField({
         word,
         isCollocation,
+        isJlpt,
         isFamousQuote,
         field,
       });
@@ -471,6 +494,7 @@ export default function WordTable({
       commitInlineEdit,
       editingCell,
       isCollocation,
+      isJlpt,
       isFamousQuote,
       updateInlineDraft,
     ],
@@ -506,10 +530,10 @@ export default function WordTable({
     (word: Word, field: WordFinderActionField | "primaryText" | "meaning") =>
       isCourseWordFieldMissing(
         word,
-        { isCollocation, isFamousQuote, showImageUrl },
+        { isCollocation, isJlpt, isFamousQuote, showImageUrl },
         field,
       ),
-    [isCollocation, isFamousQuote, showImageUrl],
+    [isCollocation, isJlpt, isFamousQuote, showImageUrl],
   );
 
   return (
@@ -525,6 +549,18 @@ export default function WordTable({
                   <TableCell>{t("courses.explanation")}</TableCell>
                   <TableCell>{t("courses.example")}</TableCell>
                   <TableCell>{t("courses.translation")}</TableCell>
+                  {showImageUrl && <TableCell>{t("courses.image", "Image")}</TableCell>}
+                </>
+              ) : isJlpt ? (
+                <>
+                  <TableCell>{t("courses.word")}</TableCell>
+                  <TableCell>Meaning (English)</TableCell>
+                  <TableCell>Meaning (Korean)</TableCell>
+                  <TableCell>{t("courses.pronunciation")}</TableCell>
+                  <TableCell>Pronunciation (Roman)</TableCell>
+                  <TableCell>{t("courses.example")}</TableCell>
+                  <TableCell>Translation (English)</TableCell>
+                  <TableCell>Translation (Korean)</TableCell>
                   {showImageUrl && <TableCell>{t("courses.image", "Image")}</TableCell>}
                 </>
               ) : isFamousQuote ? (
@@ -601,6 +637,110 @@ export default function WordTable({
                                 component="img"
                                 src={getResolvedImage(word.id) || mergedWord.imageUrl}
                                 alt={mergedWord.collocation}
+                                sx={{
+                                  width: 64,
+                                  height: 64,
+                                  objectFit: "cover",
+                                  borderRadius: 1,
+                                }}
+                              />
+                            ) : (
+                              <AddPhotoAlternateIcon fontSize="small" />
+                            )}
+                          </IconButton>
+                        </Tooltip>
+                      </TableCell>
+                    )}
+                  </>
+                  ) : isJlptWord(mergedWord) ? (
+                  <>
+                    <TableCell>
+                      {renderEditableTextCell(mergedWord, "primaryText", mergedWord.word, {
+                        emptyLabel: t("courses.missingWordValue"),
+                        fontWeight: 500,
+                      })}
+                    </TableCell>
+                    <TableCell>
+                      {renderEditableTextCell(
+                        mergedWord,
+                        "meaningEnglish",
+                        mergedWord.meaningEnglish,
+                        { emptyLabel: t("courses.missingMeaningValue") },
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {renderEditableTextCell(
+                        mergedWord,
+                        "meaningKorean",
+                        mergedWord.meaningKorean,
+                        { emptyLabel: t("courses.missingMeaningValue") },
+                      )}
+                    </TableCell>
+                    <TableCell
+                      onClick={() => openFieldModal(word.id, "pronunciation")}
+                      sx={{ cursor: "pointer", "&:hover": { bgcolor: "action.hover" } }}
+                    >
+                      {!isMissingField(mergedWord, "pronunciation") ? (
+                        mergedWord.pronunciation
+                      ) : (
+                        <Tooltip title={t("courses.generatePronunciation")}>
+                          <AutoFixHighIcon fontSize="small" color="action" />
+                        </Tooltip>
+                      )}
+                    </TableCell>
+                    <TableCell
+                      onClick={() => openFieldModal(word.id, "pronunciation")}
+                      sx={{ cursor: "pointer", "&:hover": { bgcolor: "action.hover" } }}
+                    >
+                      {!isMissingField(mergedWord, "pronunciation") ? (
+                        mergedWord.pronunciationRoman
+                      ) : (
+                        <Tooltip title={t("courses.generatePronunciation")}>
+                          <AutoFixHighIcon fontSize="small" color="action" />
+                        </Tooltip>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {renderEditableTextCell(mergedWord, "example", mergedWord.example, {
+                        emptyLabel: t("words.none"),
+                        textVariant: "body2",
+                      })}
+                    </TableCell>
+                    <TableCell>
+                      {renderEditableTextCell(
+                        mergedWord,
+                        "translationEnglish",
+                        mergedWord.translationEnglish,
+                        {
+                          emptyLabel: t("words.none"),
+                          textVariant: "body2",
+                        },
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {renderEditableTextCell(
+                        mergedWord,
+                        "translationKorean",
+                        mergedWord.translationKorean,
+                        {
+                          emptyLabel: t("words.none"),
+                          textVariant: "body2",
+                        },
+                      )}
+                    </TableCell>
+                    {showImageUrl && (
+                      <TableCell>
+                        <Tooltip title={t("words.generateNewImage")}>
+                          <IconButton
+                            size="small"
+                            onClick={() => openFieldModal(word.id, "image")}
+                            sx={{ p: 0 }}
+                          >
+                            {!isMissingField(mergedWord, "image") ? (
+                              <Box
+                                component="img"
+                                src={getResolvedImage(word.id) || mergedWord.imageUrl}
+                                alt={mergedWord.word}
                                 sx={{
                                   width: 64,
                                   height: 64,

@@ -35,11 +35,19 @@ export function getWordFinderFieldValue(
     case "image":
       return result.imageUrl;
     case "pronunciation":
-      return result.pronunciation;
+      return result.schemaVariant === "jlpt"
+        ? [result.pronunciation, result.pronunciationRoman]
+            .filter((value): value is string => Boolean(value))
+            .join(" / ") || null
+        : result.pronunciation;
     case "example":
       return result.example;
     case "translation":
-      return result.translation;
+      return result.schemaVariant === "jlpt"
+        ? [result.translationEnglish, result.translationKorean]
+            .filter((value): value is string => Boolean(value))
+            .join(" / ") || null
+        : result.translation;
     default:
       return null;
   }
@@ -53,11 +61,17 @@ export function isWordFinderFieldMissing(
     case "image":
       return result.type !== "famousQuote" && !result.imageUrl;
     case "pronunciation":
-      return result.type === "standard" && !result.pronunciation;
+      return result.type === "standard" && (
+        result.schemaVariant === "jlpt"
+          ? !result.pronunciation || !result.pronunciationRoman
+          : !result.pronunciation
+      );
     case "example":
       return result.type !== "famousQuote" && !result.example;
     case "translation":
-      return !result.translation;
+      return result.schemaVariant === "jlpt"
+        ? !result.translationEnglish || !result.translationKorean
+        : !result.translation;
     default:
       return false;
   }
@@ -109,8 +123,29 @@ export function applyWordFinderResultUpdates(
     ...updates,
   };
 
-  if (typeof updates.meaning === "string" && result.type === "standard") {
+  if (
+    typeof updates.meaning === "string" &&
+    result.type === "standard" &&
+    result.schemaVariant !== "jlpt"
+  ) {
     next.secondaryText = updates.meaning;
+  }
+
+  if (
+    result.schemaVariant === "jlpt" &&
+    (typeof updates.translationEnglish === "string" ||
+      typeof updates.translationKorean === "string")
+  ) {
+    next.translation = [
+      typeof updates.translationEnglish === "string"
+        ? updates.translationEnglish
+        : next.translationEnglish,
+      typeof updates.translationKorean === "string"
+        ? updates.translationKorean
+        : next.translationKorean,
+    ]
+      .filter((value): value is string => Boolean(value))
+      .join(" / ");
   }
 
   return next;

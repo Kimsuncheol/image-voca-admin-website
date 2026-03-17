@@ -33,8 +33,10 @@
  */
 
 import { useState, useEffect, use } from "react";
+import { useRouter } from "next/navigation";
 import Typography from "@mui/material/Typography";
 import Box from "@mui/material/Box";
+import Chip from "@mui/material/Chip";
 import Alert from "@mui/material/Alert";
 import { useTranslation } from "react-i18next";
 
@@ -42,7 +44,7 @@ import { useTranslation } from "react-i18next";
 import PageLayout from "@/components/layout/PageLayout";
 
 // ── Course-domain types & data helpers ────────────────────────────────
-import { getCourseById } from "@/types/course";
+import { getCourseById, JLPT_LEVEL_COURSES, isJlptCourse } from "@/types/course";
 import type { Day } from "@/types/course";
 import type { FamousQuoteWord } from "@/types/word";
 import { getCourseDays, getFamousQuotes } from "@/lib/firebase/firestore";
@@ -66,6 +68,7 @@ export default function CourseDaysPage({
   const { courseId } = use(params);
 
   const { t } = useTranslation();
+  const router = useRouter();
 
   // ── Local state ───────────────────────────────────────────────────
   const [days, setDays] = useState<Day[]>([]);
@@ -74,15 +77,21 @@ export default function CourseDaysPage({
   const [error, setError] = useState("");
 
   // ── Resolve course metadata from static list ──────────────────────
-  // Returns undefined when the courseId doesn't match any known course.
   const course = getCourseById(courseId);
-  const isFlat = course?.flat === true; // FAMOUS_QUOTE branch
-  const isLoading = course ? loading : false;
+  const isFlat = course?.flat === true;
+  const isJlptGroup = isJlptCourse(courseId);
+  const isJlptLevel = JLPT_LEVEL_COURSES.some((l) => l.id === courseId);
+  // Generic /courses/JLPT page — show level chips only, no day fetch
+  const isJlptGroupRoot = isJlptGroup && !isJlptLevel;
+  const isLoading = course && !isJlptGroupRoot ? loading : false;
   const resolvedError = course ? error : "Course not found";
 
   // ── Firestore data fetch ──────────────────────────────────────────
   useEffect(() => {
-    if (!course) return;
+    if (!course || isJlptGroupRoot) {
+      setLoading(false);
+      return;
+    }
 
     if (isFlat) {
       // ── Flat course: fetch quotes directly from the collection root ──
@@ -103,7 +112,7 @@ export default function CourseDaysPage({
         .catch(() => setError(t("courses.fetchError")))
         .finally(() => setLoading(false));
     }
-  }, [course, isFlat, t]);
+  }, [course, isFlat, isJlptGroupRoot, t]);
 
   // ── Loading state ─────────────────────────────────────────────────
   if (isLoading) {
@@ -126,9 +135,29 @@ export default function CourseDaysPage({
 
       {/* ── Page heading ─────────────────────────────────────────────── */}
       <Typography variant="h4" gutterBottom fontWeight={600}>
-        {course?.label || courseId}
-        {!isFlat && ` — ${t("courses.days")}`}
+        {isJlptLevel ? "JLPT" : (course?.label || courseId)}
+        {!isFlat && !isJlptGroupRoot && ` — ${t("courses.days")}`}
       </Typography>
+
+      {/* ── JLPT level chips ─────────────────────────────────────────── */}
+      {isJlptGroup && (
+        <Box sx={{ display: "flex", gap: 0.75, mb: 2, alignItems: "center" }}>
+          {JLPT_LEVEL_COURSES.map((level) => (
+            <Chip
+              key={level.id}
+              label={level.label}
+              size="small"
+              onClick={() => router.push(`/courses/${level.id}`)}
+              color={courseId === level.id ? "primary" : "default"}
+              variant={courseId === level.id ? "filled" : "outlined"}
+              sx={{
+                borderRadius: "999px",
+                fontWeight: courseId === level.id ? 600 : 400,
+              }}
+            />
+          ))}
+        </Box>
+      )}
 
       {/* ── Error banner ─────────────────────────────────────────────── */}
       {resolvedError && (
@@ -137,8 +166,9 @@ export default function CourseDaysPage({
         </Alert>
       )}
 
-      {/* ── Flat course (FAMOUS_QUOTE): inline quote table ───────────── */}
-      {isFlat ? (
+      {/* ── JLPT group root: level chips only, no day grid ───────────── */}
+      {isJlptGroupRoot ? null : /* ── Flat course (FAMOUS_QUOTE): inline quote table ───────────── */
+      isFlat ? (
         quotes.length === 0 && !resolvedError ? (
           <Typography color="text.secondary">{t("courses.noData")}</Typography>
         ) : (

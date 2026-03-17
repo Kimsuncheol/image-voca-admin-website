@@ -1,13 +1,18 @@
 import type {
   CollocationWordInput,
   FamousQuoteWordInput,
+  JlptWordInput,
   StandardWordInput,
 } from "@/lib/schemas/vocaSchemas";
 import type { SchemaType } from "@/lib/utils/csvParser";
 
-type UploadWordWithOptionalId = StandardWordInput | CollocationWordInput;
+type UploadWordWithOptionalId =
+  | StandardWordInput
+  | JlptWordInput
+  | CollocationWordInput;
 type UploadParseWord =
   | StandardWordInput
+  | JlptWordInput
   | CollocationWordInput
   | FamousQuoteWordInput;
 type UploadBatchItem<TWord extends UploadParseWord = UploadParseWord> = {
@@ -53,7 +58,11 @@ export function assignDeterministicUploadIdsForSchema<
   courseLabel: string,
   dayName: string,
 ): T[] {
-  if (schemaType === "standard" || schemaType === "collocation") {
+  if (
+    schemaType === "standard" ||
+    schemaType === "jlpt" ||
+    schemaType === "collocation"
+  ) {
     return assignDeterministicUploadWordIds(
       words as readonly UploadWordWithOptionalId[],
       courseLabel,
@@ -71,7 +80,11 @@ export function assignDeterministicUploadIdsForItems<
   schemaType: SchemaType,
   courseLabel: string,
 ): TItem[] {
-  if (schemaType !== "standard" && schemaType !== "collocation") {
+  if (
+    schemaType !== "standard" &&
+    schemaType !== "jlpt" &&
+    schemaType !== "collocation"
+  ) {
     return items.map((item) => ({
       ...item,
       words: [...item.words],

@@ -93,7 +93,13 @@ export async function updateWordField(
   coursePath: string,
   dayId: string,
   wordId: string,
-  field: 'pronunciation' | 'example' | 'translation',
+  field:
+    | 'pronunciation'
+    | 'pronunciationRoman'
+    | 'example'
+    | 'translation'
+    | 'translationEnglish'
+    | 'translationKorean',
   value: string,
 ): Promise<void> {
   const wordRef = doc(collection(doc(db, coursePath), dayId), wordId);
@@ -104,7 +110,15 @@ export async function updateWordTextField(
   coursePath: string,
   dayId: string,
   wordId: string,
-  field: 'word' | 'meaning' | 'collocation',
+  field:
+    | 'word'
+    | 'meaning'
+    | 'collocation'
+    | 'meaningEnglish'
+    | 'meaningKorean'
+    | 'example'
+    | 'translationEnglish'
+    | 'translationKorean',
   value: string,
 ): Promise<void> {
   const wordRef = doc(collection(doc(db, coursePath), dayId), wordId);

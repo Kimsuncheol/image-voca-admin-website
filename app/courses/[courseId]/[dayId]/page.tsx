@@ -263,8 +263,9 @@ export default function DayWordsPage({
 
   // ── Course type detection ─────────────────────────────────────────
   // WordTable switches its column layout based on these flags.
-  const isCollocation = courseId === "COLLOCATIONS";
-  const isFamousQuote = courseId === "FAMOUS_QUOTE";
+  const isCollocation = course?.schema === "collocation";
+  const isJlpt = course?.schema === "jlpt";
+  const isFamousQuote = course?.schema === "famousQuote";
   const showImageUrl = isSupportedImageGenerationCourseId(courseId);
 
   const missingFieldOptions = useMemo(
@@ -279,11 +280,11 @@ export default function DayWordsPage({
           ? true
           : isCourseWordFieldMissing(
               word,
-              { isCollocation, isFamousQuote, showImageUrl },
+              { isCollocation, isJlpt, isFamousQuote, showImageUrl },
               missingField,
             ),
       ),
-    [isCollocation, isFamousQuote, missingField, showImageUrl, words],
+    [isCollocation, isJlpt, isFamousQuote, missingField, showImageUrl, words],
   );
 
   const filteredResults = useMemo(
@@ -297,6 +298,7 @@ export default function DayWordsPage({
               coursePath: course.path,
               dayId,
               isCollocation,
+              isJlpt,
               isFamousQuote,
             }),
           )
@@ -306,13 +308,16 @@ export default function DayWordsPage({
       dayId,
       filteredWords,
       isCollocation,
+      isJlpt,
       isFamousQuote,
     ],
   );
 
-  const bulkField = isCourseDayBulkGeneratableField(missingField)
-    ? missingField
-    : null;
+  const bulkField =
+    isCourseDayBulkGeneratableField(missingField) &&
+    (!isJlpt || missingField === "pronunciation" || missingField === "image")
+      ? missingField
+      : null;
 
   const bulkDisabledReason = useMemo(
     () =>
@@ -368,6 +373,20 @@ export default function DayWordsPage({
           ),
         );
       }
+      if (
+        typeof updates.pronunciationRoman === "string" &&
+        result.dayId
+      ) {
+        tasks.push(
+          updateWordField(
+            result.coursePath,
+            result.dayId,
+            result.id,
+            "pronunciationRoman",
+            updates.pronunciationRoman,
+          ),
+        );
+      }
       if (typeof updates.example === "string" && result.dayId) {
         tasks.push(
           updateWordField(
@@ -387,6 +406,34 @@ export default function DayWordsPage({
             result.id,
             "translation",
             updates.translation,
+          ),
+        );
+      }
+      if (
+        typeof updates.translationEnglish === "string" &&
+        result.dayId
+      ) {
+        tasks.push(
+          updateWordField(
+            result.coursePath,
+            result.dayId,
+            result.id,
+            "translationEnglish",
+            updates.translationEnglish,
+          ),
+        );
+      }
+      if (
+        typeof updates.translationKorean === "string" &&
+        result.dayId
+      ) {
+        tasks.push(
+          updateWordField(
+            result.coursePath,
+            result.dayId,
+            result.id,
+            "translationKorean",
+            updates.translationKorean,
           ),
         );
       }
@@ -460,27 +507,77 @@ export default function DayWordsPage({
           }
         }
       } else if (bulkField === "pronunciation") {
-        const ipaMap = await getIpaUSUKBatch(
-          eligible.map((r) => r.primaryText),
-          settings,
-        );
-        await Promise.all(
-          eligible.map(async (result) => {
-            try {
-              const ipa = ipaMap.get(result.primaryText);
-              if (!ipa) {
+        if (isJlpt) {
+          const response = await fetch("/api/admin/jlpt-pronunciation", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              words: eligible.map((result) => result.primaryText),
+            }),
+          });
+          const payload = (await response.json()) as {
+            error?: string;
+            items?: Array<{
+              word: string;
+              pronunciation: string;
+              pronunciationRoman: string;
+            }>;
+          };
+
+          if (!response.ok) {
+            throw new Error(payload.error || t("words.generateActionError"));
+          }
+
+          const pronunciationMap = new Map(
+            (payload.items ?? []).map((item) => [
+              item.word,
+              {
+                pronunciation: item.pronunciation,
+                pronunciationRoman: item.pronunciationRoman,
+              },
+            ]),
+          );
+
+          await Promise.all(
+            eligible.map(async (result) => {
+              try {
+                const pronunciation = pronunciationMap.get(result.primaryText);
+                if (!pronunciation) {
+                  failed += 1;
+                  return;
+                }
+
+                await persistResolvedUpdates(result, pronunciation);
+                applyResolvedUpdatesToState(result.id, pronunciation);
+                updated += 1;
+              } catch {
                 failed += 1;
-                return;
               }
-              const pronunciation = formatPersistedPronunciation(ipa);
-              await persistResolvedUpdates(result, { pronunciation });
-              applyResolvedUpdatesToState(result.id, { pronunciation });
-              updated += 1;
-            } catch {
-              failed += 1;
-            }
-          }),
-        );
+            }),
+          );
+        } else {
+          const ipaMap = await getIpaUSUKBatch(
+            eligible.map((r) => r.primaryText),
+            settings,
+          );
+          await Promise.all(
+            eligible.map(async (result) => {
+              try {
+                const ipa = ipaMap.get(result.primaryText);
+                if (!ipa) {
+                  failed += 1;
+                  return;
+                }
+                const pronunciation = formatPersistedPronunciation(ipa);
+                await persistResolvedUpdates(result, { pronunciation });
+                applyResolvedUpdatesToState(result.id, { pronunciation });
+                updated += 1;
+              } catch {
+                failed += 1;
+              }
+            }),
+          );
+        }
       } else {
         for (const result of eligible) {
           const requestBody = createCourseDayGenerateWordFieldRequest(
@@ -664,7 +761,9 @@ export default function DayWordsPage({
                 <span>{getBulkActionLabel(bulkField, t)}</span>
                 {bulkField === "pronunciation" && !bulkDisabledReason && (
                   <Typography component="span" sx={{ fontSize: "0.65rem", opacity: 0.8, lineHeight: 1.2 }}>
-                    {settings.pronunciationApi === "oxford"
+                    {isJlpt
+                      ? "JMdict"
+                      : settings.pronunciationApi === "oxford"
                       ? t("settings.pronunciationApiOxford")
                       : t("settings.pronunciationApiFreeDictionary")}
                   </Typography>
@@ -704,12 +803,13 @@ export default function DayWordsPage({
         //   true  → collocation columns: phrase, meaning, explanation, example
         <WordTable
           words={filteredWords}
-          isCollocation={isCollocation}
-          isFamousQuote={isFamousQuote}
-          showImageUrl={showImageUrl}
-          courseId={course.id}
-          coursePath={course.path}
-          dayId={dayId}
+      isCollocation={isCollocation}
+      isJlpt={isJlpt}
+      isFamousQuote={isFamousQuote}
+      showImageUrl={showImageUrl}
+      courseId={course.id}
+      coursePath={course.path}
+      dayId={dayId}
           onWordImageUpdated={(wordId, imageUrl) =>
             setWords((prev) =>
               prev.map((w) => (w.id === wordId ? { ...w, imageUrl } : w)),
@@ -717,7 +817,17 @@ export default function DayWordsPage({
           }
           onWordFieldsUpdated={(wordId, fields) =>
             setWords((prev) =>
-              prev.map((w) => (w.id === wordId ? { ...w, ...fields } : w)),
+              prev.map((w) => {
+                if (w.id !== wordId) return w;
+
+                const nextFields = Object.fromEntries(
+                  Object.entries(fields).filter(
+                    (entry): entry is [string, string] =>
+                      typeof entry[1] === "string",
+                  ),
+                );
+                return { ...w, ...nextFields };
+              }),
             )
           }
         />

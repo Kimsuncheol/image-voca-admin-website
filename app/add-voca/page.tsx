@@ -59,8 +59,13 @@ import { useTranslation } from "react-i18next";
 import PageLayout from "@/components/layout/PageLayout";
 
 // ── Types ─────────────────────────────────────────────────────────────
-import { getCourseById, type CourseId } from "@/types/course";
-import type { StandardWordInput } from "@/lib/schemas/vocaSchemas";
+import {
+  getCourseById,
+  isFamousQuoteCourse,
+  isJlptCourse,
+  type CourseId,
+} from "@/types/course";
+import type { JlptWordInput, StandardWordInput } from "@/lib/schemas/vocaSchemas";
 import type { SchemaType } from "@/lib/utils/csvParser";
 import type {
   DerivativePreviewItemResult,
@@ -245,22 +250,28 @@ export default function AddVocaPage() {
   // ── Derived state ──────────────────────────────────────────────────
   // `schemaType` drives CSV header validation and word field mapping.
   const schemaType: SchemaType =
-    selectedCourse === "COLLOCATIONS"
-      ? "collocation"
-      : selectedCourse === "FAMOUS_QUOTE"
-        ? "famousQuote"
-        : "standard";
-  const isFamousQuote = selectedCourse === "FAMOUS_QUOTE";
-  const {
-    isImageGenerationEnabled,
-    isExampleAndTranslationGenerationEnabled,
-    shouldShowModal: shouldShowUploadOptionsModal,
-    defaultOptions: defaultUploadOptions,
-  } = getStandardUploadOptionState({
+    getCourseById(selectedCourse)?.schema ?? "standard";
+  const isFamousQuote = isFamousQuoteCourse(selectedCourse);
+  const isJlpt = isJlptCourse(selectedCourse);
+  const standardUploadOptionState = getStandardUploadOptionState({
     selectedCourse,
     imageGenerationEnabled: canUseImageGeneration,
     enrichGenerationEnabled: canUseExampleTranslationGeneration,
   });
+  const {
+    isImageGenerationEnabled,
+    isExampleAndTranslationGenerationEnabled,
+  } = standardUploadOptionState;
+  const shouldShowUploadOptionsModal = isJlpt
+    ? isImageGenerationEnabled
+    : standardUploadOptionState.shouldShowModal;
+  const defaultUploadOptions = isJlpt
+    ? {
+        images: isImageGenerationEnabled,
+        examples: false,
+        translations: false,
+      }
+    : standardUploadOptionState.defaultOptions;
   // const showImageGenerator = shouldIncludeImageUrl(selectedCourse);
   // const imageGenerationCourseId = isSupportedImageGenerationCourseId(
   //   selectedCourse,
@@ -404,7 +415,85 @@ export default function AddVocaPage() {
 
         let words = item.data!.words;
 
-        if (schemaType === "standard") {
+        if (schemaType === "jlpt") {
+          const wordsNeedingPronunciation = (words as JlptWordInput[])
+            .filter(
+              (w) =>
+                w.word.trim().length > 0 &&
+                (!w.pronunciation.trim() || !w.pronunciationRoman.trim()),
+            )
+            .map((w) => w.word);
+
+          if (wordsNeedingPronunciation.length > 0) {
+            const response = await fetch("/api/admin/jlpt-pronunciation", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ words: wordsNeedingPronunciation }),
+            });
+            const payload = (await response.json()) as {
+              error?: string;
+              items?: Array<{
+                word: string;
+                pronunciation: string;
+                pronunciationRoman: string;
+              }>;
+            };
+
+            if (!response.ok) {
+              throw new Error(payload.error || "JLPT pronunciation lookup failed");
+            }
+
+            const pronunciationMap = new Map(
+              (payload.items ?? []).map((item) => [
+                item.word,
+                {
+                  pronunciation: item.pronunciation,
+                  pronunciationRoman: item.pronunciationRoman,
+                },
+              ]),
+            );
+
+            words = (words as JlptWordInput[]).map((w) => {
+              const resolved = pronunciationMap.get(w.word);
+              if (!resolved) return w;
+
+              return {
+                ...w,
+                pronunciation: resolved.pronunciation,
+                pronunciationRoman: resolved.pronunciationRoman,
+              };
+            });
+          }
+
+          if (options.images && isImageGenerationEnabled) {
+            setStatusText(t("addVoca.statusImage"));
+            try {
+              const imageResp = await fetch("/api/admin/generate-images", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  courseId: selectedCourse,
+                  words,
+                }),
+              });
+
+              if (imageResp.ok) {
+                const result = (await imageResp.json()) as {
+                  words: JlptWordInput[];
+                  failures?: { word: string; error: string }[];
+                };
+                words = result.words;
+              }
+            } catch (e) {
+              console.error("[Image Generation] Failed (non-fatal):", e);
+            }
+          }
+
+          words = prepareStandardWordsForUpload(
+            words as JlptWordInput[],
+            selectedCourse,
+          );
+        } else if (schemaType === "standard") {
           const wordsNeedingIpa = (words as StandardWordInput[])
             .filter((w) => !w.pronunciation && !w.word.includes(" "))
             .map((w) => w.word);
@@ -537,7 +626,9 @@ export default function AddVocaPage() {
 
     if (
       daysToUpload.length > 0 &&
-      (schemaType === "standard" || schemaType === "collocation")
+      (schemaType === "standard" ||
+        schemaType === "jlpt" ||
+        schemaType === "collocation")
     ) {
       const startedAt = Date.now();
       const normalizedDays = assignDeterministicUploadIdsForItems(
@@ -711,7 +802,8 @@ export default function AddVocaPage() {
       return;
 
     const isStandardUploadFlow =
-      schemaType === "standard" && (tabIndex === 0 || tabIndex === 1);
+      (schemaType === "standard" || schemaType === "jlpt") &&
+      (tabIndex === 0 || tabIndex === 1);
 
     if (isStandardUploadFlow) {
       setUploadOptions(defaultUploadOptions);

@@ -11,12 +11,14 @@ import WorkIcon from "@mui/icons-material/Work";
 import LinkIcon from "@mui/icons-material/Link";
 import FormatQuoteIcon from "@mui/icons-material/FormatQuote";
 import LanguageIcon from "@mui/icons-material/Language";
+import TranslateIcon from "@mui/icons-material/Translate";
 import type { Course, CourseId } from "@/types/course";
 
 const courseIcons: Record<CourseId, React.ReactNode> = {
   CSAT: <SchoolIcon sx={{ fontSize: 48 }} />,
   TOEFL_IELTS: <LanguageIcon sx={{ fontSize: 48 }} />,
   TOEIC: <WorkIcon sx={{ fontSize: 48 }} />,
+  JLPT: <TranslateIcon sx={{ fontSize: 48 }} />,
   COLLOCATIONS: <LinkIcon sx={{ fontSize: 48 }} />,
   FAMOUS_QUOTE: <FormatQuoteIcon sx={{ fontSize: 48 }} />,
 };

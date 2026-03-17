@@ -1,0 +1,67 @@
+import { describe, expect, it } from "vitest";
+
+import {
+  getWordFinderFieldValue,
+  isWordFinderFieldMissing,
+} from "./wordFinderMissingFieldActions";
+import type { WordFinderResult } from "../types/wordFinder";
+
+function createJlptResult(
+  overrides: Partial<WordFinderResult> = {},
+): WordFinderResult {
+  return {
+    id: "jlpt-1",
+    courseId: "JLPT",
+    courseLabel: "JLPT",
+    coursePath: "courses/JLPT",
+    schemaVariant: "jlpt",
+    dayId: "Day1",
+    sourceHref: "/courses/JLPT/Day1",
+    type: "standard",
+    primaryText: "猫",
+    secondaryText: "cat / 고양이",
+    meaning: "cat / 고양이",
+    meaningEnglish: "cat",
+    meaningKorean: "고양이",
+    translation: "There is a cat. / 고양이가 있다.",
+    translationEnglish: "There is a cat.",
+    translationKorean: "고양이가 있다.",
+    example: "猫がいる。",
+    pronunciation: "ねこ",
+    pronunciationRoman: "neko",
+    imageUrl: null,
+    ...overrides,
+  };
+}
+
+describe("wordFinderMissingFieldActions JLPT", () => {
+  it("treats pronunciation and translation as composite fields", () => {
+    const missing = createJlptResult({
+      pronunciationRoman: null,
+      translationKorean: "",
+    });
+
+    expect(isWordFinderFieldMissing(missing, "pronunciation")).toBe(true);
+    expect(isWordFinderFieldMissing(missing, "translation")).toBe(true);
+  });
+
+  it("formats composite pronunciation text for shared usage", () => {
+    const result = createJlptResult();
+
+    expect(getWordFinderFieldValue(result, "pronunciation")).toBe("ねこ / neko");
+    expect(getWordFinderFieldValue(result, "translation")).toBe(
+      "There is a cat. / 고양이가 있다.",
+    );
+  });
+
+  it("uses imageUrl missing state for JLPT rows", () => {
+    const missing = createJlptResult({ imageUrl: null });
+    const present = createJlptResult({ imageUrl: "https://example.com/jlpt.png" });
+
+    expect(isWordFinderFieldMissing(missing, "image")).toBe(true);
+    expect(isWordFinderFieldMissing(present, "image")).toBe(false);
+    expect(getWordFinderFieldValue(present, "image")).toBe(
+      "https://example.com/jlpt.png",
+    );
+  });
+});

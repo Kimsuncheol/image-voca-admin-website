@@ -27,6 +27,7 @@ function createResult(
     coursePath: "courses/TOEIC",
     dayId: "Day1",
     sourceHref: "/courses/TOEIC/Day1",
+    schemaVariant: "standard",
     type: "standard",
     primaryText: "wander",
     secondaryText: "to move around",

@@ -210,6 +210,9 @@ export default function WordFinderMissingFieldDialog({
 
   const fieldLabel = field ? getFieldLabel(field, t) : "";
   const noDayLabel = t("words.noDay");
+  const allowSharedLookup = !(
+    result?.schemaVariant === "jlpt" && field === "pronunciation"
+  );
 
   const sharedActionLabel = field ? getSharedButtonLabel(field, t) : "";
   const generateActionLabel = field ? getGenerateButtonLabel(field, t) : "";
@@ -252,7 +255,7 @@ export default function WordFinderMissingFieldDialog({
   useEffect(() => {
     const lookupSource = sharedLookupResult ?? result;
 
-    if (!open || !result || !field || !lookupSource) {
+    if (!open || !result || !field || !lookupSource || !allowSharedLookup) {
       setError("");
       setSharedLookupError("");
       setSharedCandidates([]);
@@ -317,7 +320,7 @@ export default function WordFinderMissingFieldDialog({
       });
 
     return () => controller.abort();
-  }, [field, open, result, sharedLookupResult, t]);
+  }, [allowSharedLookup, field, open, result, sharedLookupResult, t]);
 
   const resetUploadState = useCallback(() => {
     if (dropPreview) {
@@ -351,13 +354,22 @@ export default function WordFinderMissingFieldDialog({
           (
             entry,
           ): entry is [
-            "imageUrl" | "pronunciation" | "example" | "translation",
+            | "imageUrl"
+            | "pronunciation"
+            | "pronunciationRoman"
+            | "example"
+            | "translation"
+            | "translationEnglish"
+            | "translationKorean",
             string,
           ] =>
             (entry[0] === "imageUrl" ||
               entry[0] === "pronunciation" ||
+              entry[0] === "pronunciationRoman" ||
               entry[0] === "example" ||
-              entry[0] === "translation") &&
+              entry[0] === "translation" ||
+              entry[0] === "translationEnglish" ||
+              entry[0] === "translationKorean") &&
             typeof entry[1] === "string" &&
             entry[1].trim().length > 0,
         )
@@ -441,6 +453,37 @@ export default function WordFinderMissingFieldDialog({
       }
 
       if (field === "pronunciation") {
+        if (result.schemaVariant === "jlpt") {
+          const response = await fetch("/api/admin/jlpt-pronunciation", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ words: [result.primaryText] }),
+          });
+          const payload = (await response.json()) as {
+            error?: string;
+            items?: Array<{
+              word: string;
+              pronunciation: string;
+              pronunciationRoman: string;
+            }>;
+          };
+
+          if (!response.ok) {
+            throw new Error(payload.error || t("words.generateActionError"));
+          }
+
+          const item = payload.items?.[0];
+          if (!item) {
+            throw new Error(t("words.generateActionError"));
+          }
+
+          await handleResolved({
+            pronunciation: item.pronunciation,
+            pronunciationRoman: item.pronunciationRoman,
+          });
+          return;
+        }
+
         const pronunciation = await getPersistedPronunciation(result.primaryText, settings);
         if (!pronunciation) {
           throw new Error(t("words.generateActionError"));
@@ -694,7 +737,9 @@ export default function WordFinderMissingFieldDialog({
           )}
           {field === "pronunciation" && !generateDisabledReason && (
             <Typography variant="caption" color="text.secondary">
-              {settings.pronunciationApi === "oxford"
+              {result.schemaVariant === "jlpt"
+                ? "JMdict"
+                : settings.pronunciationApi === "oxford"
                 ? t("settings.pronunciationApiOxford")
                 : t("settings.pronunciationApiFreeDictionary")}
             </Typography>
@@ -800,134 +845,140 @@ export default function WordFinderMissingFieldDialog({
           </>
         )}
 
-        <Divider />
+        {allowSharedLookup && (
+          <>
+            <Divider />
 
-        <Stack spacing={1}>
-          <Typography variant="subtitle2">{t("words.sharedSectionTitle")}</Typography>
-          <Typography variant="body2" color="text.secondary">
-            {t("words.sharedSectionDescription", { field: fieldLabel })}
-          </Typography>
-
-          {sharedLookupError && <Alert severity="warning">{sharedLookupError}</Alert>}
-
-          {sharedLoading ? (
-            <Stack alignItems="center" sx={{ py: 2 }}>
-              <CircularProgress size={24} />
-            </Stack>
-          ) : sharedCandidates.length === 0 ? (
-            <Alert severity="info">{t("words.noSharedMatches")}</Alert>
-          ) : (
             <Stack spacing={1}>
-              {sharedCandidates.map((candidate) => {
-                const candidateKey = getWordFinderResultKey(candidate);
-                const isSelected = candidateKey === selectedSharedKey;
-                const content = getSharedCandidateContent(candidate, field, noDayLabel);
+              <Typography variant="subtitle2">{t("words.sharedSectionTitle")}</Typography>
+              <Typography variant="body2" color="text.secondary">
+                {t("words.sharedSectionDescription", { field: fieldLabel })}
+              </Typography>
 
-                return (
-                  <Paper
-                    key={candidateKey}
-                    variant="outlined"
-                    onClick={() => setSelectedSharedKey(candidateKey)}
-                    sx={{
-                      p: 1.5,
-                      cursor: "pointer",
-                      borderColor: isSelected ? "primary.main" : "divider",
-                      backgroundColor: isSelected ? "action.selected" : "background.paper",
-                    }}
-                  >
-                    <Stack direction="row" spacing={1.5} alignItems="flex-start">
-                      <Box
+              {sharedLookupError && <Alert severity="warning">{sharedLookupError}</Alert>}
+
+              {sharedLoading ? (
+                <Stack alignItems="center" sx={{ py: 2 }}>
+                  <CircularProgress size={24} />
+                </Stack>
+              ) : sharedCandidates.length === 0 ? (
+                <Alert severity="info">{t("words.noSharedMatches")}</Alert>
+              ) : (
+                <Stack spacing={1}>
+                  {sharedCandidates.map((candidate) => {
+                    const candidateKey = getWordFinderResultKey(candidate);
+                    const isSelected = candidateKey === selectedSharedKey;
+                    const content = getSharedCandidateContent(candidate, field, noDayLabel);
+
+                    return (
+                      <Paper
+                        key={candidateKey}
+                        variant="outlined"
+                        onClick={() => setSelectedSharedKey(candidateKey)}
                         sx={{
-                          width: 18,
-                          height: 18,
-                          borderRadius: "50%",
-                          border: "2px solid",
+                          p: 1.5,
+                          cursor: "pointer",
                           borderColor: isSelected ? "primary.main" : "divider",
-                          mt: 0.25,
-                          position: "relative",
-                          flexShrink: 0,
+                          backgroundColor: isSelected ? "action.selected" : "background.paper",
                         }}
                       >
-                        {isSelected && (
+                        <Stack direction="row" spacing={1.5} alignItems="flex-start">
                           <Box
                             sx={{
-                              width: 8,
-                              height: 8,
+                              width: 18,
+                              height: 18,
                               borderRadius: "50%",
-                              bgcolor: "primary.main",
-                              position: "absolute",
-                              top: "50%",
-                              left: "50%",
-                              transform: "translate(-50%, -50%)",
+                              border: "2px solid",
+                              borderColor: isSelected ? "primary.main" : "divider",
+                              mt: 0.25,
+                              position: "relative",
+                              flexShrink: 0,
                             }}
-                          />
-                        )}
-                      </Box>
+                          >
+                            {isSelected && (
+                              <Box
+                                sx={{
+                                  width: 8,
+                                  height: 8,
+                                  borderRadius: "50%",
+                                  bgcolor: "primary.main",
+                                  position: "absolute",
+                                  top: "50%",
+                                  left: "50%",
+                                  transform: "translate(-50%, -50%)",
+                                }}
+                              />
+                            )}
+                          </Box>
 
-                      {field === "image" && candidate.imageUrl && (
-                        <Box
-                          component="img"
-                          src={candidate.imageUrl}
-                          alt={candidate.primaryText}
-                          sx={{
-                            width: 72,
-                            height: 72,
-                            borderRadius: 1,
-                            objectFit: "cover",
-                            flexShrink: 0,
-                          }}
-                        />
-                      )}
-
-                      <Stack spacing={0.5} sx={{ minWidth: 0 }}>
-                        <Typography variant="body2" fontWeight={600}>
-                          {content.secondary}
-                        </Typography>
-                        <Typography
-                          variant="body2"
-                          color="text.secondary"
-                          sx={{ whiteSpace: "pre-line", wordBreak: "break-word" }}
-                        >
-                          {content.primary}
-                        </Typography>
-                        {(field === "example" || field === "translation") &&
-                          candidate.meaning && (
-                            <Typography variant="caption" color="text.secondary">
-                              {candidate.meaning}
-                            </Typography>
+                          {field === "image" && candidate.imageUrl && (
+                            <Box
+                              component="img"
+                              src={candidate.imageUrl}
+                              alt={candidate.primaryText}
+                              sx={{
+                                width: 72,
+                                height: 72,
+                                borderRadius: 1,
+                                objectFit: "cover",
+                                flexShrink: 0,
+                              }}
+                            />
                           )}
-                      </Stack>
-                    </Stack>
-                  </Paper>
-                );
-              })}
+
+                          <Stack spacing={0.5} sx={{ minWidth: 0 }}>
+                            <Typography variant="body2" fontWeight={600}>
+                              {content.secondary}
+                            </Typography>
+                            <Typography
+                              variant="body2"
+                              color="text.secondary"
+                              sx={{ whiteSpace: "pre-line", wordBreak: "break-word" }}
+                            >
+                              {content.primary}
+                            </Typography>
+                            {(field === "example" || field === "translation") &&
+                              candidate.meaning && (
+                                <Typography variant="caption" color="text.secondary">
+                                  {candidate.meaning}
+                                </Typography>
+                              )}
+                          </Stack>
+                        </Stack>
+                      </Paper>
+                    );
+                  })}
+                </Stack>
+              )}
             </Stack>
-          )}
-        </Stack>
+          </>
+        )}
       </DialogContent>
       <DialogActions>
         <Button onClick={handleClose} disabled={Boolean(actionLoading)}>
           {t("common.cancel")}
         </Button>
-        <Button
-          variant="contained"
-          startIcon={
-            actionLoading === "shared" ? (
-              <CircularProgress size={16} color="inherit" />
-            ) : (
-              <ContentCopyIcon />
-            )
-          }
-          onClick={handleApplyShared}
-          disabled={
-            Boolean(actionLoading) ||
-            sharedLoading ||
-            sharedCandidates.length === 0 ||
-            !selectedSharedKey
-          }
-        >
-          {sharedActionLabel}
-        </Button>
+        {allowSharedLookup && (
+          <Button
+            variant="contained"
+            startIcon={
+              actionLoading === "shared" ? (
+                <CircularProgress size={16} color="inherit" />
+              ) : (
+                <ContentCopyIcon />
+              )
+            }
+            onClick={handleApplyShared}
+            disabled={
+              Boolean(actionLoading) ||
+              sharedLoading ||
+              sharedCandidates.length === 0 ||
+              !selectedSharedKey
+            }
+          >
+            {sharedActionLabel}
+          </Button>
+        )}
       </DialogActions>
     </Dialog>
   );

@@ -1,13 +1,29 @@
 import type { WordFinderResult } from "../types/wordFinder.ts";
 import type {
   CollocationWord,
+  JlptWord,
   StandardWord,
   Word,
 } from "../types/word.ts";
-import { isCollocationWord, isFamousQuoteWord } from "../types/word.ts";
+import { isCollocationWord, isFamousQuoteWord, isJlptWord } from "../types/word.ts";
 
 export type InlineEditableWordFinderField = "primaryText" | "meaning";
-export type EditableWordTextField = "word" | "meaning" | "collocation";
+export type CourseInlineEditableField =
+  | InlineEditableWordFinderField
+  | "meaningEnglish"
+  | "meaningKorean"
+  | "example"
+  | "translationEnglish"
+  | "translationKorean";
+export type EditableWordTextField =
+  | "word"
+  | "meaning"
+  | "collocation"
+  | "meaningEnglish"
+  | "meaningKorean"
+  | "example"
+  | "translationEnglish"
+  | "translationKorean";
 
 interface EditableFieldConfig {
   sourceField: EditableWordTextField;
@@ -17,15 +33,16 @@ interface EditableFieldConfig {
 interface ResolveCourseInlineEditArgs {
   word: Word;
   isCollocation: boolean;
+  isJlpt?: boolean;
   isFamousQuote?: boolean;
-  field: InlineEditableWordFinderField;
+  field: CourseInlineEditableField;
 }
 
 export function resolveWordFinderInlineEditField(
   result: WordFinderResult,
   field: InlineEditableWordFinderField,
 ): EditableFieldConfig | null {
-  if (result.type === "famousQuote") {
+  if (result.type === "famousQuote" || result.schemaVariant === "jlpt") {
     return null;
   }
 
@@ -48,6 +65,47 @@ export function resolveCourseInlineEditField(
   const { word, isCollocation, isFamousQuote, field } = args;
   if (isFamousQuote || isFamousQuoteWord(word)) {
     return null;
+  }
+
+  if (args.isJlpt || isJlptWord(word)) {
+    const jlptWord = word as JlptWord;
+
+    switch (field) {
+      case "primaryText":
+        return {
+          sourceField: "word",
+          value: jlptWord.word,
+        };
+      case "meaningEnglish":
+        return {
+          sourceField: "meaningEnglish",
+          value: jlptWord.meaningEnglish,
+        };
+      case "meaningKorean":
+        return {
+          sourceField: "meaningKorean",
+          value: jlptWord.meaningKorean,
+        };
+      case "example":
+        return {
+          sourceField: "example",
+          value: jlptWord.example,
+        };
+      case "translationEnglish":
+        return {
+          sourceField: "translationEnglish",
+          value: jlptWord.translationEnglish,
+        };
+      case "translationKorean":
+        return {
+          sourceField: "translationKorean",
+          value: jlptWord.translationKorean,
+        };
+      case "meaning":
+        return null;
+      default:
+        return null;
+    }
   }
 
   if (field === "meaning") {
@@ -93,11 +151,30 @@ export function applyWordFinderInlineEdit(
 
 export function applyCourseInlineEdit(
   word: Word,
-  field: InlineEditableWordFinderField,
+  field: CourseInlineEditableField,
   value: string,
-): Partial<StandardWord> | Partial<CollocationWord> | null {
+): Partial<StandardWord> | Partial<JlptWord> | Partial<CollocationWord> | null {
   if (isFamousQuoteWord(word)) {
     return null;
+  }
+
+  if (isJlptWord(word)) {
+    switch (field) {
+      case "primaryText":
+        return { word: value };
+      case "meaningEnglish":
+        return { meaningEnglish: value };
+      case "meaningKorean":
+        return { meaningKorean: value };
+      case "example":
+        return { example: value };
+      case "translationEnglish":
+        return { translationEnglish: value };
+      case "translationKorean":
+        return { translationKorean: value };
+      default:
+        return null;
+    }
   }
 
   if (field === "meaning") {

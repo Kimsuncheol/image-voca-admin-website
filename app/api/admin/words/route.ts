@@ -55,6 +55,7 @@ function createStandardResult(
     courseId: course.id,
     courseLabel: course.label,
     coursePath: course.path,
+    schemaVariant: "standard",
     dayId,
     sourceHref: `/courses/${course.id}/${dayId}`,
     type: "standard",
@@ -64,6 +65,44 @@ function createStandardResult(
     translation: normalizeNullableWordFinderText(data.translation),
     example: normalizeNullableWordFinderText(data.example),
     pronunciation: normalizeNullableWordFinderText(data.pronunciation),
+    imageUrl: normalizeNullableWordFinderText(data.imageUrl),
+  };
+}
+
+function createJlptResult(
+  course: Course,
+  dayId: string,
+  id: string,
+  data: Record<string, unknown>,
+): WordFinderResult | null {
+  const word = normalizeWordFinderText(data.word);
+  if (!word) return null;
+
+  const meaningEnglish = normalizeNullableWordFinderText(data.meaningEnglish);
+  const meaningKorean = normalizeNullableWordFinderText(data.meaningKorean);
+  const translationEnglish = normalizeNullableWordFinderText(data.translationEnglish);
+  const translationKorean = normalizeNullableWordFinderText(data.translationKorean);
+
+  return {
+    id,
+    courseId: course.id,
+    courseLabel: course.label,
+    coursePath: course.path,
+    schemaVariant: "jlpt",
+    dayId,
+    sourceHref: `/courses/${course.id}/${dayId}`,
+    type: "standard",
+    primaryText: word,
+    secondaryText: [meaningEnglish, meaningKorean].filter(Boolean).join(" / ") || null,
+    meaning: [meaningEnglish, meaningKorean].filter(Boolean).join(" / ") || null,
+    meaningEnglish,
+    meaningKorean,
+    translation: [translationEnglish, translationKorean].filter(Boolean).join(" / ") || null,
+    translationEnglish,
+    translationKorean,
+    example: normalizeNullableWordFinderText(data.example),
+    pronunciation: normalizeNullableWordFinderText(data.pronunciation),
+    pronunciationRoman: normalizeNullableWordFinderText(data.pronunciationRoman),
     imageUrl: normalizeNullableWordFinderText(data.imageUrl),
   };
 }
@@ -82,6 +121,7 @@ function createCollocationResult(
     courseId: course.id,
     courseLabel: course.label,
     coursePath: course.path,
+    schemaVariant: "collocation",
     dayId,
     sourceHref: `/courses/${course.id}/${dayId}`,
     type: "collocation",
@@ -108,6 +148,7 @@ function createFamousQuoteResult(
     courseId: course.id,
     courseLabel: course.label,
     coursePath: course.path,
+    schemaVariant: "famousQuote",
     dayId: null,
     sourceHref: `/courses/${course.id}`,
     type: "famousQuote",
@@ -159,8 +200,10 @@ async function getCourseResults(course: Course): Promise<WordFinderResult[]> {
         snapshot.docs.forEach((doc) => {
           const data = doc.data() as Record<string, unknown>;
           const result =
-            course.id === "COLLOCATIONS"
+            course.schema === "collocation"
               ? createCollocationResult(course, dayId, doc.id, data)
+              : course.schema === "jlpt"
+                ? createJlptResult(course, dayId, doc.id, data)
               : createStandardResult(course, dayId, doc.id, data);
           if (result) dayResults.push(result);
         });

@@ -14,10 +14,16 @@ vi.mock("react-i18next", () => ({
         "courses.collocation": "Collocation",
         "courses.meaning": "Meaning",
         "courses.explanation": "Explanation",
+        "courses.word": "Word",
+        "courses.pronunciation": "Pronunciation",
         "courses.example": "Example",
         "courses.translation": "Translation",
         "courses.image": "Image",
         "words.generateNewImage": "Generate new image",
+        "courses.generatePronunciation": "Generate pronunciation",
+        "courses.missingWordValue": "Missing word",
+        "courses.missingMeaningValue": "Missing meaning",
+        "words.none": "None",
       };
 
       return labels[key] ?? key;
@@ -65,5 +71,42 @@ describe("WordTable", () => {
     assert.ok(markup.includes("Image"));
     assert.ok(markup.includes("https://example.com/collocation.png"));
     expect(markup).toContain("take off");
+  });
+
+  it("renders JLPT-specific columns and values", () => {
+    const markup = renderToStaticMarkup(
+      <WordTable
+        words={[
+          {
+            id: "jlpt-1",
+            word: "猫",
+            meaningEnglish: "cat",
+            meaningKorean: "고양이",
+            pronunciation: "ねこ",
+            pronunciationRoman: "neko",
+            example: "猫がいる。",
+            translationEnglish: "There is a cat.",
+            translationKorean: "고양이가 있다.",
+            imageUrl: "https://example.com/jlpt.png",
+          },
+        ]}
+        isCollocation={false}
+        isJlpt
+        showImageUrl
+        courseId="JLPT"
+        coursePath="courses/JLPT"
+        dayId="Day1"
+      />,
+    );
+
+    expect(markup).toContain("Meaning (English)");
+    expect(markup).toContain("Meaning (Korean)");
+    expect(markup).toContain("Pronunciation (Roman)");
+    expect(markup).toContain("Translation (English)");
+    expect(markup).toContain("Translation (Korean)");
+    expect(markup).toContain("Image");
+    expect(markup).toContain("猫");
+    expect(markup).toContain("neko");
+    expect(markup).toContain("https://example.com/jlpt.png");
   });
 });

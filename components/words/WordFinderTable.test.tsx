@@ -69,6 +69,7 @@ function createResult(overrides: Partial<WordFinderResult>): WordFinderResult {
     coursePath: "courses/TOEIC",
     dayId: "Day1",
     sourceHref: "/courses/TOEIC/Day1",
+    schemaVariant: "standard",
     type: "standard",
     primaryText: "wander",
     secondaryText: "to move around",
@@ -125,5 +126,37 @@ describe("WordFinderTable", () => {
     assert.ok(markup.includes("https://example.com/wander.png"));
     assert.ok(markup.includes("https://example.com/collocation.png"));
     expect(markup).not.toContain("Missing image");
+  });
+
+  it("renders JLPT image thumbnails in the compact finder", () => {
+    const markup = renderToStaticMarkup(
+      <WordFinderTable
+        results={[
+          createResult({
+            id: "jlpt-1",
+            courseId: "JLPT",
+            courseLabel: "JLPT",
+            coursePath: "courses/JLPT",
+            sourceHref: "/courses/JLPT/Day1",
+            dayId: "Day1",
+            schemaVariant: "jlpt",
+            primaryText: "猫",
+            secondaryText: "cat / 고양이",
+            meaning: "cat / 고양이",
+            meaningEnglish: "cat",
+            meaningKorean: "고양이",
+            pronunciation: "ねこ",
+            pronunciationRoman: "neko",
+            translation: "There is a cat. / 고양이가 있다.",
+            translationEnglish: "There is a cat.",
+            translationKorean: "고양이가 있다.",
+            imageUrl: "https://example.com/jlpt.png",
+          }),
+        ]}
+      />,
+    );
+
+    expect(markup).toContain("https://example.com/jlpt.png");
+    expect(markup).toContain("Has image");
   });
 });

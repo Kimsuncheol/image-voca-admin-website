@@ -2,9 +2,11 @@ import type { CourseId } from "../types/course.ts";
 import type {
   CollocationWord,
   FamousQuoteWord,
+  JlptWord,
   StandardWord,
   Word,
 } from "../types/word.ts";
+import { isJlptWord } from "../types/word.ts";
 import type {
   CourseDayActionableMissingField,
   CourseDayMissingField,
@@ -23,11 +25,21 @@ interface AdaptCourseWordToWordFinderResultArgs {
   coursePath: string;
   dayId?: string;
   isCollocation: boolean;
+  isJlpt?: boolean;
   isFamousQuote?: boolean;
 }
 
 export type CourseWordResolvedUpdates = Partial<
   Pick<StandardWord, "pronunciation" | "example" | "translation" | "imageUrl"> &
+    Pick<
+      JlptWord,
+      | "pronunciation"
+      | "pronunciationRoman"
+      | "example"
+      | "translationEnglish"
+      | "translationKorean"
+      | "imageUrl"
+    > &
     Pick<CollocationWord, "example" | "translation" | "imageUrl"> &
     Pick<FamousQuoteWord, "translation">
 >;
@@ -37,7 +49,10 @@ function hasTrimmedText(value: string | null | undefined): boolean {
 }
 
 function getWordFinderType(
-  args: Pick<AdaptCourseWordToWordFinderResultArgs, "isCollocation" | "isFamousQuote">,
+  args: Pick<
+    AdaptCourseWordToWordFinderResultArgs,
+    "isCollocation" | "isFamousQuote"
+  >,
 ): WordFinderType {
   if (args.isFamousQuote) return "famousQuote";
   if (args.isCollocation) return "collocation";
@@ -54,6 +69,7 @@ export function adaptCourseWordToWordFinderResult(
     coursePath,
     dayId,
     isCollocation,
+    isJlpt,
     isFamousQuote,
   } = args;
   const type = getWordFinderType({ isCollocation, isFamousQuote });
@@ -66,6 +82,7 @@ export function adaptCourseWordToWordFinderResult(
       courseId,
       courseLabel,
       coursePath,
+      schemaVariant: "famousQuote",
       dayId: null,
       sourceHref: `/courses/${courseId}`,
       type,
@@ -87,6 +104,7 @@ export function adaptCourseWordToWordFinderResult(
       courseId,
       courseLabel,
       coursePath,
+      schemaVariant: "collocation",
       dayId: dayId ?? null,
       sourceHref: `/courses/${courseId}/${dayId ?? ""}`,
       type,
@@ -100,12 +118,46 @@ export function adaptCourseWordToWordFinderResult(
     };
   }
 
+  if (isJlpt || isJlptWord(word)) {
+    const jlpt = word as JlptWord;
+    const meaningSummary = [jlpt.meaningEnglish, jlpt.meaningKorean]
+      .filter(hasTrimmedText)
+      .join(" / ");
+    const translationSummary = [jlpt.translationEnglish, jlpt.translationKorean]
+      .filter(hasTrimmedText)
+      .join(" / ");
+
+    return {
+      id: jlpt.id,
+      courseId,
+      courseLabel,
+      coursePath,
+      schemaVariant: "jlpt",
+      dayId: dayId ?? null,
+      sourceHref: `/courses/${courseId}/${dayId ?? ""}`,
+      type,
+      primaryText: jlpt.word,
+      secondaryText: meaningSummary || null,
+      meaning: meaningSummary || null,
+      meaningEnglish: jlpt.meaningEnglish || null,
+      meaningKorean: jlpt.meaningKorean || null,
+      translation: translationSummary || null,
+      translationEnglish: jlpt.translationEnglish || null,
+      translationKorean: jlpt.translationKorean || null,
+      example: jlpt.example || null,
+      pronunciation: jlpt.pronunciation || null,
+      pronunciationRoman: jlpt.pronunciationRoman || null,
+      imageUrl: jlpt.imageUrl || null,
+    };
+  }
+
   const standard = word as StandardWord;
   return {
     id: standard.id,
     courseId,
     courseLabel,
     coursePath,
+    schemaVariant: "standard",
     dayId: dayId ?? null,
     sourceHref: `/courses/${courseId}/${dayId ?? ""}`,
     type,
@@ -123,6 +175,7 @@ export function getWordTableMissingActionField(
   word: Word,
   args: {
     isCollocation: boolean;
+    isJlpt?: boolean;
     isFamousQuote?: boolean;
     showImageUrl?: boolean;
   },
@@ -146,6 +199,7 @@ export function isCourseWordFieldMissing(
   word: Word,
   args: {
     isCollocation: boolean;
+    isJlpt?: boolean;
     isFamousQuote?: boolean;
     showImageUrl?: boolean;
   },
@@ -178,6 +232,30 @@ export function isCourseWordFieldMissing(
     }
   }
 
+  if (args.isJlpt || isJlptWord(word)) {
+    const jlpt = word as JlptWord;
+
+    switch (field) {
+      case "primaryText":
+        return !hasTrimmedText(jlpt.word);
+      case "meaning":
+        return !hasTrimmedText(jlpt.meaningEnglish) || !hasTrimmedText(jlpt.meaningKorean);
+      case "pronunciation":
+        return !hasTrimmedText(jlpt.pronunciation) || !hasTrimmedText(jlpt.pronunciationRoman);
+      case "example":
+        return !hasTrimmedText(jlpt.example);
+      case "translation":
+        return (
+          !hasTrimmedText(jlpt.translationEnglish) ||
+          !hasTrimmedText(jlpt.translationKorean)
+        );
+      case "image":
+        return Boolean(args.showImageUrl) && !hasTrimmedText(jlpt.imageUrl);
+      default:
+        return false;
+    }
+  }
+
   const standard = word as StandardWord;
 
   switch (field) {
@@ -202,6 +280,7 @@ export function getCourseWordMissingFields(
   word: Word,
   args: {
     isCollocation: boolean;
+    isJlpt?: boolean;
     isFamousQuote?: boolean;
     showImageUrl?: boolean;
   },
@@ -228,11 +307,20 @@ export function applyCourseWordResolvedUpdates(
   if (typeof updates.pronunciation === "string") {
     next.pronunciation = updates.pronunciation;
   }
+  if (typeof updates.pronunciationRoman === "string" && isJlptWord(word)) {
+    next.pronunciationRoman = updates.pronunciationRoman;
+  }
   if (typeof updates.example === "string") {
     next.example = updates.example;
   }
   if (typeof updates.translation === "string") {
     next.translation = updates.translation;
+  }
+  if (typeof updates.translationEnglish === "string" && isJlptWord(word)) {
+    next.translationEnglish = updates.translationEnglish;
+  }
+  if (typeof updates.translationKorean === "string" && isJlptWord(word)) {
+    next.translationKorean = updates.translationKorean;
   }
   if (typeof updates.imageUrl === "string" && !("quote" in word)) {
     next.imageUrl = updates.imageUrl;

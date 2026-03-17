@@ -15,6 +15,19 @@ export interface StandardWord {
   derivativeInfo?: PersistedDerivativeInfo;
 }
 
+export interface JlptWord {
+  id: string;
+  word: string;
+  meaningEnglish: string;
+  meaningKorean: string;
+  pronunciation: string;
+  pronunciationRoman: string;
+  example: string;
+  translationEnglish: string;
+  translationKorean: string;
+  imageUrl?: string;
+}
+
 export interface CollocationWord {
   id: string;
   collocation: string;
@@ -32,12 +45,16 @@ export interface FamousQuoteWord {
   translation: string;
 }
 
-export type Word = StandardWord | CollocationWord | FamousQuoteWord;
+export type Word = StandardWord | JlptWord | CollocationWord | FamousQuoteWord;
+
+export function isJlptWord(w: Word): w is JlptWord {
+  return "meaningEnglish" in w && "meaningKorean" in w;
+}
 
 export function isCollocationWord(w: Word): w is CollocationWord {
-  return 'collocation' in w;
+  return "collocation" in w;
 }
 
 export function isFamousQuoteWord(w: Word): w is FamousQuoteWord {
-  return 'quote' in w;
+  return "quote" in w;
 }
