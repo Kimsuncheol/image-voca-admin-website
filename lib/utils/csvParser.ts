@@ -39,7 +39,7 @@ const JLPT_HEADERS = [
   'translation(english)',
   'translation(korean)',
 ] as const;
-const JLPT_OPTIONAL_HEADERS = ['imageurl'] as const;
+const JLPT_OPTIONAL_HEADERS = ['imageurl', 'example(roman)'] as const;
 const COLLOCATION_HEADERS = ['collocation', 'meaning', 'explanation', 'example', 'translation'] as const;
 const FAMOUS_QUOTE_HEADERS = ['quote', 'author', 'translation'] as const;
 const STANDARD_THIRD_HEADER_SET = new Set(['pronunciation', 'pronounciation']);
@@ -90,6 +90,7 @@ function normalizeRow(row: Record<string, unknown>, schemaType: SchemaType): Rec
       '_5',
     ];
     const exampleAliases = ['example', 'example sentence', '_6'];
+    const exampleRomanAliases = ['example(roman)', 'example roman', 'example_roman', '_10'];
     const translationEnglishAliases = [
       'translation(english)',
       'translation english',
@@ -114,6 +115,7 @@ function normalizeRow(row: Record<string, unknown>, schemaType: SchemaType): Rec
       else if (pronunciationAliases.includes(cleanKey)) normalized['pronunciation'] = cleanValue;
       else if (pronunciationRomanAliases.includes(cleanKey)) normalized['pronunciationRoman'] = cleanValue;
       else if (exampleAliases.includes(cleanKey)) normalized['example'] = cleanValue;
+      else if (exampleRomanAliases.includes(cleanKey)) normalized['exampleRoman'] = cleanValue;
       else if (translationEnglishAliases.includes(cleanKey)) normalized['translationEnglish'] = cleanValue;
       else if (translationKoreanAliases.includes(cleanKey)) normalized['translationKorean'] = cleanValue;
       else if (imageUrlAliases.includes(cleanKey)) normalized['imageUrl'] = cleanValue;
@@ -126,6 +128,7 @@ function normalizeRow(row: Record<string, unknown>, schemaType: SchemaType): Rec
     normalized['pronunciation'] = normalized['pronunciation'] ?? '';
     normalized['pronunciationRoman'] = normalized['pronunciationRoman'] ?? '';
     normalized['example'] = normalized['example'] ?? '';
+    normalized['exampleRoman'] = normalized['exampleRoman'] ?? '';
     normalized['translationEnglish'] = normalized['translationEnglish'] ?? '';
     normalized['translationKorean'] = normalized['translationKorean'] ?? '';
     normalized['imageUrl'] = normalized['imageUrl'] ?? '';
@@ -331,7 +334,7 @@ const KNOWN_FIELDS = new Set([
   'meaning(english)', 'meaning english', 'meaning(korean)', 'meaning korean',
   'pronunciation', 'pronounciation',
   'pronunciation(roman)', 'pronunciation roman', 'roman',
-  'explanation', 'example', 'example sentence', 'translation',
+  'explanation', 'example', 'example sentence', 'example(roman)', 'example roman', 'translation',
   'translation(english)', 'translation english', 'translation(korean)', 'translation korean',
   'quote', 'author',
 ]);

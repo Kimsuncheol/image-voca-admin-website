@@ -36,6 +36,7 @@ export interface WordFinderResult {
   example: string | null;
   pronunciation: string | null;
   pronunciationRoman?: string | null;
+  exampleRoman?: string | null;
   imageUrl: string | null;
 }
 
@@ -48,6 +49,7 @@ export type WordFinderResultFieldUpdates = Partial<
     | "pronunciation"
     | "pronunciationRoman"
     | "example"
+    | "exampleRoman"
     | "translation"
     | "translationEnglish"
     | "translationKorean"

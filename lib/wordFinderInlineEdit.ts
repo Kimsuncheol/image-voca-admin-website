@@ -13,6 +13,7 @@ export type CourseInlineEditableField =
   | "meaningEnglish"
   | "meaningKorean"
   | "example"
+  | "exampleRoman"
   | "translationEnglish"
   | "translationKorean";
 export type EditableWordTextField =
@@ -22,6 +23,7 @@ export type EditableWordTextField =
   | "meaningEnglish"
   | "meaningKorean"
   | "example"
+  | "exampleRoman"
   | "translationEnglish"
   | "translationKorean";
 
@@ -90,6 +92,11 @@ export function resolveCourseInlineEditField(
         return {
           sourceField: "example",
           value: jlptWord.example,
+        };
+      case "exampleRoman":
+        return {
+          sourceField: "exampleRoman",
+          value: jlptWord.exampleRoman,
         };
       case "translationEnglish":
         return {
@@ -168,6 +175,8 @@ export function applyCourseInlineEdit(
         return { meaningKorean: value };
       case "example":
         return { example: value };
+      case "exampleRoman":
+        return { exampleRoman: value };
       case "translationEnglish":
         return { translationEnglish: value };
       case "translationKorean":

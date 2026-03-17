@@ -36,6 +36,7 @@ export type CourseWordResolvedUpdates = Partial<
       | "pronunciation"
       | "pronunciationRoman"
       | "example"
+      | "exampleRoman"
       | "translationEnglish"
       | "translationKorean"
       | "imageUrl"
@@ -145,6 +146,7 @@ export function adaptCourseWordToWordFinderResult(
       translationEnglish: jlpt.translationEnglish || null,
       translationKorean: jlpt.translationKorean || null,
       example: jlpt.example || null,
+      exampleRoman: jlpt.exampleRoman || null,
       pronunciation: jlpt.pronunciation || null,
       pronunciationRoman: jlpt.pronunciationRoman || null,
       imageUrl: jlpt.imageUrl || null,
@@ -312,6 +314,9 @@ export function applyCourseWordResolvedUpdates(
   }
   if (typeof updates.example === "string") {
     next.example = updates.example;
+  }
+  if (typeof updates.exampleRoman === "string" && isJlptWord(word)) {
+    next.exampleRoman = updates.exampleRoman;
   }
   if (typeof updates.translation === "string") {
     next.translation = updates.translation;

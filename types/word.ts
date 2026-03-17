@@ -23,6 +23,7 @@ export interface JlptWord {
   pronunciation: string;
   pronunciationRoman: string;
   example: string;
+  exampleRoman: string;
   translationEnglish: string;
   translationKorean: string;
   imageUrl?: string;

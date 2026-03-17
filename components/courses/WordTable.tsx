@@ -201,6 +201,7 @@ type WordTableLocalUpdates = Partial<
       | "pronunciation"
       | "pronunciationRoman"
       | "example"
+      | "exampleRoman"
       | "translationEnglish"
       | "translationKorean"
       | "imageUrl"
@@ -559,6 +560,7 @@ export default function WordTable({
                   <TableCell>{t("courses.pronunciation")}</TableCell>
                   <TableCell>Pronunciation (Roman)</TableCell>
                   <TableCell>{t("courses.example")}</TableCell>
+                  <TableCell>Example (Roman)</TableCell>
                   <TableCell>Translation (English)</TableCell>
                   <TableCell>Translation (Korean)</TableCell>
                   {showImageUrl && <TableCell>{t("courses.image", "Image")}</TableCell>}
@@ -702,6 +704,12 @@ export default function WordTable({
                     </TableCell>
                     <TableCell>
                       {renderEditableTextCell(mergedWord, "example", mergedWord.example, {
+                        emptyLabel: t("words.none"),
+                        textVariant: "body2",
+                      })}
+                    </TableCell>
+                    <TableCell>
+                      {renderEditableTextCell(mergedWord, "exampleRoman", mergedWord.exampleRoman, {
                         emptyLabel: t("words.none"),
                         textVariant: "body2",
                       })}

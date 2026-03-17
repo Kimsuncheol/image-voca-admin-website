@@ -103,6 +103,7 @@ function createJlptResult(
     example: normalizeNullableWordFinderText(data.example),
     pronunciation: normalizeNullableWordFinderText(data.pronunciation),
     pronunciationRoman: normalizeNullableWordFinderText(data.pronunciationRoman),
+    exampleRoman: normalizeNullableWordFinderText(data.exampleRoman),
     imageUrl: normalizeNullableWordFinderText(data.imageUrl),
   };
 }
