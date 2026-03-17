@@ -84,6 +84,7 @@ export default function CourseSelector({
               sx={{
                 borderRadius: "999px",
                 fontWeight: value === level.id ? 600 : 400,
+                "& .MuiChip-label": { px: "4px", py: "2px" },
               }}
             />
           ))}

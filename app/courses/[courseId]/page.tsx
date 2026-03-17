@@ -153,6 +153,7 @@ export default function CourseDaysPage({
               sx={{
                 borderRadius: "999px",
                 fontWeight: courseId === level.id ? 600 : 400,
+                "& .MuiChip-label": { px: "4px", py: "2px" },
               }}
             />
           ))}
