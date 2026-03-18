@@ -1,6 +1,6 @@
 "use client";
 
-import type { KeyboardEvent } from "react";
+import type { ClipboardEvent, KeyboardEvent } from "react";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import type { SxProps, Theme } from "@mui/material/styles";
@@ -16,6 +16,7 @@ interface InlineEditableTextProps {
   onDraftChange: (value: string) => void;
   onCommit: () => void;
   onCancel: () => void;
+  onPaste?: (event: ClipboardEvent<HTMLInputElement>) => void;
   textVariant?: "body1" | "body2";
   fontWeight?: number;
   sx?: SxProps<Theme>;
@@ -32,6 +33,7 @@ export default function InlineEditableText({
   onDraftChange,
   onCommit,
   onCancel,
+  onPaste,
   textVariant = "body1",
   fontWeight,
   sx,
@@ -62,6 +64,7 @@ export default function InlineEditableText({
         onChange={(event) => onDraftChange(event.target.value)}
         onBlur={onCommit}
         onKeyDown={handleKeyDown}
+        onPaste={onPaste}
       />
     );
   }

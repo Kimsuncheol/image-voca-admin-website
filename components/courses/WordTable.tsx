@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, type MouseEvent, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useState, type ClipboardEvent, type MouseEvent, type ReactNode } from "react";
 import Table from "@mui/material/Table";
 import TableBody from "@mui/material/TableBody";
 import TableCell from "@mui/material/TableCell";
@@ -313,6 +313,12 @@ interface WordTableProps {
   onWordFieldsUpdated?: (wordId: string, fields: WordFinderResultFieldUpdates) => void;
 }
 
+function filterJapanese(text: string): string {
+  return text
+    .replace(/[^\u3000-\u9FFF\uF900-\uFAFF\uFF01-\uFF9F\u31F0-\u31FF ]/g, "")
+    .trim();
+}
+
 export default function WordTable({
   words,
   isCollocation,
@@ -469,6 +475,21 @@ export default function WordTable({
     setEditingCell((prev) => (prev ? { ...prev, draft, error: "" } : prev));
   }, []);
 
+  const handleJlptExamplePaste = useCallback(
+    (event: ClipboardEvent<HTMLInputElement>) => {
+      event.preventDefault();
+      const raw = event.clipboardData.getData("text");
+      let filtered = filterJapanese(raw);
+      if (filtered && !filtered.endsWith("。")) {
+        filtered += "。";
+      }
+      if (filtered) {
+        updateInlineDraft(filtered);
+      }
+    },
+    [updateInlineDraft],
+  );
+
   const cancelInlineEdit = useCallback(() => {
     setEditingCell(null);
   }, []);
@@ -576,6 +597,7 @@ export default function WordTable({
             void commitInlineEdit(word);
           }}
           onCancel={cancelInlineEdit}
+          onPaste={isJlpt && field === "example" ? handleJlptExamplePaste : undefined}
         />
       );
     },
@@ -584,6 +606,7 @@ export default function WordTable({
       cancelInlineEdit,
       commitInlineEdit,
       editingCell,
+      handleJlptExamplePaste,
       isCollocation,
       isJlpt,
       isFamousQuote,
