@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useState, type MouseEvent, type ReactNode } from "react";
 import Table from "@mui/material/Table";
 import TableBody from "@mui/material/TableBody";
 import TableCell from "@mui/material/TableCell";
@@ -99,13 +99,26 @@ function OrderedItemRow({ item }: { item: OrderedItem }) {
   );
 }
 
-function ExampleCell({ text }: { text: string | undefined }) {
-  if (!text) return <TableCell />;
+function ExampleCell({
+  text,
+  onClick,
+  selected,
+}: {
+  text: string | undefined;
+  onClick?: (e: MouseEvent<HTMLTableCellElement>) => void;
+  selected?: boolean;
+}) {
+  const cellSx = {
+    cursor: onClick ? "pointer" : undefined,
+    bgcolor: selected ? "action.selected" : undefined,
+    "&:hover": onClick ? { bgcolor: selected ? "action.selected" : "action.hover" } : undefined,
+  };
+  if (!text) return <TableCell onClick={onClick} sx={cellSx} />;
 
   const lines = text.split(DIALOGUE_SPLIT_REGEX);
 
   return (
-    <TableCell>
+    <TableCell onClick={onClick} sx={cellSx}>
       <Box
         sx={{
           borderLeft: "3px solid",
@@ -217,6 +230,11 @@ interface EditingCellState {
   error: string;
 }
 
+interface CellPos {
+  row: number;
+  col: number;
+}
+
 interface WordTableProps {
   words: Word[];
   isCollocation: boolean;
@@ -249,6 +267,8 @@ export default function WordTable({
   const [activeWordId, setActiveWordId] = useState("");
   const [activeField, setActiveField] = useState<WordFinderActionField | null>(null);
   const [editingCell, setEditingCell] = useState<EditingCellState | null>(null);
+  const [selectionAnchor, setSelectionAnchor] = useState<CellPos | null>(null);
+  const [selectionExtent, setSelectionExtent] = useState<CellPos | null>(null);
 
   const courseLabel = useMemo(() => {
     if (!courseId) return "";
@@ -540,6 +560,103 @@ export default function WordTable({
     [isCollocation, isJlpt, isFamousQuote, showImageUrl],
   );
 
+  // 2D grid of copyable text per cell, schema-aware.
+  const cellGrid = useMemo(() => {
+    return words.map((word) => {
+      const m = { ...word, ...localWordUpdates[word.id] } as Word;
+      if (isJlpt && isJlptWord(m)) {
+        return [
+          m.word, m.meaningEnglish, m.meaningKorean,
+          m.pronunciation, m.pronunciationRoman,
+          m.example, m.exampleRoman,
+          m.translationEnglish, m.translationKorean,
+          "", // image
+        ];
+      }
+      if (isCollocation && isCollocationWord(m)) {
+        return [m.collocation, m.meaning, m.explanation, m.example, m.translation, ""];
+      }
+      if (isFamousQuote && isFamousQuoteWord(m)) {
+        return [m.quote, m.author, m.translation];
+      }
+      const s = m as StandardWord;
+      return [s.word, s.meaning, s.pronunciation, s.example, s.translation, ""];
+    });
+  }, [words, localWordUpdates, isJlpt, isCollocation, isFamousQuote]);
+
+  const isCellSelected = useCallback(
+    (row: number, col: number): boolean => {
+      if (!selectionAnchor || !selectionExtent) return false;
+      const minRow = Math.min(selectionAnchor.row, selectionExtent.row);
+      const maxRow = Math.max(selectionAnchor.row, selectionExtent.row);
+      const minCol = Math.min(selectionAnchor.col, selectionExtent.col);
+      const maxCol = Math.max(selectionAnchor.col, selectionExtent.col);
+      return row >= minRow && row <= maxRow && col >= minCol && col <= maxCol;
+    },
+    [selectionAnchor, selectionExtent],
+  );
+
+  const copyRangeToClipboard = useCallback(
+    (anchor: CellPos, extent: CellPos) => {
+      const minRow = Math.min(anchor.row, extent.row);
+      const maxRow = Math.max(anchor.row, extent.row);
+      const minCol = Math.min(anchor.col, extent.col);
+      const maxCol = Math.max(anchor.col, extent.col);
+      const rows: string[] = [];
+      for (let r = minRow; r <= maxRow; r++) {
+        const cols: string[] = [];
+        for (let c = minCol; c <= maxCol; c++) {
+          cols.push(cellGrid[r]?.[c] ?? "");
+        }
+        rows.push(cols.join("\t"));
+      }
+      void navigator.clipboard.writeText(rows.join("\n"));
+    },
+    [cellGrid],
+  );
+
+  const selectableCellSx = useCallback(
+    (row: number, col: number) => ({
+      cursor: "pointer",
+      bgcolor: isCellSelected(row, col) ? "action.selected" : undefined,
+      "&:hover": { bgcolor: isCellSelected(row, col) ? "action.selected" : "action.hover" },
+    }),
+    [isCellSelected],
+  );
+
+  const handleCellClick = useCallback(
+    (e: MouseEvent, row: number, col: number) => {
+      e.stopPropagation();
+      if (e.shiftKey && selectionAnchor) {
+        const newExtent = { row, col };
+        setSelectionExtent(newExtent);
+        copyRangeToClipboard(selectionAnchor, newExtent);
+      } else {
+        setSelectionAnchor({ row, col });
+        setSelectionExtent({ row, col });
+        const text = cellGrid[row]?.[col] ?? "";
+        if (text) void navigator.clipboard.writeText(text);
+      }
+    },
+    [cellGrid, copyRangeToClipboard, selectionAnchor],
+  );
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setSelectionAnchor(null);
+        setSelectionExtent(null);
+        return;
+      }
+      if (e.key === "c" && (e.metaKey || e.ctrlKey) && selectionAnchor && selectionExtent) {
+        e.preventDefault();
+        copyRangeToClipboard(selectionAnchor, selectionExtent);
+      }
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [selectionAnchor, selectionExtent, copyRangeToClipboard]);
+
   return (
     <>
       <TableContainer component={Paper}>
@@ -587,27 +704,40 @@ export default function WordTable({
             </TableRow>
           </TableHead>
           <TableBody>
-            {words.map((word) => {
+            {words.map((word, rowIdx) => {
               const mergedWord = { ...word, ...localWordUpdates[word.id] } as Word;
 
               return (
                 <TableRow key={word.id}>
                   {isCollocationWord(mergedWord) ? (
                   <>
-                    <TableCell>
+                    <TableCell
+                      onClick={(e) => handleCellClick(e, rowIdx, 0)}
+                      sx={selectableCellSx(rowIdx, 0)}
+                    >
                       {renderEditableTextCell(mergedWord, "primaryText", mergedWord.collocation, {
                         emptyLabel: t("courses.missingCollocationValue"),
                       })}
                     </TableCell>
-                    <TableCell>
+                    <TableCell
+                      onClick={(e) => handleCellClick(e, rowIdx, 1)}
+                      sx={selectableCellSx(rowIdx, 1)}
+                    >
                       {renderEditableTextCell(mergedWord, "meaning", mergedWord.meaning, {
                         emptyLabel: t("courses.missingMeaningValue"),
                       })}
                     </TableCell>
-                    <TableCell>{mergedWord.explanation}</TableCell>
+                    <TableCell
+                      onClick={(e) => handleCellClick(e, rowIdx, 2)}
+                      sx={selectableCellSx(rowIdx, 2)}
+                    >
+                      {mergedWord.explanation}
+                    </TableCell>
                     {!isMissingField(mergedWord, "example") ? (
                       <ExampleCell
                         text={getResolvedTextField(word.id, "example") || mergedWord.example}
+                        onClick={(e) => handleCellClick(e, rowIdx, 3)}
+                        selected={isCellSelected(rowIdx, 3)}
                       />
                     ) : (
                       <MissingFieldTrigger
@@ -621,6 +751,8 @@ export default function WordTable({
                         text={
                           getResolvedTextField(word.id, "translation") || mergedWord.translation
                         }
+                        onClick={(e) => handleCellClick(e, rowIdx, 4)}
+                        selected={isCellSelected(rowIdx, 4)}
                       />
                     ) : (
                       <MissingFieldTrigger
@@ -659,13 +791,19 @@ export default function WordTable({
                   </>
                   ) : isJlptWord(mergedWord) ? (
                   <>
-                    <TableCell>
+                    <TableCell
+                      onClick={(e) => handleCellClick(e, rowIdx, 0)}
+                      sx={selectableCellSx(rowIdx, 0)}
+                    >
                       {renderEditableTextCell(mergedWord, "primaryText", mergedWord.word, {
                         emptyLabel: t("courses.missingWordValue"),
                         fontWeight: 500,
                       })}
                     </TableCell>
-                    <TableCell>
+                    <TableCell
+                      onClick={(e) => handleCellClick(e, rowIdx, 1)}
+                      sx={selectableCellSx(rowIdx, 1)}
+                    >
                       {renderEditableTextCell(
                         mergedWord,
                         "meaningEnglish",
@@ -673,7 +811,10 @@ export default function WordTable({
                         { emptyLabel: t("courses.missingMeaningValue") },
                       )}
                     </TableCell>
-                    <TableCell>
+                    <TableCell
+                      onClick={(e) => handleCellClick(e, rowIdx, 2)}
+                      sx={selectableCellSx(rowIdx, 2)}
+                    >
                       {renderEditableTextCell(
                         mergedWord,
                         "meaningKorean",
@@ -683,7 +824,7 @@ export default function WordTable({
                     </TableCell>
                     <TableCell
                       onClick={() => openFieldModal(word.id, "pronunciation")}
-                      sx={{ cursor: "pointer", "&:hover": { bgcolor: "action.hover" } }}
+                      sx={selectableCellSx(rowIdx, 3)}
                     >
                       {!isMissingField(mergedWord, "pronunciation") ? (
                         mergedWord.pronunciation
@@ -695,7 +836,7 @@ export default function WordTable({
                     </TableCell>
                     <TableCell
                       onClick={() => openFieldModal(word.id, "pronunciation")}
-                      sx={{ cursor: "pointer", "&:hover": { bgcolor: "action.hover" } }}
+                      sx={selectableCellSx(rowIdx, 4)}
                     >
                       {!isMissingField(mergedWord, "pronunciation") ? (
                         mergedWord.pronunciationRoman
@@ -705,19 +846,28 @@ export default function WordTable({
                         </Tooltip>
                       )}
                     </TableCell>
-                    <TableCell>
+                    <TableCell
+                      onClick={(e) => handleCellClick(e, rowIdx, 5)}
+                      sx={selectableCellSx(rowIdx, 5)}
+                    >
                       {renderEditableTextCell(mergedWord, "example", mergedWord.example, {
                         emptyLabel: t("words.none"),
                         textVariant: "body2",
                       })}
                     </TableCell>
-                    <TableCell>
+                    <TableCell
+                      onClick={(e) => handleCellClick(e, rowIdx, 6)}
+                      sx={selectableCellSx(rowIdx, 6)}
+                    >
                       {renderEditableTextCell(mergedWord, "exampleRoman", mergedWord.exampleRoman, {
                         emptyLabel: t("words.none"),
                         textVariant: "body2",
                       })}
                     </TableCell>
-                    <TableCell>
+                    <TableCell
+                      onClick={(e) => handleCellClick(e, rowIdx, 7)}
+                      sx={selectableCellSx(rowIdx, 7)}
+                    >
                       {renderEditableTextCell(
                         mergedWord,
                         "translationEnglish",
@@ -728,7 +878,10 @@ export default function WordTable({
                         },
                       )}
                     </TableCell>
-                    <TableCell>
+                    <TableCell
+                      onClick={(e) => handleCellClick(e, rowIdx, 8)}
+                      sx={selectableCellSx(rowIdx, 8)}
+                    >
                       {renderEditableTextCell(
                         mergedWord,
                         "translationKorean",
@@ -769,10 +922,23 @@ export default function WordTable({
                   </>
                   ) : isFamousQuoteWord(mergedWord) ? (
                   <>
-                    <TableCell>{mergedWord.quote}</TableCell>
-                    <TableCell>{mergedWord.author}</TableCell>
+                    <TableCell
+                      onClick={(e) => handleCellClick(e, rowIdx, 0)}
+                      sx={selectableCellSx(rowIdx, 0)}
+                    >
+                      {mergedWord.quote}
+                    </TableCell>
+                    <TableCell
+                      onClick={(e) => handleCellClick(e, rowIdx, 1)}
+                      sx={selectableCellSx(rowIdx, 1)}
+                    >
+                      {mergedWord.author}
+                    </TableCell>
                     {mergedWord.translation || getResolvedTextField(word.id, "translation") ? (
-                      <TableCell>
+                      <TableCell
+                        onClick={(e) => handleCellClick(e, rowIdx, 2)}
+                        sx={selectableCellSx(rowIdx, 2)}
+                      >
                         {getResolvedTextField(word.id, "translation") || mergedWord.translation}
                       </TableCell>
                     ) : (
@@ -785,20 +951,26 @@ export default function WordTable({
                   </>
                   ) : (
                   <>
-                    <TableCell>
+                    <TableCell
+                      onClick={(e) => handleCellClick(e, rowIdx, 0)}
+                      sx={selectableCellSx(rowIdx, 0)}
+                    >
                       {renderEditableTextCell(mergedWord, "primaryText", mergedWord.word, {
                         emptyLabel: t("courses.missingWordValue"),
                         fontWeight: 500,
                       })}
                     </TableCell>
-                    <TableCell>
+                    <TableCell
+                      onClick={(e) => handleCellClick(e, rowIdx, 1)}
+                      sx={selectableCellSx(rowIdx, 1)}
+                    >
                       {renderEditableTextCell(mergedWord, "meaning", mergedWord.meaning, {
                         emptyLabel: t("courses.missingMeaningValue"),
                       })}
                     </TableCell>
                     <TableCell
                       onClick={() => openFieldModal(word.id, "pronunciation")}
-                      sx={{ cursor: "pointer", "&:hover": { bgcolor: "action.hover" } }}
+                      sx={selectableCellSx(rowIdx, 2)}
                     >
                       {!isMissingField(mergedWord, "pronunciation") ? (
                         getResolvedTextField(word.id, "pronunciation") || mergedWord.pronunciation
@@ -811,6 +983,8 @@ export default function WordTable({
                     {!isMissingField(mergedWord, "example") ? (
                       <ExampleCell
                         text={getResolvedTextField(word.id, "example") || mergedWord.example}
+                        onClick={(e) => handleCellClick(e, rowIdx, 3)}
+                        selected={isCellSelected(rowIdx, 3)}
                       />
                     ) : (
                       <MissingFieldTrigger
@@ -824,6 +998,8 @@ export default function WordTable({
                         text={
                           getResolvedTextField(word.id, "translation") || mergedWord.translation
                         }
+                        onClick={(e) => handleCellClick(e, rowIdx, 4)}
+                        selected={isCellSelected(rowIdx, 4)}
                       />
                     ) : (
                       <MissingFieldTrigger

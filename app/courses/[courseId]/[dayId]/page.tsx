@@ -260,6 +260,7 @@ export default function DayWordsPage({
   // ── Resolve course metadata from static list ──────────────────────
   // This is a synchronous lookup — no effect needed to detect a missing course.
   const course = getCourseById(courseId);
+  const isJlptLevel = courseId.startsWith("JLPT_N");
 
   // ── Course type detection ─────────────────────────────────────────
   // WordTable switches its column layout based on these flags.
@@ -697,6 +698,8 @@ export default function DayWordsPage({
       <CourseBreadcrumbs
         courseId={courseId}
         courseLabel={course?.label}
+        parentLabel={isJlptLevel ? "JLPT" : undefined}
+        parentHref={isJlptLevel ? "/courses/JLPT" : undefined}
         dayId={dayId}
         coursesLabel={t("courses.title")}
       />

@@ -141,6 +141,8 @@ export default function CourseDaysPage({
       <CourseBreadcrumbs
         courseId={courseId}
         courseLabel={course?.label}
+        parentLabel={isJlptLevel ? "JLPT" : undefined}
+        parentHref={isJlptLevel ? "/courses/JLPT" : undefined}
         coursesLabel={t("courses.title")}
       />
 

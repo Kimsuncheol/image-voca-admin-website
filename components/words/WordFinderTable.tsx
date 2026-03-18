@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, type MouseEvent } from "react";
 import LaunchIcon from "@mui/icons-material/Launch";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
@@ -22,6 +22,11 @@ import {
   formatWordFinderLocation,
   isWordFinderFieldMissing,
 } from "@/lib/wordFinderMissingFieldActions";
+
+interface CellPos {
+  row: number;
+  col: number;
+}
 import {
   resolveWordFinderInlineEditField,
   type InlineEditableWordFinderField,
@@ -99,6 +104,96 @@ export default function WordFinderTable({
 }: WordFinderTableProps) {
   const { t } = useTranslation();
   const [editingCell, setEditingCell] = useState<EditingCellState | null>(null);
+  const [selectionAnchor, setSelectionAnchor] = useState<CellPos | null>(null);
+  const [selectionExtent, setSelectionExtent] = useState<CellPos | null>(null);
+
+  // cols: 0=primaryText, 1=meaning, 2=translation, 3="" (image), 4=location, 5="" (status), 6="" (actions)
+  const cellGrid = useMemo(
+    () =>
+      results.map((r) => [
+        r.primaryText,
+        r.meaning || r.secondaryText || "",
+        r.translation ?? "",
+        "",
+        formatWordFinderLocation(r, ""),
+        "",
+        "",
+      ]),
+    [results],
+  );
+
+  const isCellSelected = useCallback(
+    (row: number, col: number): boolean => {
+      if (!selectionAnchor || !selectionExtent) return false;
+      const minRow = Math.min(selectionAnchor.row, selectionExtent.row);
+      const maxRow = Math.max(selectionAnchor.row, selectionExtent.row);
+      const minCol = Math.min(selectionAnchor.col, selectionExtent.col);
+      const maxCol = Math.max(selectionAnchor.col, selectionExtent.col);
+      return row >= minRow && row <= maxRow && col >= minCol && col <= maxCol;
+    },
+    [selectionAnchor, selectionExtent],
+  );
+
+  const copyRangeToClipboard = useCallback(
+    (anchor: CellPos, extent: CellPos) => {
+      const minRow = Math.min(anchor.row, extent.row);
+      const maxRow = Math.max(anchor.row, extent.row);
+      const minCol = Math.min(anchor.col, extent.col);
+      const maxCol = Math.max(anchor.col, extent.col);
+      const rows: string[] = [];
+      for (let r = minRow; r <= maxRow; r++) {
+        const cols: string[] = [];
+        for (let c = minCol; c <= maxCol; c++) {
+          cols.push(cellGrid[r]?.[c] ?? "");
+        }
+        rows.push(cols.join("\t"));
+      }
+      void navigator.clipboard.writeText(rows.join("\n"));
+    },
+    [cellGrid],
+  );
+
+  const selectableCellSx = useCallback(
+    (row: number, col: number) => ({
+      cursor: "pointer",
+      bgcolor: isCellSelected(row, col) ? "action.selected" : undefined,
+      "&:hover": { bgcolor: isCellSelected(row, col) ? "action.selected" : "action.hover" },
+    }),
+    [isCellSelected],
+  );
+
+  const handleCellClick = useCallback(
+    (e: MouseEvent, row: number, col: number) => {
+      e.stopPropagation();
+      if (e.shiftKey && selectionAnchor) {
+        const newExtent = { row, col };
+        setSelectionExtent(newExtent);
+        copyRangeToClipboard(selectionAnchor, newExtent);
+      } else {
+        setSelectionAnchor({ row, col });
+        setSelectionExtent({ row, col });
+        const text = cellGrid[row]?.[col] ?? "";
+        if (text) void navigator.clipboard.writeText(text);
+      }
+    },
+    [cellGrid, copyRangeToClipboard, selectionAnchor],
+  );
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setSelectionAnchor(null);
+        setSelectionExtent(null);
+        return;
+      }
+      if (e.key === "c" && (e.metaKey || e.ctrlKey) && selectionAnchor && selectionExtent) {
+        e.preventDefault();
+        copyRangeToClipboard(selectionAnchor, selectionExtent);
+      }
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [selectionAnchor, selectionExtent, copyRangeToClipboard]);
 
   const activateInlineEdit = useCallback((result: WordFinderResult, field: InlineEditableWordFinderField) => {
     const editable = resolveWordFinderInlineEditField(result, field);
@@ -252,9 +347,12 @@ export default function WordFinderTable({
           </TableRow>
         </TableHead>
         <TableBody>
-          {results.map((result) => (
+          {results.map((result, rowIdx) => (
             <TableRow key={`${result.courseId}:${result.dayId ?? "root"}:${result.id}`}>
-              <TableCell sx={{ minWidth: 220 }}>
+              <TableCell
+                sx={{ minWidth: 220, ...selectableCellSx(rowIdx, 0) }}
+                onClick={(e) => handleCellClick(e, rowIdx, 0)}
+              >
                 <Stack spacing={0.75}>
                   {renderEditableText(result, "primaryText", result.primaryText, {
                     fontWeight: 600,
@@ -266,7 +364,10 @@ export default function WordFinderTable({
                   />
                 </Stack>
               </TableCell>
-              <TableCell sx={{ minWidth: 260 }}>
+              <TableCell
+                sx={{ minWidth: 260, ...selectableCellSx(rowIdx, 1) }}
+                onClick={(e) => handleCellClick(e, rowIdx, 1)}
+              >
                 <Stack spacing={0.5}>
                   {renderEditableText(
                     result,
@@ -281,7 +382,10 @@ export default function WordFinderTable({
                   )}
                 </Stack>
               </TableCell>
-              <TableCell sx={{ minWidth: 220 }}>
+              <TableCell
+                sx={{ minWidth: 220, ...selectableCellSx(rowIdx, 2) }}
+                onClick={(e) => handleCellClick(e, rowIdx, 2)}
+              >
                 <Typography variant="body2">
                   {result.translation || t("words.none")}
                 </Typography>
@@ -310,7 +414,10 @@ export default function WordFinderTable({
                   )
                 )}
               </TableCell>
-              <TableCell sx={{ minWidth: 180 }}>
+              <TableCell
+                sx={{ minWidth: 180, ...selectableCellSx(rowIdx, 4) }}
+                onClick={(e) => handleCellClick(e, rowIdx, 4)}
+              >
                 <Typography variant="body2">
                   {formatWordFinderLocation(result, t("words.noDay"))}
                 </Typography>

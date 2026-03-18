@@ -10,6 +10,8 @@
  * Props:
  *   - courseId:    Raw route param (e.g. "TOEIC") used to build the href.
  *   - courseLabel: Human-readable course name (e.g. "TOEIC"). Falls back to courseId.
+ *   - parentLabel: Optional intermediate parent crumb label (e.g. "JLPT").
+ *   - parentHref:  Optional href for the intermediate parent crumb.
  *   - dayId:       Optional. When provided, adds a third crumb for the active day.
  *   - coursesLabel: Translated label for the root "Courses" link.
  *
@@ -26,6 +28,10 @@ interface CourseBreadcrumbsProps {
   courseId: string;
   /** Human-readable course label; falls back to courseId if not available */
   courseLabel?: string;
+  /** Optional intermediate parent crumb label */
+  parentLabel?: string;
+  /** Optional intermediate parent crumb href */
+  parentHref?: string;
   /** When provided, adds a third crumb for the active day */
   dayId?: string;
   /** Translated label for the root "Courses" link */
@@ -35,6 +41,8 @@ interface CourseBreadcrumbsProps {
 export default function CourseBreadcrumbs({
   courseId,
   courseLabel,
+  parentLabel,
+  parentHref,
   dayId,
   coursesLabel,
 }: CourseBreadcrumbsProps) {
@@ -51,7 +59,20 @@ export default function CourseBreadcrumbs({
         {coursesLabel}
       </Link>
 
-      {/* ── Second crumb: Course detail page ─────────────────────── */}
+      {/* ── Optional parent crumb (e.g. JLPT) ───────────────────── */}
+      {parentLabel &&
+        (parentHref ? (
+          <Link
+            href={parentHref}
+            style={{ textDecoration: "none", color: "inherit" }}
+          >
+            {parentLabel}
+          </Link>
+        ) : (
+          <Typography color="text.primary">{parentLabel}</Typography>
+        ))}
+
+      {/* ── Course crumb ─────────────────────────────────────────── */}
       {dayId ? (
         // When a dayId is present this crumb is still clickable (navigates up)
         <Link
@@ -65,7 +86,7 @@ export default function CourseBreadcrumbs({
         <Typography color="text.primary">{displayCourseLabel}</Typography>
       )}
 
-      {/* ── Third crumb: Day detail page (leaf) ──────────────────── */}
+      {/* ── Day crumb (leaf) ─────────────────────────────────────── */}
       {/* Only rendered when a dayId is provided */}
       {dayId && <Typography color="text.primary">{dayId}</Typography>}
     </Breadcrumbs>
