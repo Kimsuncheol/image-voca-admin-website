@@ -280,6 +280,7 @@ export default function DayWordsPage({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [missingField, setMissingField] = useState<CourseDayMissingField>("all");
+  const [exitingWordIds, setExitingWordIds] = useState<Set<string>>(new Set());
   const [bulkLoadingField, setBulkLoadingField] =
     useState<CourseDayBulkGeneratableField | null>(null);
   const [jlptExampleCorrectionLoading, setJlptExampleCorrectionLoading] =
@@ -307,6 +308,7 @@ export default function DayWordsPage({
     () =>
       words.filter((word) => {
         if (missingField === "all") return true;
+        if (exitingWordIds.has(word.id)) return true;
         if (missingField === "exampleHasKorean") {
           return containsKorean((word as unknown as { example?: string }).example);
         }
@@ -316,7 +318,7 @@ export default function DayWordsPage({
           missingField,
         );
       }),
-    [isCollocation, isJlpt, isFamousQuote, missingField, showImageUrl, words],
+    [isCollocation, isJlpt, isFamousQuote, missingField, showImageUrl, words, exitingWordIds],
   );
 
   const filteredResults = useMemo(
@@ -951,12 +953,29 @@ export default function DayWordsPage({
       courseId={course.id}
       coursePath={course.path}
       dayId={dayId}
+      exitingWordIds={exitingWordIds}
           onWordImageUpdated={(wordId, imageUrl) =>
             setWords((prev) =>
               prev.map((w) => (w.id === wordId ? { ...w, imageUrl } : w)),
             )
           }
-          onWordFieldsUpdated={(wordId, fields) =>
+          onWordFieldsUpdated={(wordId, fields) => {
+            if (
+              missingField === "exampleHasKorean" &&
+              !jlptExampleCorrectionLoading &&
+              "example" in fields &&
+              typeof fields.example === "string" &&
+              !containsKorean(fields.example)
+            ) {
+              setExitingWordIds((prev) => new Set([...prev, wordId]));
+              setTimeout(() => {
+                setExitingWordIds((prev) => {
+                  const next = new Set(prev);
+                  next.delete(wordId);
+                  return next;
+                });
+              }, 400);
+            }
             setWords((prev) =>
               prev.map((w) => {
                 if (w.id !== wordId) return w;
@@ -969,8 +988,8 @@ export default function DayWordsPage({
                 );
                 return { ...w, ...nextFields };
               }),
-            )
-          }
+            );
+          }}
         />
       )}
     </PageLayout>

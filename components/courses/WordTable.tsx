@@ -309,6 +309,7 @@ interface WordTableProps {
   courseId?: CourseId;
   coursePath?: string;
   dayId?: string;
+  exitingWordIds?: Set<string>;
   onWordImageUpdated?: (wordId: string, imageUrl: string) => void;
   onWordFieldsUpdated?: (wordId: string, fields: WordFinderResultFieldUpdates) => void;
 }
@@ -328,6 +329,7 @@ export default function WordTable({
   courseId,
   coursePath,
   dayId,
+  exitingWordIds,
   onWordImageUpdated,
   onWordFieldsUpdated,
 }: WordTableProps) {
@@ -936,7 +938,17 @@ export default function WordTable({
               const mergedWord = { ...word, ...localWordUpdates[word.id] } as Word;
 
               return (
-                <TableRow key={word.id}>
+                <TableRow
+                  key={word.id}
+                  sx={exitingWordIds?.has(word.id) ? {
+                    animation: "rowFadeOut 350ms ease forwards",
+                    "@keyframes rowFadeOut": {
+                      from: { opacity: 1, transform: "translateX(0)" },
+                      to: { opacity: 0, transform: "translateX(-16px)" },
+                    },
+                    pointerEvents: "none",
+                  } : undefined}
+                >
                   {isCollocationWord(mergedWord) ? (
                   <>
                     <TableCell
