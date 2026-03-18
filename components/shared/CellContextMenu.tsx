@@ -78,12 +78,11 @@ export default function CellContextMenu({
           {translateLabel || t("words.contextMenuTranslate", "Translate")}
         </MenuItem>
       ) : null}
-      <MenuItem
-        disabled={onGenerate === null}
-        onClick={onGenerate ? handleGenerate : undefined}
-      >
-        {t("words.contextMenuGenerate")}
-      </MenuItem>
+      {onGenerate !== null ? (
+        <MenuItem onClick={handleGenerate}>
+          {t("words.contextMenuGenerate")}
+        </MenuItem>
+      ) : null}
     </Menu>
   );
 }
