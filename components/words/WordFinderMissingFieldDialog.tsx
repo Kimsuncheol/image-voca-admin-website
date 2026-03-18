@@ -5,18 +5,14 @@ import { useDropzone } from "react-dropzone";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
-import TextField from "@mui/material/TextField";
 import CircularProgress from "@mui/material/CircularProgress";
 import Dialog from "@mui/material/Dialog";
 import DialogActions from "@mui/material/DialogActions";
 import DialogContent from "@mui/material/DialogContent";
 import DialogTitle from "@mui/material/DialogTitle";
 import Divider from "@mui/material/Divider";
-import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
-import AutoFixHighIcon from "@mui/icons-material/AutoFixHigh";
-import CloudUploadIcon from "@mui/icons-material/CloudUpload";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import { useTranslation } from "react-i18next";
 
@@ -34,16 +30,25 @@ import {
   getWordFinderFieldValue,
   getWordFinderResultKey,
 } from "@/lib/wordFinderMissingFieldActions";
-import {
-  isSupportedImageGenerationCourseId,
-  type GenerateImagesSuccessResponse,
-} from "@/types/imageGeneration";
+import type { GenerateImagesSuccessResponse } from "@/types/imageGeneration";
 import type {
   WordFinderActionField,
   WordFinderResponse,
   WordFinderResult,
   WordFinderResultFieldUpdates,
 } from "@/types/wordFinder";
+
+import {
+  getFieldLabel,
+  getGenerateButtonLabel,
+  getGenerateDisabledReason,
+  getSharedButtonLabel,
+  hasTrimmedText,
+} from "./wordFinderMissingFieldHelpers";
+import WordFinderGenerateSection from "./WordFinderGenerateSection";
+import WordFinderImageUploadSection from "./WordFinderImageUploadSection";
+import WordFinderSharedCandidatesSection from "./WordFinderSharedCandidatesSection";
+import WordFinderTextInputSection from "./WordFinderTextInputSection";
 
 interface WordFinderMissingFieldDialogProps {
   open: boolean;
@@ -52,131 +57,6 @@ interface WordFinderMissingFieldDialogProps {
   onClose: () => void;
   onResolved: (updates: WordFinderResultFieldUpdates) => void;
   sharedLookupResult?: WordFinderResult | null;
-}
-
-function getFieldLabel(
-  field: WordFinderActionField,
-  t: (key: string, options?: Record<string, unknown>) => string,
-): string {
-  switch (field) {
-    case "image":
-      return t("courses.image");
-    case "pronunciation":
-      return t("courses.pronunciation");
-    case "example":
-      return t("courses.example");
-    case "translation":
-      return t("courses.translation");
-    default:
-      return field;
-  }
-}
-
-function getGenerateButtonLabel(
-  field: WordFinderActionField,
-  t: (key: string, options?: Record<string, unknown>) => string,
-): string {
-  switch (field) {
-    case "image":
-      return t("words.generateNewImage");
-    case "pronunciation":
-      return t("words.generatePronunciationAction");
-    case "example":
-      return t("words.generateNewExamples");
-    case "translation":
-      return t("words.generateNewTranslations");
-    default:
-      return t("words.generateAction");
-  }
-}
-
-function getSharedButtonLabel(
-  field: WordFinderActionField,
-  t: (key: string, options?: Record<string, unknown>) => string,
-): string {
-  switch (field) {
-    case "image":
-      return t("words.useSharedImage");
-    case "pronunciation":
-      return t("words.useSharedPronunciation");
-    case "example":
-      return t("words.useSharedExamples");
-    case "translation":
-      return t("words.useSharedTranslations");
-    default:
-      return t("words.useSharedAction");
-  }
-}
-
-function getGenerateDisabledReason(
-  result: WordFinderResult,
-  field: WordFinderActionField,
-  options: {
-    imageGenerationBlockedByPermissions: boolean;
-    imageGenerationBlockedBySettings: boolean;
-    exampleTranslationBlockedByPermissions: boolean;
-    exampleTranslationBlockedBySettings: boolean;
-  },
-  t: (key: string, options?: Record<string, unknown>) => string,
-): string | null {
-  if (field === "image") {
-    if (!result.dayId) return t("words.imageUploadUnavailable");
-    if (!result.meaning) return t("words.generateRequiresMeaning");
-    if (!isSupportedImageGenerationCourseId(result.courseId)) {
-      return t("addVoca.generateImagesUnsupported");
-    }
-    if (options.imageGenerationBlockedBySettings) {
-      return t("courses.imageGenerationDisabled");
-    }
-    if (options.imageGenerationBlockedByPermissions) {
-      return t("courses.imageGenerationPermissionDenied");
-    }
-    return null;
-  }
-
-  if (field === "pronunciation") {
-    if (!result.dayId) return t("words.pronunciationUnavailable");
-    if (result.primaryText.includes(" ")) {
-      return t("words.pronunciationGenerationUnavailableForPhrase");
-    }
-    return null;
-  }
-
-  if (!result.dayId) {
-    return t("words.translationGenerationUnavailableForQuote");
-  }
-  if (!result.meaning) {
-    return t("words.generateRequiresMeaning");
-  }
-  if (options.exampleTranslationBlockedBySettings) {
-    return t("courses.enrichGenerationDisabled");
-  }
-  if (options.exampleTranslationBlockedByPermissions) {
-    return t("courses.enrichGenerationPermissionDenied");
-  }
-  return null;
-}
-
-function getSharedCandidateContent(
-  candidate: WordFinderResult,
-  field: WordFinderActionField,
-  noDayLabel: string,
-): { primary: string; secondary: string } {
-  if (field === "image") {
-    return {
-      primary: candidate.primaryText,
-      secondary: formatWordFinderLocation(candidate, noDayLabel),
-    };
-  }
-
-  return {
-    primary: getWordFinderFieldValue(candidate, field) ?? "",
-    secondary: formatWordFinderLocation(candidate, noDayLabel),
-  };
-}
-
-function hasTrimmedText(value: string | null | undefined): value is string {
-  return typeof value === "string" && value.trim().length > 0;
 }
 
 export default function WordFinderMissingFieldDialog({
@@ -196,6 +76,7 @@ export default function WordFinderMissingFieldDialog({
     exampleTranslationBlockedByPermissions,
     exampleTranslationBlockedBySettings,
   } = useAdminAIAccess();
+
   const [actionLoading, setActionLoading] = useState<"generate" | "upload" | "shared" | null>(
     null,
   );
@@ -703,6 +584,7 @@ export default function WordFinderMissingFieldDialog({
         })}
       </DialogTitle>
       <DialogContent sx={{ display: "flex", flexDirection: "column", gap: 2.5 }}>
+        {/* Word location / meaning metadata */}
         <Stack spacing={0.5}>
           <Typography variant="body2" color="text.secondary">
             {t("words.location")}: {formatWordFinderLocation(result, noDayLabel)}
@@ -716,38 +598,18 @@ export default function WordFinderMissingFieldDialog({
 
         {error && <Alert severity="error">{error}</Alert>}
 
-        <Stack spacing={1}>
-          <Typography variant="subtitle2">{t("words.generateSectionTitle")}</Typography>
-          <Button
-            variant="contained"
-            startIcon={
-              actionLoading === "generate" ? (
-                <CircularProgress size={16} color="inherit" />
-              ) : (
-                <AutoFixHighIcon />
-              )
-            }
-            onClick={handleGenerate}
-            disabled={Boolean(actionLoading) || Boolean(generateDisabledReason)}
-          >
-            {generateActionLabel}
-          </Button>
-          {generateDisabledReason && (
-            <Typography variant="caption" color="text.secondary">
-              {generateDisabledReason}
-            </Typography>
-          )}
-          {field === "pronunciation" && !generateDisabledReason && (
-            <Typography variant="caption" color="text.secondary">
-              {result.schemaVariant === "jlpt"
-                ? "JMdict"
-                : settings.pronunciationApi === "oxford"
-                ? t("settings.pronunciationApiOxford")
-                : t("settings.pronunciationApiFreeDictionary")}
-            </Typography>
-          )}
-        </Stack>
+        {/* Generate section */}
+        <WordFinderGenerateSection
+          field={field}
+          result={result}
+          actionLoading={actionLoading}
+          generateDisabledReason={generateDisabledReason}
+          generateActionLabel={generateActionLabel}
+          settings={settings}
+          onGenerate={handleGenerate}
+        />
 
+        {/* Text input section (example / translation) */}
         {(field === "example" || field === "translation") && (
           <>
             <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
@@ -758,28 +620,17 @@ export default function WordFinderMissingFieldDialog({
               <Divider sx={{ flex: 1 }} />
             </Box>
 
-            <Stack spacing={1}>
-              <TextField
-                multiline
-                minRows={2}
-                fullWidth
-                size="small"
-                label={fieldLabel}
-                value={textValue}
-                onChange={(e) => setTextValue(e.target.value)}
-                disabled={Boolean(actionLoading)}
-              />
-              <Button
-                variant="outlined"
-                onClick={handleApplyText}
-                disabled={!textValue.trim() || Boolean(actionLoading)}
-              >
-                {t("common.apply")}
-              </Button>
-            </Stack>
+            <WordFinderTextInputSection
+              fieldLabel={fieldLabel}
+              textValue={textValue}
+              actionLoading={actionLoading}
+              onTextChange={setTextValue}
+              onApply={handleApplyText}
+            />
           </>
         )}
 
+        {/* Image upload section */}
         {field === "image" && (
           <>
             <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
@@ -790,169 +641,34 @@ export default function WordFinderMissingFieldDialog({
               <Divider sx={{ flex: 1 }} />
             </Box>
 
-            <Stack spacing={1}>
-              <Typography variant="subtitle2">{t("words.uploadSectionTitle")}</Typography>
-              <Box
-                {...getRootProps()}
-                sx={{
-                  border: "2px dashed",
-                  borderColor: isDragActive ? "primary.main" : "divider",
-                  borderRadius: 2,
-                  p: 2,
-                  textAlign: "center",
-                  cursor: actionLoading ? "not-allowed" : "pointer",
-                  bgcolor: isDragActive ? "action.hover" : "background.paper",
-                  transition: "border-color 0.2s, background-color 0.2s",
-                }}
-              >
-                <input {...getInputProps()} />
-                {dropPreview ? (
-                  <Box
-                    component="img"
-                    src={dropPreview}
-                    alt={t("words.imagePreviewAlt", {
-                      text: result.primaryText,
-                    })}
-                    sx={{
-                      width: 140,
-                      height: 140,
-                      objectFit: "cover",
-                      borderRadius: 1,
-                    }}
-                  />
-                ) : (
-                  <Typography variant="body2" color="text.secondary">
-                    {isDragActive
-                      ? t("courses.dropHere", "Drop image here")
-                      : t("courses.dragOrClick", "Drag an image here, or click to select")}
-                  </Typography>
-                )}
-              </Box>
-
-              <Button
-                variant="outlined"
-                startIcon={
-                  actionLoading === "upload" ? (
-                    <CircularProgress size={16} color="inherit" />
-                  ) : (
-                    <CloudUploadIcon />
-                  )
-                }
-                onClick={handleUpload}
-                disabled={!droppedFile || Boolean(actionLoading) || !result.dayId}
-              >
-                {t("words.uploadNewImage")}
-              </Button>
-            </Stack>
+            <WordFinderImageUploadSection
+              result={result}
+              actionLoading={actionLoading}
+              droppedFile={droppedFile}
+              dropPreview={dropPreview}
+              isDragActive={isDragActive}
+              getRootProps={getRootProps}
+              getInputProps={getInputProps}
+              onUpload={handleUpload}
+            />
           </>
         )}
 
+        {/* Shared candidates section */}
         {allowSharedLookup && (
           <>
             <Divider />
 
-            <Stack spacing={1}>
-              <Typography variant="subtitle2">{t("words.sharedSectionTitle")}</Typography>
-              <Typography variant="body2" color="text.secondary">
-                {t("words.sharedSectionDescription", { field: fieldLabel })}
-              </Typography>
-
-              {sharedLookupError && <Alert severity="warning">{sharedLookupError}</Alert>}
-
-              {sharedLoading ? (
-                <Stack alignItems="center" sx={{ py: 2 }}>
-                  <CircularProgress size={24} />
-                </Stack>
-              ) : sharedCandidates.length === 0 ? (
-                <Alert severity="info">{t("words.noSharedMatches")}</Alert>
-              ) : (
-                <Stack spacing={1}>
-                  {sharedCandidates.map((candidate) => {
-                    const candidateKey = getWordFinderResultKey(candidate);
-                    const isSelected = candidateKey === selectedSharedKey;
-                    const content = getSharedCandidateContent(candidate, field, noDayLabel);
-
-                    return (
-                      <Paper
-                        key={candidateKey}
-                        variant="outlined"
-                        onClick={() => setSelectedSharedKey(candidateKey)}
-                        sx={{
-                          p: 1.5,
-                          cursor: "pointer",
-                          borderColor: isSelected ? "primary.main" : "divider",
-                          backgroundColor: isSelected ? "action.selected" : "background.paper",
-                        }}
-                      >
-                        <Stack direction="row" spacing={1.5} alignItems="flex-start">
-                          <Box
-                            sx={{
-                              width: 18,
-                              height: 18,
-                              borderRadius: "50%",
-                              border: "2px solid",
-                              borderColor: isSelected ? "primary.main" : "divider",
-                              mt: 0.25,
-                              position: "relative",
-                              flexShrink: 0,
-                            }}
-                          >
-                            {isSelected && (
-                              <Box
-                                sx={{
-                                  width: 8,
-                                  height: 8,
-                                  borderRadius: "50%",
-                                  bgcolor: "primary.main",
-                                  position: "absolute",
-                                  top: "50%",
-                                  left: "50%",
-                                  transform: "translate(-50%, -50%)",
-                                }}
-                              />
-                            )}
-                          </Box>
-
-                          {field === "image" && candidate.imageUrl && (
-                            <Box
-                              component="img"
-                              src={candidate.imageUrl}
-                              alt={candidate.primaryText}
-                              sx={{
-                                width: 72,
-                                height: 72,
-                                borderRadius: 1,
-                                objectFit: "cover",
-                                flexShrink: 0,
-                              }}
-                            />
-                          )}
-
-                          <Stack spacing={0.5} sx={{ minWidth: 0 }}>
-                            <Typography variant="body2" fontWeight={600}>
-                              {content.secondary}
-                            </Typography>
-                            <Typography
-                              variant="body2"
-                              color="text.secondary"
-                              sx={{ whiteSpace: "pre-line", wordBreak: "break-word" }}
-                            >
-                              {content.primary}
-                            </Typography>
-                            {(field === "example" || field === "translation") &&
-                              candidate.meaning && (
-                                <Typography variant="caption" color="text.secondary">
-                                  {candidate.meaning}
-                                </Typography>
-                              )}
-                          </Stack>
-                        </Stack>
-                      </Paper>
-                    );
-                  })}
-                </Stack>
-              )}
-            </Stack>
+            <WordFinderSharedCandidatesSection
+              field={field}
+              fieldLabel={fieldLabel}
+              sharedCandidates={sharedCandidates}
+              sharedLoading={sharedLoading}
+              sharedLookupError={sharedLookupError}
+              selectedSharedKey={selectedSharedKey}
+              noDayLabel={noDayLabel}
+              onSelectCandidate={setSelectedSharedKey}
+            />
           </>
         )}
       </DialogContent>
