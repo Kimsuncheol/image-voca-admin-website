@@ -53,10 +53,12 @@ import { getDayWords, updateWordField, updateWordImageUrl } from "@/lib/firebase
 import {
   createCourseDayGenerateWordFieldRequest,
   createCourseDayImageGenerationWords,
+  createJlptExampleBatchCorrectionItems,
   extractCourseDayGenerateWordFieldUpdates,
-  isCourseDayBulkGeneratableField,
+  getCourseDayBulkAction,
   mapCourseDayGeneratedImages,
   planCourseDayBulkGeneration,
+  type CourseDayBulkAction,
   type CourseDayBulkGeneratableField,
   type CourseDayBulkSkippedItem,
 } from "@/lib/courseDayBulkGeneration";
@@ -120,10 +122,14 @@ function getMissingFieldOptions(
 }
 
 function getBulkActionLabel(
-  field: CourseDayBulkGeneratableField,
+  action: CourseDayBulkAction,
   t: (key: string, options?: Record<string, unknown>) => string,
 ): string {
-  switch (field) {
+  if (action.kind === "jlpt-example-correction") {
+    return t("courses.correctExamplesWithDeepL");
+  }
+
+  switch (action.field) {
     case "pronunciation":
       return t("courses.generateMissingPronunciations");
     case "example":
@@ -138,7 +144,7 @@ function getBulkActionLabel(
 }
 
 function getBulkDisabledReason(
-  field: CourseDayBulkGeneratableField | null,
+  action: CourseDayBulkAction | null,
   options: {
     aiAccessLoading: boolean;
     imageGenerationBlockedByPermissions: boolean;
@@ -149,7 +155,22 @@ function getBulkDisabledReason(
   },
   t: (key: string, options?: Record<string, unknown>) => string,
 ): string | null {
-  if (!field) return null;
+  if (!action) return null;
+
+  if (action.kind === "jlpt-example-correction") {
+    if (options.aiAccessLoading) {
+      return t("common.loading");
+    }
+    if (options.exampleTranslationBlockedBySettings) {
+      return t("courses.enrichGenerationDisabled");
+    }
+    if (options.exampleTranslationBlockedByPermissions) {
+      return t("courses.enrichGenerationPermissionDenied");
+    }
+    return null;
+  }
+
+  const field = action.field;
 
   if (field === "pronunciation") {
     return null;
@@ -261,6 +282,8 @@ export default function DayWordsPage({
   const [missingField, setMissingField] = useState<CourseDayMissingField>("all");
   const [bulkLoadingField, setBulkLoadingField] =
     useState<CourseDayBulkGeneratableField | null>(null);
+  const [jlptExampleCorrectionLoading, setJlptExampleCorrectionLoading] =
+    useState(false);
   const [bulkFeedback, setBulkFeedback] = useState<BulkFeedback | null>(null);
 
   // ── Resolve course metadata from static list ──────────────────────
@@ -322,16 +345,19 @@ export default function DayWordsPage({
     ],
   );
 
-  const bulkField =
-    isCourseDayBulkGeneratableField(missingField) &&
-    (!isJlpt || missingField === "pronunciation" || missingField === "image")
-      ? missingField
-      : null;
+  const bulkAction = useMemo(
+    () => getCourseDayBulkAction(missingField, isJlpt),
+    [isJlpt, missingField],
+  );
+  const bulkField = bulkAction?.kind === "generate" ? bulkAction.field : null;
+  const isJlptExampleCorrection =
+    bulkAction?.kind === "jlpt-example-correction";
+  const isBulkLoading = Boolean(bulkLoadingField) || jlptExampleCorrectionLoading;
 
   const bulkDisabledReason = useMemo(
     () =>
       getBulkDisabledReason(
-        bulkField,
+        bulkAction,
         {
           aiAccessLoading,
           imageGenerationBlockedByPermissions,
@@ -344,7 +370,7 @@ export default function DayWordsPage({
       ),
     [
       aiAccessLoading,
-      bulkField,
+      bulkAction,
       exampleTranslationBlockedByPermissions,
       exampleTranslationBlockedBySettings,
       imageGenerationBlockedByPermissions,
@@ -669,6 +695,89 @@ export default function DayWordsPage({
     t,
   ]);
 
+  const handleJlptExampleCorrection = useCallback(async () => {
+    if (!isJlptExampleCorrection || bulkDisabledReason || jlptExampleCorrectionLoading) {
+      return;
+    }
+
+    const snapshot = filteredResults;
+    if (snapshot.length === 0) {
+      setBulkFeedback({
+        severity: "warning",
+        message: t("courses.bulkGenerateNoEligible"),
+      });
+      return;
+    }
+
+    setJlptExampleCorrectionLoading(true);
+    setBulkFeedback(null);
+
+    let updated = 0;
+    let failed = 0;
+
+    try {
+      const response = await fetch("/api/admin/translate-word-field", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          field: "jlpt-example-batch",
+          provider: "deepl",
+          items: createJlptExampleBatchCorrectionItems(snapshot),
+        }),
+      });
+      const payload = (await response.json()) as {
+        error?: string;
+        items?: Array<{ id: string; example: string }>;
+        failures?: Array<{ id: string; error: string }>;
+      };
+
+      if (!response.ok) {
+        throw new Error(payload.error || t("words.generateActionError"));
+      }
+
+      failed += payload.failures?.length ?? 0;
+      const resultMap = new Map(snapshot.map((result) => [result.id, result]));
+
+      for (const item of payload.items ?? []) {
+        const result = resultMap.get(item.id);
+        if (!result) {
+          failed += 1;
+          continue;
+        }
+
+        try {
+          await persistResolvedUpdates(result, { example: item.example });
+          applyResolvedUpdatesToState(result.id, { example: item.example });
+          updated += 1;
+        } catch {
+          failed += 1;
+        }
+      }
+
+      setBulkFeedback(
+        formatBulkSummary(t, { updated, skipped: [], failed }),
+      );
+    } catch (bulkError) {
+      setBulkFeedback({
+        severity: "error",
+        message:
+          bulkError instanceof Error
+            ? bulkError.message
+            : t("words.generateActionError"),
+      });
+    } finally {
+      setJlptExampleCorrectionLoading(false);
+    }
+  }, [
+    applyResolvedUpdatesToState,
+    bulkDisabledReason,
+    filteredResults,
+    isJlptExampleCorrection,
+    jlptExampleCorrectionLoading,
+    persistResolvedUpdates,
+    t,
+  ]);
+
   // ── Firestore data fetch ──────────────────────────────────────────
   // The effect only runs when `course` is resolved; the missing-course case
   // is handled synchronously in the render path below, avoiding cascading
@@ -757,32 +866,41 @@ export default function DayWordsPage({
               setBulkFeedback(null);
             }}
             sx={{ borderRadius: "20px" }}
-            disabled={missingField === "all" || Boolean(bulkLoadingField)}
+            disabled={missingField === "all" || isBulkLoading}
           >
             {t("words.clearFilters")}
           </Button>
 
-          {bulkField && (
+          {bulkAction && (
             <Button
               variant="contained"
               onClick={() => {
-                void handleBulkGenerate();
+                if (bulkAction.kind === "generate") {
+                  void handleBulkGenerate();
+                  return;
+                }
+
+                void handleJlptExampleCorrection();
               }}
               sx={{ borderRadius: "20px" }}
               disabled={
-                Boolean(bulkLoadingField) ||
+                isBulkLoading ||
                 Boolean(bulkDisabledReason) ||
                 filteredResults.length === 0
               }
               startIcon={
-                bulkLoadingField === bulkField ? (
+                (bulkAction.kind === "generate" && bulkLoadingField === bulkAction.field) ||
+                (bulkAction.kind === "jlpt-example-correction" &&
+                  jlptExampleCorrectionLoading) ? (
                   <CircularProgress size={16} color="inherit" />
                 ) : undefined
               }
             >
               <Stack alignItems="flex-start" spacing={0}>
-                <span>{getBulkActionLabel(bulkField, t)}</span>
-                {bulkField === "pronunciation" && !bulkDisabledReason && (
+                <span>{getBulkActionLabel(bulkAction, t)}</span>
+                {bulkAction.kind === "generate" &&
+                  bulkAction.field === "pronunciation" &&
+                  !bulkDisabledReason && (
                   <Typography component="span" sx={{ fontSize: "0.65rem", opacity: 0.8, lineHeight: 1.2 }}>
                     {isJlpt
                       ? "JMdict"
@@ -797,7 +915,7 @@ export default function DayWordsPage({
         </Stack>
       </Stack>
 
-      {bulkField && bulkDisabledReason && (
+      {bulkAction && bulkDisabledReason && (
         <Alert severity="info" sx={{ mb: 2 }}>
           {bulkDisabledReason}
         </Alert>

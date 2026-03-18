@@ -16,12 +16,21 @@ export type CourseDayBulkGeneratableField = Extract<
   CourseDayActionableMissingField,
   "pronunciation" | "example" | "translation" | "image"
 >;
+export type CourseDayBulkAction =
+  | { kind: "generate"; field: CourseDayBulkGeneratableField }
+  | { kind: "jlpt-example-correction" };
 
 export type CourseDayBulkSkipReason = "missingMeaning" | "multiWord";
 
 export interface CourseDayBulkSkippedItem {
   result: WordFinderResult;
   reason: CourseDayBulkSkipReason;
+}
+
+export interface JlptExampleBatchCorrectionItem {
+  id: string;
+  translationKorean?: string;
+  translationEnglish?: string;
 }
 
 export function hasTrimmedText(
@@ -39,6 +48,24 @@ export function isCourseDayBulkGeneratableField(
     field === "translation" ||
     field === "image"
   );
+}
+
+export function getCourseDayBulkAction(
+  field: CourseDayMissingField,
+  isJlpt: boolean,
+): CourseDayBulkAction | null {
+  if (isCourseDayBulkGeneratableField(field)) {
+    if (!isJlpt || field === "pronunciation" || field === "image") {
+      return { kind: "generate", field };
+    }
+    return null;
+  }
+
+  if (isJlpt && field === "exampleHasKorean") {
+    return { kind: "jlpt-example-correction" };
+  }
+
+  return null;
 }
 
 function isSingleWordEntry(value: string): boolean {
@@ -131,6 +158,21 @@ export function createCourseDayImageGenerationWords(
     word: result.primaryText,
     meaning: result.meaning ?? "",
     imageUrl: result.imageUrl ?? undefined,
+  }));
+}
+
+export function createJlptExampleBatchCorrectionItems(
+  results: WordFinderResult[],
+): JlptExampleBatchCorrectionItem[] {
+  return results.map((result) => ({
+    id: result.id,
+    ...(hasTrimmedText(result.translationKorean)
+      ? { translationKorean: result.translationKorean.trim() }
+      : {}),
+    ...(hasTrimmedText(result.translationKorean) ||
+    !hasTrimmedText(result.translationEnglish)
+      ? {}
+      : { translationEnglish: result.translationEnglish.trim() }),
   }));
 }
 

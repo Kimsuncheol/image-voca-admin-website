@@ -1,14 +1,12 @@
 import { getServerAISettings } from "@/lib/server/aiSettings";
 import {
+  translateEnglishToJapaneseBatch,
   translateEnglishToJapanese,
   translateExampleToKorean,
+  translateKoreanToJapaneseBatch,
   translateKoreanToJapanese,
   translateTranslationToEnglish,
 } from "@/lib/server/deepl";
-import {
-  translateExampleToKoreanWithGoogle,
-  translateTranslationToEnglishWithGoogle,
-} from "@/lib/server/googleTranslate";
 import { verifySessionUser } from "@/lib/server/sessionUser";
 
 import { createTranslateWordFieldHandler } from "./translateWordField";
@@ -19,7 +17,7 @@ export const POST = createTranslateWordFieldHandler({
   translateTranslationToEnglishWithDeepL: translateTranslationToEnglish,
   translateKoreanToJapaneseWithDeepL: translateKoreanToJapanese,
   translateEnglishToJapaneseWithDeepL: translateEnglishToJapanese,
-  translateExampleToKoreanWithGoogle,
-  translateTranslationToEnglishWithGoogle,
+  translateKoreanToJapaneseBatchWithDeepL: translateKoreanToJapaneseBatch,
+  translateEnglishToJapaneseBatchWithDeepL: translateEnglishToJapaneseBatch,
   verifySessionUser,
 });

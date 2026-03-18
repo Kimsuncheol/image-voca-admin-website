@@ -4,6 +4,8 @@ import test from "node:test";
 import {
   createCourseDayGenerateWordFieldRequest,
   extractCourseDayGenerateWordFieldUpdates,
+  createJlptExampleBatchCorrectionItems,
+  getCourseDayBulkAction,
   mapCourseDayGeneratedImages,
   planCourseDayBulkGeneration,
 } from "./courseDayBulkGeneration.ts";
@@ -82,6 +84,35 @@ test("translation generation keeps both translation and example updates", () => 
     example: "1. Tourists wander around the city.",
     translation: "1. 관광객들이 도시를 돌아다닌다.",
   });
+});
+
+test("JLPT exampleHasKorean selects the dedicated correction bulk action", () => {
+  assert.deepEqual(getCourseDayBulkAction("exampleHasKorean", true), {
+    kind: "jlpt-example-correction",
+  });
+  assert.equal(getCourseDayBulkAction("exampleHasKorean", false), null);
+});
+
+test("JLPT example batch request prefers Korean over English", () => {
+  const items = createJlptExampleBatchCorrectionItems([
+    createResult({
+      id: "jlpt-1",
+      schemaVariant: "jlpt",
+      translationEnglish: "There is a cat.",
+      translationKorean: "고양이가 있다.",
+    }),
+    createResult({
+      id: "jlpt-2",
+      schemaVariant: "jlpt",
+      translationEnglish: "There is a dog.",
+      translationKorean: null,
+    }),
+  ]);
+
+  assert.deepEqual(items, [
+    { id: "jlpt-1", translationKorean: "고양이가 있다." },
+    { id: "jlpt-2", translationEnglish: "There is a dog." },
+  ]);
 });
 
 test("image generation response maps successes and failures by index", () => {

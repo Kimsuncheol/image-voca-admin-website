@@ -75,30 +75,6 @@ export default function ExampleTranslationSettings({ settings, onChange }: Props
                 disabled={!settings.enrichGenerationEnabled}
               />
             </RadioGroup>
-            <FormLabel sx={{ mt: 2, mb: 1 }}>{t("settings.selectTranslationApi")}</FormLabel>
-            <RadioGroup
-              value={settings.exampleTranslationApi}
-              onChange={(e) =>
-                onChange({
-                  ...settings,
-                  exampleTranslationApi: e.target.value as AISettings["exampleTranslationApi"],
-                })
-              }
-              aria-label={t("settings.selectTranslationApi")}
-            >
-              <FormControlLabel
-                value="deepl"
-                control={<Radio />}
-                label={t("settings.exampleTranslationApiDeepL")}
-                disabled={!settings.enrichGenerationEnabled}
-              />
-              <FormControlLabel
-                value="google-translate"
-                control={<Radio />}
-                label={t("settings.exampleTranslationApiGoogle")}
-                disabled={!settings.enrichGenerationEnabled}
-              />
-            </RadioGroup>
           </FormControl>
         )}
       </CardContent>
