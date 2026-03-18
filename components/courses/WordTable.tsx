@@ -320,6 +320,17 @@ function filterJapanese(text: string): string {
     .trim();
 }
 
+function extractRomanInBrackets(text: string): string {
+  const regex = /\(([^)]+)\)|\[([^\]]+)\]/g;
+  const parts: string[] = [];
+  let match: RegExpExecArray | null;
+  while ((match = regex.exec(text)) !== null) {
+    const inner = (match[1] ?? match[2]).trim();
+    if (inner) parts.push(inner);
+  }
+  return parts.join(" ").trim();
+}
+
 export default function WordTable({
   words,
   isCollocation,
@@ -492,6 +503,18 @@ export default function WordTable({
     [updateInlineDraft],
   );
 
+  const handleJlptExampleRomanPaste = useCallback(
+    (event: ClipboardEvent<HTMLInputElement>) => {
+      event.preventDefault();
+      const raw = event.clipboardData.getData("text");
+      const filtered = extractRomanInBrackets(raw);
+      if (filtered) {
+        updateInlineDraft(filtered);
+      }
+    },
+    [updateInlineDraft],
+  );
+
   const cancelInlineEdit = useCallback(() => {
     setEditingCell(null);
   }, []);
@@ -599,7 +622,13 @@ export default function WordTable({
             void commitInlineEdit(word);
           }}
           onCancel={cancelInlineEdit}
-          onPaste={isJlpt && field === "example" ? handleJlptExamplePaste : undefined}
+          onPaste={
+            isJlpt && field === "example"
+              ? handleJlptExamplePaste
+              : isJlpt && field === "exampleRoman"
+                ? handleJlptExampleRomanPaste
+                : undefined
+          }
         />
       );
     },
@@ -609,6 +638,7 @@ export default function WordTable({
       commitInlineEdit,
       editingCell,
       handleJlptExamplePaste,
+      handleJlptExampleRomanPaste,
       isCollocation,
       isJlpt,
       isFamousQuote,
