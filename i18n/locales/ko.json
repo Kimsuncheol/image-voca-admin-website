@@ -265,7 +265,10 @@
     "sharedApplyError": "공유 값을 적용하지 못했습니다.",
     "selectSharedCandidate": "적용하기 전에 공유 값을 하나 선택하세요.",
     "noSharedMatches": "다른 코스에서 재사용할 값을 찾지 못했습니다.",
-    "imagePreviewAlt": "{{text}} 이미지 미리보기"
+    "imagePreviewAlt": "{{text}} 이미지 미리보기",
+    "contextMenuCopy": "복사",
+    "contextMenuEdit": "수정",
+    "contextMenuGenerate": "생성"
   },
   "users": {
     "title": "사용자 관리",

@@ -119,6 +119,7 @@ export async function updateWordTextField(
     | 'meaningKorean'
     | 'example'
     | 'exampleRoman'
+    | 'translation'
     | 'translationEnglish'
     | 'translationKorean',
   value: string,

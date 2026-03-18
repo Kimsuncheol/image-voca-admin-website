@@ -17,22 +17,39 @@ import TableRow from "@mui/material/TableRow";
 import Typography from "@mui/material/Typography";
 import { useTranslation } from "react-i18next";
 
+import CellContextMenu from "@/components/shared/CellContextMenu";
 import InlineEditableText from "@/components/shared/InlineEditableText";
 import {
   formatWordFinderLocation,
   isWordFinderFieldMissing,
 } from "@/lib/wordFinderMissingFieldActions";
-
-interface CellPos {
-  row: number;
-  col: number;
-}
 import {
   resolveWordFinderInlineEditField,
   type InlineEditableWordFinderField,
 } from "@/lib/wordFinderInlineEdit";
 import type { WordFinderResult } from "@/types/wordFinder";
 import type { WordFinderActionField } from "@/types/wordFinder";
+
+interface CellPos {
+  row: number;
+  col: number;
+}
+
+interface ContextMenuState {
+  anchorPosition: { top: number; left: number };
+  row: number;
+  col: number;
+}
+
+function getColField(col: number): WordFinderActionField | null {
+  return col === 2 ? "translation" : null;
+}
+
+function getColEditField(col: number): InlineEditableWordFinderField | null {
+  if (col === 0) return "primaryText";
+  if (col === 1) return "meaning";
+  return null;
+}
 
 interface WordFinderTableProps {
   results: WordFinderResult[];
@@ -106,7 +123,7 @@ export default function WordFinderTable({
   const [editingCell, setEditingCell] = useState<EditingCellState | null>(null);
   const [selectionAnchor, setSelectionAnchor] = useState<CellPos | null>(null);
   const [selectionExtent, setSelectionExtent] = useState<CellPos | null>(null);
-
+  const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   // cols: 0=primaryText, 1=meaning, 2=translation, 3="" (image), 4=location, 5="" (status), 6="" (actions)
   const cellGrid = useMemo(
     () =>
@@ -166,17 +183,13 @@ export default function WordFinderTable({
     (e: MouseEvent, row: number, col: number) => {
       e.stopPropagation();
       if (e.shiftKey && selectionAnchor) {
-        const newExtent = { row, col };
-        setSelectionExtent(newExtent);
-        copyRangeToClipboard(selectionAnchor, newExtent);
+        setSelectionExtent({ row, col });
       } else {
         setSelectionAnchor({ row, col });
         setSelectionExtent({ row, col });
-        const text = cellGrid[row]?.[col] ?? "";
-        if (text) void navigator.clipboard.writeText(text);
       }
     },
-    [cellGrid, copyRangeToClipboard, selectionAnchor],
+    [selectionAnchor],
   );
 
   useEffect(() => {
@@ -195,6 +208,32 @@ export default function WordFinderTable({
     return () => document.removeEventListener("keydown", onKeyDown);
   }, [selectionAnchor, selectionExtent, copyRangeToClipboard]);
 
+  const handleCellContextMenu = useCallback(
+    (e: MouseEvent, row: number, col: number) => {
+      e.preventDefault();
+      if (!isCellSelected(row, col)) {
+        setSelectionAnchor({ row, col });
+        setSelectionExtent({ row, col });
+      }
+      setContextMenu({ anchorPosition: { top: e.clientY, left: e.clientX }, row, col });
+    },
+    [isCellSelected],
+  );
+
+  const handleContextMenuCopy = useCallback(() => {
+    if (!selectionAnchor || !selectionExtent) return;
+    copyRangeToClipboard(selectionAnchor, selectionExtent);
+  }, [selectionAnchor, selectionExtent, copyRangeToClipboard]);
+
+  const handleContextMenuGenerate = useCallback(() => {
+    if (!contextMenu || !onMissingFieldClick) return;
+    const field = getColField(contextMenu.col);
+    if (!field) return;
+    const result = results[contextMenu.row];
+    if (!result) return;
+    onMissingFieldClick(result, field);
+  }, [contextMenu, results, onMissingFieldClick]);
+
   const activateInlineEdit = useCallback((result: WordFinderResult, field: InlineEditableWordFinderField) => {
     const editable = resolveWordFinderInlineEditField(result, field);
     if (!editable || !onTextEdit) return;
@@ -207,6 +246,15 @@ export default function WordFinderTable({
       error: "",
     });
   }, [onTextEdit]);
+
+  const handleContextMenuEdit = useCallback(() => {
+    if (!contextMenu) return;
+    const editField = getColEditField(contextMenu.col);
+    if (!editField) return;
+    const result = results[contextMenu.row];
+    if (!result) return;
+    activateInlineEdit(result, editField);
+  }, [contextMenu, results, activateInlineEdit]);
 
   const updateInlineDraft = useCallback((draft: string) => {
     setEditingCell((prev) => (prev ? { ...prev, draft, error: "" } : prev));
@@ -302,7 +350,11 @@ export default function WordFinderTable({
     ],
   );
 
+  const contextMenuField = contextMenu ? getColField(contextMenu.col) : null;
+  const contextMenuEditField = contextMenu ? getColEditField(contextMenu.col) : null;
+
   return (
+    <>
     <TableContainer
       component={Paper}
       variant="outlined"
@@ -352,6 +404,7 @@ export default function WordFinderTable({
               <TableCell
                 sx={{ minWidth: 220, ...selectableCellSx(rowIdx, 0) }}
                 onClick={(e) => handleCellClick(e, rowIdx, 0)}
+                onContextMenu={(e) => handleCellContextMenu(e, rowIdx, 0)}
               >
                 <Stack spacing={0.75}>
                   {renderEditableText(result, "primaryText", result.primaryText, {
@@ -367,6 +420,7 @@ export default function WordFinderTable({
               <TableCell
                 sx={{ minWidth: 260, ...selectableCellSx(rowIdx, 1) }}
                 onClick={(e) => handleCellClick(e, rowIdx, 1)}
+                onContextMenu={(e) => handleCellContextMenu(e, rowIdx, 1)}
               >
                 <Stack spacing={0.5}>
                   {renderEditableText(
@@ -385,6 +439,7 @@ export default function WordFinderTable({
               <TableCell
                 sx={{ minWidth: 220, ...selectableCellSx(rowIdx, 2) }}
                 onClick={(e) => handleCellClick(e, rowIdx, 2)}
+                onContextMenu={(e) => handleCellContextMenu(e, rowIdx, 2)}
               >
                 <Typography variant="body2">
                   {result.translation || t("words.none")}
@@ -417,6 +472,7 @@ export default function WordFinderTable({
               <TableCell
                 sx={{ minWidth: 180, ...selectableCellSx(rowIdx, 4) }}
                 onClick={(e) => handleCellClick(e, rowIdx, 4)}
+                onContextMenu={(e) => handleCellContextMenu(e, rowIdx, 4)}
               >
                 <Typography variant="body2">
                   {formatWordFinderLocation(result, t("words.noDay"))}
@@ -480,5 +536,16 @@ export default function WordFinderTable({
         </TableBody>
       </Table>
     </TableContainer>
+
+    <CellContextMenu
+      anchorPosition={contextMenu?.anchorPosition ?? null}
+      onClose={() => setContextMenu(null)}
+      onCopy={handleContextMenuCopy}
+      onEdit={contextMenuEditField && onTextEdit ? handleContextMenuEdit : null}
+      onGenerate={
+        contextMenuField && onMissingFieldClick ? handleContextMenuGenerate : null
+      }
+    />
+    </>
   );
 }

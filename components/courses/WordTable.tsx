@@ -16,6 +16,7 @@ import AddPhotoAlternateIcon from "@mui/icons-material/AddPhotoAlternate";
 import AutoFixHighIcon from "@mui/icons-material/AutoFixHigh";
 import { useTranslation } from "react-i18next";
 
+import CellContextMenu from "@/components/shared/CellContextMenu";
 import InlineEditableText from "@/components/shared/InlineEditableText";
 import WordFinderMissingFieldDialog from "@/components/words/WordFinderMissingFieldDialog";
 import { updateWordTextField } from "@/lib/firebase/firestore";
@@ -36,6 +37,49 @@ import type {
   WordFinderActionField,
   WordFinderResultFieldUpdates,
 } from "@/types/wordFinder";
+
+function getWordTableColField(col: number, word: Word): WordFinderActionField | null {
+  if (isJlptWord(word)) {
+    if (col === 3 || col === 4) return "pronunciation";
+    if (col === 5 || col === 6) return "example";
+    if (col === 7 || col === 8) return "translation";
+    if (col === 9) return "image";
+    return null;
+  }
+  if (isCollocationWord(word)) {
+    if (col === 3) return "example";
+    if (col === 4) return "translation";
+    if (col === 5) return "image";
+    return null;
+  }
+  if (isFamousQuoteWord(word)) {
+    return col === 2 ? "translation" : null;
+  }
+  // Standard
+  if (col === 2) return "pronunciation";
+  if (col === 3) return "example";
+  if (col === 4) return "translation";
+  if (col === 5) return "image";
+  return null;
+}
+
+function getWordTableColEditField(col: number, word: Word): CourseInlineEditableField | null {
+  if (isJlptWord(word)) {
+    if (col === 0) return "primaryText";
+    if (col === 1) return "meaningEnglish";
+    if (col === 2) return "meaningKorean";
+    if (col === 5) return "example";
+    if (col === 6) return "exampleRoman";
+    if (col === 7) return "translationEnglish";
+    if (col === 8) return "translationKorean";
+    return null;
+  }
+  if (isCollocationWord(word) || (!isFamousQuoteWord(word))) {
+    if (col === 0) return "primaryText";
+    if (col === 1) return "meaning";
+  }
+  return null;
+}
 
 // Detects "Name: text. Name: text" dialogue formatting.
 // Supports plain names (Layne:) and numbered names (Neighbor 1:).
@@ -102,10 +146,12 @@ function OrderedItemRow({ item }: { item: OrderedItem }) {
 function ExampleCell({
   text,
   onClick,
+  onContextMenu,
   selected,
 }: {
   text: string | undefined;
   onClick?: (e: MouseEvent<HTMLTableCellElement>) => void;
+  onContextMenu?: (e: MouseEvent<HTMLTableCellElement>) => void;
   selected?: boolean;
 }) {
   const cellSx = {
@@ -113,12 +159,12 @@ function ExampleCell({
     bgcolor: selected ? "action.selected" : undefined,
     "&:hover": onClick ? { bgcolor: selected ? "action.selected" : "action.hover" } : undefined,
   };
-  if (!text) return <TableCell onClick={onClick} sx={cellSx} />;
+  if (!text) return <TableCell onClick={onClick} onContextMenu={onContextMenu} sx={cellSx} />;
 
   const lines = text.split(DIALOGUE_SPLIT_REGEX);
 
   return (
-    <TableCell onClick={onClick} sx={cellSx}>
+    <TableCell onClick={onClick} onContextMenu={onContextMenu} sx={cellSx}>
       <Box
         sx={{
           borderLeft: "3px solid",
@@ -235,6 +281,12 @@ interface CellPos {
   col: number;
 }
 
+interface ContextMenuState {
+  anchorPosition: { top: number; left: number };
+  row: number;
+  col: number;
+}
+
 interface WordTableProps {
   words: Word[];
   isCollocation: boolean;
@@ -269,6 +321,7 @@ export default function WordTable({
   const [editingCell, setEditingCell] = useState<EditingCellState | null>(null);
   const [selectionAnchor, setSelectionAnchor] = useState<CellPos | null>(null);
   const [selectionExtent, setSelectionExtent] = useState<CellPos | null>(null);
+  const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
 
   const courseLabel = useMemo(() => {
     if (!courseId) return "";
@@ -584,6 +637,29 @@ export default function WordTable({
     });
   }, [words, localWordUpdates, isJlpt, isCollocation, isFamousQuote]);
 
+  const contextMenuWord = useMemo(() => {
+    if (!contextMenu) return null;
+    const word = words[contextMenu.row];
+    if (!word) return null;
+    return { ...word, ...localWordUpdates[word.id] } as Word;
+  }, [contextMenu, words, localWordUpdates]);
+
+  const contextMenuField = useMemo(
+    () =>
+      contextMenu && contextMenuWord
+        ? getWordTableColField(contextMenu.col, contextMenuWord)
+        : null,
+    [contextMenu, contextMenuWord],
+  );
+
+  const contextMenuEditField = useMemo(
+    () =>
+      contextMenu && contextMenuWord
+        ? getWordTableColEditField(contextMenu.col, contextMenuWord)
+        : null,
+    [contextMenu, contextMenuWord],
+  );
+
   const isCellSelected = useCallback(
     (row: number, col: number): boolean => {
       if (!selectionAnchor || !selectionExtent) return false;
@@ -615,6 +691,45 @@ export default function WordTable({
     [cellGrid],
   );
 
+  const handleCellContextMenu = useCallback(
+    (e: MouseEvent, row: number, col: number) => {
+      e.preventDefault();
+      if (!isCellSelected(row, col)) {
+        setSelectionAnchor({ row, col });
+        setSelectionExtent({ row, col });
+      }
+      setContextMenu({ anchorPosition: { top: e.clientY, left: e.clientX }, row, col });
+    },
+    [isCellSelected],
+  );
+
+  const handleContextMenuCopy = useCallback(() => {
+    if (!selectionAnchor || !selectionExtent) return;
+    copyRangeToClipboard(selectionAnchor, selectionExtent);
+  }, [selectionAnchor, selectionExtent, copyRangeToClipboard]);
+
+  const handleContextMenuGenerate = useCallback(() => {
+    if (!contextMenu) return;
+    const { row, col } = contextMenu;
+    const word = words[row];
+    if (!word) return;
+    const mergedWord = { ...word, ...localWordUpdates[word.id] } as Word;
+    const field = getWordTableColField(col, mergedWord);
+    if (!field) return;
+    openFieldModal(word.id, field);
+  }, [contextMenu, words, localWordUpdates]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleContextMenuEdit = useCallback(() => {
+    if (!contextMenu) return;
+    const { row, col } = contextMenu;
+    const word = words[row];
+    if (!word) return;
+    const mergedWord = { ...word, ...localWordUpdates[word.id] } as Word;
+    const editField = getWordTableColEditField(col, mergedWord);
+    if (!editField) return;
+    activateInlineEdit(mergedWord, editField);
+  }, [contextMenu, words, localWordUpdates, activateInlineEdit]);
+
   const selectableCellSx = useCallback(
     (row: number, col: number) => ({
       cursor: "pointer",
@@ -628,17 +743,13 @@ export default function WordTable({
     (e: MouseEvent, row: number, col: number) => {
       e.stopPropagation();
       if (e.shiftKey && selectionAnchor) {
-        const newExtent = { row, col };
-        setSelectionExtent(newExtent);
-        copyRangeToClipboard(selectionAnchor, newExtent);
+        setSelectionExtent({ row, col });
       } else {
         setSelectionAnchor({ row, col });
         setSelectionExtent({ row, col });
-        const text = cellGrid[row]?.[col] ?? "";
-        if (text) void navigator.clipboard.writeText(text);
       }
     },
-    [cellGrid, copyRangeToClipboard, selectionAnchor],
+    [selectionAnchor],
   );
 
   useEffect(() => {
@@ -713,6 +824,7 @@ export default function WordTable({
                   <>
                     <TableCell
                       onClick={(e) => handleCellClick(e, rowIdx, 0)}
+                      onContextMenu={(e) => handleCellContextMenu(e, rowIdx, 0)}
                       sx={selectableCellSx(rowIdx, 0)}
                     >
                       {renderEditableTextCell(mergedWord, "primaryText", mergedWord.collocation, {
@@ -721,6 +833,7 @@ export default function WordTable({
                     </TableCell>
                     <TableCell
                       onClick={(e) => handleCellClick(e, rowIdx, 1)}
+                      onContextMenu={(e) => handleCellContextMenu(e, rowIdx, 1)}
                       sx={selectableCellSx(rowIdx, 1)}
                     >
                       {renderEditableTextCell(mergedWord, "meaning", mergedWord.meaning, {
@@ -729,6 +842,7 @@ export default function WordTable({
                     </TableCell>
                     <TableCell
                       onClick={(e) => handleCellClick(e, rowIdx, 2)}
+                      onContextMenu={(e) => handleCellContextMenu(e, rowIdx, 2)}
                       sx={selectableCellSx(rowIdx, 2)}
                     >
                       {mergedWord.explanation}
@@ -737,6 +851,7 @@ export default function WordTable({
                       <ExampleCell
                         text={getResolvedTextField(word.id, "example") || mergedWord.example}
                         onClick={(e) => handleCellClick(e, rowIdx, 3)}
+                        onContextMenu={(e) => handleCellContextMenu(e, rowIdx, 3)}
                         selected={isCellSelected(rowIdx, 3)}
                       />
                     ) : (
@@ -752,6 +867,7 @@ export default function WordTable({
                           getResolvedTextField(word.id, "translation") || mergedWord.translation
                         }
                         onClick={(e) => handleCellClick(e, rowIdx, 4)}
+                        onContextMenu={(e) => handleCellContextMenu(e, rowIdx, 4)}
                         selected={isCellSelected(rowIdx, 4)}
                       />
                     ) : (
@@ -793,6 +909,7 @@ export default function WordTable({
                   <>
                     <TableCell
                       onClick={(e) => handleCellClick(e, rowIdx, 0)}
+                      onContextMenu={(e) => handleCellContextMenu(e, rowIdx, 0)}
                       sx={selectableCellSx(rowIdx, 0)}
                     >
                       {renderEditableTextCell(mergedWord, "primaryText", mergedWord.word, {
@@ -802,6 +919,7 @@ export default function WordTable({
                     </TableCell>
                     <TableCell
                       onClick={(e) => handleCellClick(e, rowIdx, 1)}
+                      onContextMenu={(e) => handleCellContextMenu(e, rowIdx, 1)}
                       sx={selectableCellSx(rowIdx, 1)}
                     >
                       {renderEditableTextCell(
@@ -813,6 +931,7 @@ export default function WordTable({
                     </TableCell>
                     <TableCell
                       onClick={(e) => handleCellClick(e, rowIdx, 2)}
+                      onContextMenu={(e) => handleCellContextMenu(e, rowIdx, 2)}
                       sx={selectableCellSx(rowIdx, 2)}
                     >
                       {renderEditableTextCell(
@@ -824,6 +943,7 @@ export default function WordTable({
                     </TableCell>
                     <TableCell
                       onClick={() => openFieldModal(word.id, "pronunciation")}
+                      onContextMenu={(e) => handleCellContextMenu(e, rowIdx, 3)}
                       sx={selectableCellSx(rowIdx, 3)}
                     >
                       {!isMissingField(mergedWord, "pronunciation") ? (
@@ -836,6 +956,7 @@ export default function WordTable({
                     </TableCell>
                     <TableCell
                       onClick={() => openFieldModal(word.id, "pronunciation")}
+                      onContextMenu={(e) => handleCellContextMenu(e, rowIdx, 4)}
                       sx={selectableCellSx(rowIdx, 4)}
                     >
                       {!isMissingField(mergedWord, "pronunciation") ? (
@@ -848,6 +969,7 @@ export default function WordTable({
                     </TableCell>
                     <TableCell
                       onClick={(e) => handleCellClick(e, rowIdx, 5)}
+                      onContextMenu={(e) => handleCellContextMenu(e, rowIdx, 5)}
                       sx={selectableCellSx(rowIdx, 5)}
                     >
                       {renderEditableTextCell(mergedWord, "example", mergedWord.example, {
@@ -857,6 +979,7 @@ export default function WordTable({
                     </TableCell>
                     <TableCell
                       onClick={(e) => handleCellClick(e, rowIdx, 6)}
+                      onContextMenu={(e) => handleCellContextMenu(e, rowIdx, 6)}
                       sx={selectableCellSx(rowIdx, 6)}
                     >
                       {renderEditableTextCell(mergedWord, "exampleRoman", mergedWord.exampleRoman, {
@@ -866,6 +989,7 @@ export default function WordTable({
                     </TableCell>
                     <TableCell
                       onClick={(e) => handleCellClick(e, rowIdx, 7)}
+                      onContextMenu={(e) => handleCellContextMenu(e, rowIdx, 7)}
                       sx={selectableCellSx(rowIdx, 7)}
                     >
                       {renderEditableTextCell(
@@ -880,6 +1004,7 @@ export default function WordTable({
                     </TableCell>
                     <TableCell
                       onClick={(e) => handleCellClick(e, rowIdx, 8)}
+                      onContextMenu={(e) => handleCellContextMenu(e, rowIdx, 8)}
                       sx={selectableCellSx(rowIdx, 8)}
                     >
                       {renderEditableTextCell(
@@ -924,12 +1049,14 @@ export default function WordTable({
                   <>
                     <TableCell
                       onClick={(e) => handleCellClick(e, rowIdx, 0)}
+                      onContextMenu={(e) => handleCellContextMenu(e, rowIdx, 0)}
                       sx={selectableCellSx(rowIdx, 0)}
                     >
                       {mergedWord.quote}
                     </TableCell>
                     <TableCell
                       onClick={(e) => handleCellClick(e, rowIdx, 1)}
+                      onContextMenu={(e) => handleCellContextMenu(e, rowIdx, 1)}
                       sx={selectableCellSx(rowIdx, 1)}
                     >
                       {mergedWord.author}
@@ -937,6 +1064,7 @@ export default function WordTable({
                     {mergedWord.translation || getResolvedTextField(word.id, "translation") ? (
                       <TableCell
                         onClick={(e) => handleCellClick(e, rowIdx, 2)}
+                        onContextMenu={(e) => handleCellContextMenu(e, rowIdx, 2)}
                         sx={selectableCellSx(rowIdx, 2)}
                       >
                         {getResolvedTextField(word.id, "translation") || mergedWord.translation}
@@ -953,6 +1081,7 @@ export default function WordTable({
                   <>
                     <TableCell
                       onClick={(e) => handleCellClick(e, rowIdx, 0)}
+                      onContextMenu={(e) => handleCellContextMenu(e, rowIdx, 0)}
                       sx={selectableCellSx(rowIdx, 0)}
                     >
                       {renderEditableTextCell(mergedWord, "primaryText", mergedWord.word, {
@@ -962,6 +1091,7 @@ export default function WordTable({
                     </TableCell>
                     <TableCell
                       onClick={(e) => handleCellClick(e, rowIdx, 1)}
+                      onContextMenu={(e) => handleCellContextMenu(e, rowIdx, 1)}
                       sx={selectableCellSx(rowIdx, 1)}
                     >
                       {renderEditableTextCell(mergedWord, "meaning", mergedWord.meaning, {
@@ -970,6 +1100,7 @@ export default function WordTable({
                     </TableCell>
                     <TableCell
                       onClick={() => openFieldModal(word.id, "pronunciation")}
+                      onContextMenu={(e) => handleCellContextMenu(e, rowIdx, 2)}
                       sx={selectableCellSx(rowIdx, 2)}
                     >
                       {!isMissingField(mergedWord, "pronunciation") ? (
@@ -984,6 +1115,7 @@ export default function WordTable({
                       <ExampleCell
                         text={getResolvedTextField(word.id, "example") || mergedWord.example}
                         onClick={(e) => handleCellClick(e, rowIdx, 3)}
+                        onContextMenu={(e) => handleCellContextMenu(e, rowIdx, 3)}
                         selected={isCellSelected(rowIdx, 3)}
                       />
                     ) : (
@@ -999,6 +1131,7 @@ export default function WordTable({
                           getResolvedTextField(word.id, "translation") || mergedWord.translation
                         }
                         onClick={(e) => handleCellClick(e, rowIdx, 4)}
+                        onContextMenu={(e) => handleCellContextMenu(e, rowIdx, 4)}
                         selected={isCellSelected(rowIdx, 4)}
                       />
                     ) : (
@@ -1043,6 +1176,14 @@ export default function WordTable({
           </TableBody>
         </Table>
       </TableContainer>
+
+      <CellContextMenu
+        anchorPosition={contextMenu?.anchorPosition ?? null}
+        onClose={() => setContextMenu(null)}
+        onCopy={handleContextMenuCopy}
+        onEdit={contextMenuEditField ? handleContextMenuEdit : null}
+        onGenerate={contextMenuField ? handleContextMenuGenerate : null}
+      />
 
       {activeResult && (
         <WordFinderMissingFieldDialog

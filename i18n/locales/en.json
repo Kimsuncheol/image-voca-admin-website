@@ -265,7 +265,10 @@
     "sharedApplyError": "Failed to apply the shared value.",
     "selectSharedCandidate": "Select one shared value before applying it.",
     "noSharedMatches": "No reusable value was found in other courses.",
-    "imagePreviewAlt": "Preview image for {{text}}"
+    "imagePreviewAlt": "Preview image for {{text}}",
+    "contextMenuCopy": "Copy",
+    "contextMenuEdit": "Edit",
+    "contextMenuGenerate": "Generate"
   },
   "users": {
     "title": "User Management",

@@ -280,6 +280,7 @@ function WordsPageContent({
             results={results}
             onMissingFieldClick={handleMissingFieldClick}
             onTextEdit={handleTextEdit}
+
           />
         </Stack>
       )}

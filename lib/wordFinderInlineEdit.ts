@@ -24,6 +24,7 @@ export type EditableWordTextField =
   | "meaningKorean"
   | "example"
   | "exampleRoman"
+  | "translation"
   | "translationEnglish"
   | "translationKorean";
 
