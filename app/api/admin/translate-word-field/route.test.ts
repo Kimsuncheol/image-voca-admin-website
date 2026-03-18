@@ -42,6 +42,12 @@ test("route returns Korean translation for an example", async () => {
     translateTranslationToEnglishWithDeepL: async () => {
       throw new Error("should not be called");
     },
+    translateKoreanToJapaneseWithDeepL: async () => {
+      throw new Error("should not be called");
+    },
+    translateEnglishToJapaneseWithDeepL: async () => {
+      throw new Error("should not be called");
+    },
     translateExampleToKoreanWithGoogle: async () => {
       throw new Error("should not be called");
     },
@@ -68,6 +74,12 @@ test("route returns English example for a translation", async () => {
     },
     translateTranslationToEnglishWithDeepL: async (translation) =>
       `${translation} [EN]`,
+    translateKoreanToJapaneseWithDeepL: async () => {
+      throw new Error("should not be called");
+    },
+    translateEnglishToJapaneseWithDeepL: async () => {
+      throw new Error("should not be called");
+    },
     translateExampleToKoreanWithGoogle: async () => {
       throw new Error("should not be called");
     },
@@ -103,6 +115,12 @@ test("route dispatches to Google Translate when selected in settings", async () 
     translateTranslationToEnglishWithDeepL: async () => {
       throw new Error("should not be called");
     },
+    translateKoreanToJapaneseWithDeepL: async () => {
+      throw new Error("should not be called");
+    },
+    translateEnglishToJapaneseWithDeepL: async () => {
+      throw new Error("should not be called");
+    },
     translateExampleToKoreanWithGoogle: async (example) => `${example} [GOOGLE KO]`,
     translateTranslationToEnglishWithGoogle: async () => {
       throw new Error("should not be called");
@@ -119,6 +137,126 @@ test("route dispatches to Google Translate when selected in settings", async () 
   assert.equal(payload.translation, "1. Hello. [GOOGLE KO]");
 });
 
+test("route forces DeepL when provider override is deepl", async () => {
+  const handler = createTranslateWordFieldHandler({
+    getServerAISettings: async () => ({
+      ...DEFAULT_AI_SETTINGS,
+      exampleTranslationApi: "google-translate",
+    }),
+    translateExampleToKoreanWithDeepL: async (example) => `${example} [DEEPL KO]`,
+    translateTranslationToEnglishWithDeepL: async () => {
+      throw new Error("should not be called");
+    },
+    translateKoreanToJapaneseWithDeepL: async () => {
+      throw new Error("should not be called");
+    },
+    translateEnglishToJapaneseWithDeepL: async () => {
+      throw new Error("should not be called");
+    },
+    translateExampleToKoreanWithGoogle: async () => {
+      throw new Error("should not be called");
+    },
+    translateTranslationToEnglishWithGoogle: async () => {
+      throw new Error("should not be called");
+    },
+    verifySessionUser: async () => createAdminUser(),
+  });
+
+  const response = await handler(
+    createRequest(
+      JSON.stringify({
+        field: "example",
+        example: "1. Hello.",
+        provider: "deepl",
+      }),
+    ),
+  );
+  const payload = (await response.json()) as { translation?: string };
+
+  assert.equal(response.status, 200);
+  assert.equal(payload.translation, "1. Hello. [DEEPL KO]");
+});
+
+test("route returns Japanese JLPT example from Korean translation", async () => {
+  const handler = createTranslateWordFieldHandler({
+    getServerAISettings: async () => ({
+      ...DEFAULT_AI_SETTINGS,
+      exampleTranslationApi: "google-translate",
+    }),
+    translateExampleToKoreanWithDeepL: async () => {
+      throw new Error("should not be called");
+    },
+    translateTranslationToEnglishWithDeepL: async () => {
+      throw new Error("should not be called");
+    },
+    translateKoreanToJapaneseWithDeepL: async (translation) =>
+      `${translation} [JA]`,
+    translateEnglishToJapaneseWithDeepL: async () => {
+      throw new Error("should not be called");
+    },
+    translateExampleToKoreanWithGoogle: async () => {
+      throw new Error("should not be called");
+    },
+    translateTranslationToEnglishWithGoogle: async () => {
+      throw new Error("should not be called");
+    },
+    verifySessionUser: async () => createAdminUser(),
+  });
+
+  const response = await handler(
+    createRequest(
+      JSON.stringify({
+        field: "jlpt-example",
+        translationKorean: "고양이가 있다.",
+        translationEnglish: "There is a cat.",
+        provider: "deepl",
+      }),
+    ),
+  );
+  const payload = (await response.json()) as { example?: string };
+
+  assert.equal(response.status, 200);
+  assert.equal(payload.example, "고양이가 있다. [JA]");
+});
+
+test("route falls back to English for JLPT example correction", async () => {
+  const handler = createTranslateWordFieldHandler({
+    getServerAISettings: async () => DEFAULT_AI_SETTINGS,
+    translateExampleToKoreanWithDeepL: async () => {
+      throw new Error("should not be called");
+    },
+    translateTranslationToEnglishWithDeepL: async () => {
+      throw new Error("should not be called");
+    },
+    translateKoreanToJapaneseWithDeepL: async () => {
+      throw new Error("should not be called");
+    },
+    translateEnglishToJapaneseWithDeepL: async (translation) =>
+      `${translation} [JA]`,
+    translateExampleToKoreanWithGoogle: async () => {
+      throw new Error("should not be called");
+    },
+    translateTranslationToEnglishWithGoogle: async () => {
+      throw new Error("should not be called");
+    },
+    verifySessionUser: async () => createAdminUser(),
+  });
+
+  const response = await handler(
+    createRequest(
+      JSON.stringify({
+        field: "jlpt-example",
+        translationEnglish: "There is a cat.",
+        provider: "deepl",
+      }),
+    ),
+  );
+  const payload = (await response.json()) as { example?: string };
+
+  assert.equal(response.status, 200);
+  assert.equal(payload.example, "There is a cat. [JA]");
+});
+
 test("route returns provider failures as non-200 responses", async () => {
   const handler = createTranslateWordFieldHandler({
     getServerAISettings: async () => ({
@@ -127,6 +265,8 @@ test("route returns provider failures as non-200 responses", async () => {
     }),
     translateExampleToKoreanWithDeepL: async () => "unused",
     translateTranslationToEnglishWithDeepL: async () => "unused",
+    translateKoreanToJapaneseWithDeepL: async () => "unused",
+    translateEnglishToJapaneseWithDeepL: async () => "unused",
     translateExampleToKoreanWithGoogle: async () => {
       throw new Error("Google Translate is not configured.");
     },
@@ -148,6 +288,8 @@ test("route rejects unauthorized users", async () => {
     getServerAISettings: async () => DEFAULT_AI_SETTINGS,
     translateExampleToKoreanWithDeepL: async () => "unused",
     translateTranslationToEnglishWithDeepL: async () => "unused",
+    translateKoreanToJapaneseWithDeepL: async () => "unused",
+    translateEnglishToJapaneseWithDeepL: async () => "unused",
     translateExampleToKoreanWithGoogle: async () => "unused",
     translateTranslationToEnglishWithGoogle: async () => "unused",
     verifySessionUser: async () => null,
@@ -170,6 +312,8 @@ test("route rejects disabled enrich generation", async () => {
     }),
     translateExampleToKoreanWithDeepL: async () => "unused",
     translateTranslationToEnglishWithDeepL: async () => "unused",
+    translateKoreanToJapaneseWithDeepL: async () => "unused",
+    translateEnglishToJapaneseWithDeepL: async () => "unused",
     translateExampleToKoreanWithGoogle: async () => "unused",
     translateTranslationToEnglishWithGoogle: async () => "unused",
     verifySessionUser: async () => createAdminUser(),
@@ -192,6 +336,8 @@ test("route rejects admins without example/translation permission", async () => 
     getServerAISettings: async () => DEFAULT_AI_SETTINGS,
     translateExampleToKoreanWithDeepL: async () => "unused",
     translateTranslationToEnglishWithDeepL: async () => "unused",
+    translateKoreanToJapaneseWithDeepL: async () => "unused",
+    translateEnglishToJapaneseWithDeepL: async () => "unused",
     translateExampleToKoreanWithGoogle: async () => "unused",
     translateTranslationToEnglishWithGoogle: async () => "unused",
     verifySessionUser: async () =>
@@ -215,6 +361,8 @@ test("route rejects invalid request bodies", async () => {
     getServerAISettings: async () => DEFAULT_AI_SETTINGS,
     translateExampleToKoreanWithDeepL: async () => "unused",
     translateTranslationToEnglishWithDeepL: async () => "unused",
+    translateKoreanToJapaneseWithDeepL: async () => "unused",
+    translateEnglishToJapaneseWithDeepL: async () => "unused",
     translateExampleToKoreanWithGoogle: async () => "unused",
     translateTranslationToEnglishWithGoogle: async () => "unused",
     verifySessionUser: async () => createAdminUser(),
@@ -232,10 +380,53 @@ test("route rejects invalid request bodies", async () => {
   assert.equal(invalidFieldResponse.status, 400);
   assert.equal(invalidFieldPayload.error, "Invalid field");
 
+  const invalidProviderResponse = await handler(
+    createRequest(
+      JSON.stringify({
+        field: "example",
+        example: "1. Hello.",
+        provider: "google-translate",
+      }),
+    ),
+  );
+  const invalidProviderPayload = (await invalidProviderResponse.json()) as { error?: string };
+  assert.equal(invalidProviderResponse.status, 400);
+  assert.equal(invalidProviderPayload.error, "Invalid provider");
+
+  const missingJlptProviderResponse = await handler(
+    createRequest(
+      JSON.stringify({
+        field: "jlpt-example",
+        translationKorean: "고양이가 있다.",
+      }),
+    ),
+  );
+  const missingJlptProviderPayload =
+    (await missingJlptProviderResponse.json()) as { error?: string };
+  assert.equal(missingJlptProviderResponse.status, 400);
+  assert.equal(missingJlptProviderPayload.error, "DeepL provider is required");
+
   const missingTextResponse = await handler(
     createRequest(JSON.stringify({ field: "translation" })),
   );
   const missingTextPayload = (await missingTextResponse.json()) as { error?: string };
   assert.equal(missingTextResponse.status, 400);
   assert.equal(missingTextPayload.error, "translation is required");
+
+  const missingJlptSourceResponse = await handler(
+    createRequest(
+      JSON.stringify({
+        field: "jlpt-example",
+        provider: "deepl",
+      }),
+    ),
+  );
+  const missingJlptSourcePayload = (await missingJlptSourceResponse.json()) as {
+    error?: string;
+  };
+  assert.equal(missingJlptSourceResponse.status, 400);
+  assert.equal(
+    missingJlptSourcePayload.error,
+    "translationKorean or translationEnglish is required",
+  );
 });

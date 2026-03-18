@@ -2,7 +2,9 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  translateEnglishToJapanese,
   translateExampleToKorean,
+  translateKoreanToJapanese,
   translateTranslationToEnglish,
   translateWithDeepL,
 } from "./deepl.ts";
@@ -61,6 +63,54 @@ test("translateTranslationToEnglish posts KO to EN to DeepL", async () => {
   assert.equal(translated, "1. We had a brief meeting.");
   assert.match(seenBody, /source_lang=KO/);
   assert.match(seenBody, /target_lang=EN/);
+});
+
+test("translateKoreanToJapanese posts KO to JA to DeepL", async () => {
+  let seenBody = "";
+
+  const translated = await translateKoreanToJapanese(
+    "고양이가 있다.",
+    {
+      apiKey: "test-key",
+      fetchImpl: async (_url, init) => {
+        seenBody = String(init?.body);
+        return new Response(
+          JSON.stringify({
+            translations: [{ text: "猫がいる。" }],
+          }),
+          { status: 200 },
+        );
+      },
+    },
+  );
+
+  assert.equal(translated, "猫がいる。");
+  assert.match(seenBody, /source_lang=KO/);
+  assert.match(seenBody, /target_lang=JA/);
+});
+
+test("translateEnglishToJapanese posts EN to JA to DeepL", async () => {
+  let seenBody = "";
+
+  const translated = await translateEnglishToJapanese(
+    "There is a cat.",
+    {
+      apiKey: "test-key",
+      fetchImpl: async (_url, init) => {
+        seenBody = String(init?.body);
+        return new Response(
+          JSON.stringify({
+            translations: [{ text: "猫がいる。" }],
+          }),
+          { status: 200 },
+        );
+      },
+    },
+  );
+
+  assert.equal(translated, "猫がいる。");
+  assert.match(seenBody, /source_lang=EN/);
+  assert.match(seenBody, /target_lang=JA/);
 });
 
 test("translateWithDeepL throws when DeepL returns empty text", async () => {

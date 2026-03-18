@@ -39,6 +39,10 @@ import type {
   WordFinderResultFieldUpdates,
 } from "@/types/wordFinder";
 
+function hasTrimmedText(value: string | null | undefined): value is string {
+  return typeof value === "string" && value.trim().length > 0;
+}
+
 function getWordTableColField(col: number, word: Word): WordFinderActionField | null {
   if (isJlptWord(word)) {
     if (col === 3 || col === 4) return "pronunciation";
@@ -80,6 +84,14 @@ function getWordTableColEditField(col: number, word: Word): CourseInlineEditable
     if (col === 1) return "meaning";
   }
   return null;
+}
+
+function canTranslateWordTableExample(col: number, word: Word): boolean {
+  return (
+    isJlptWord(word) &&
+    col === 5 &&
+    (hasTrimmedText(word.translationKorean) || hasTrimmedText(word.translationEnglish))
+  );
 }
 
 // Detects "Name: text. Name: text" dialogue formatting.
@@ -662,6 +674,14 @@ export default function WordTable({
     [contextMenu, contextMenuWord],
   );
 
+  const contextMenuCanTranslate = useMemo(
+    () =>
+      contextMenu && contextMenuWord
+        ? canTranslateWordTableExample(contextMenu.col, contextMenuWord)
+        : false,
+    [contextMenu, contextMenuWord],
+  );
+
   const isCellSelected = useCallback(
     (row: number, col: number): boolean => {
       if (!selectionAnchor || !selectionExtent) return false;
@@ -731,6 +751,78 @@ export default function WordTable({
     if (!editField) return;
     activateInlineEdit(mergedWord, editField);
   }, [contextMenu, words, localWordUpdates, activateInlineEdit]);
+
+  const handleContextMenuTranslate = useCallback(async () => {
+    if (!contextMenu || !coursePath || !dayId) return;
+
+    const { row, col } = contextMenu;
+    const word = words[row];
+    if (!word) return;
+
+    const mergedWord = { ...word, ...localWordUpdates[word.id] } as Word;
+    if (!canTranslateWordTableExample(col, mergedWord)) return;
+
+    if (!isJlptWord(mergedWord)) return;
+
+    const translationKorean = hasTrimmedText(mergedWord.translationKorean)
+      ? mergedWord.translationKorean
+      : undefined;
+    const translationEnglish = hasTrimmedText(mergedWord.translationEnglish)
+      ? mergedWord.translationEnglish
+      : undefined;
+
+    if (!translationKorean && !translationEnglish) return;
+
+    try {
+      const response = await fetch("/api/admin/translate-word-field", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          field: "jlpt-example",
+          translationKorean,
+          translationEnglish,
+          provider: "deepl",
+        }),
+      });
+      const payload = (await response.json()) as {
+        error?: string;
+        example?: string;
+      };
+
+      if (!response.ok || !hasTrimmedText(payload.example)) {
+        throw new Error(payload.error || t("words.generateActionError"));
+      }
+
+      await updateWordTextField(
+        coursePath,
+        dayId,
+        mergedWord.id,
+        "example",
+        payload.example,
+      );
+
+      setLocalWordUpdates((prev) => ({
+        ...prev,
+        [mergedWord.id]: {
+          ...prev[mergedWord.id],
+          example: payload.example,
+        },
+      }));
+      onWordFieldsUpdated?.(mergedWord.id, { example: payload.example });
+    } catch (error) {
+      window.alert(
+        error instanceof Error ? error.message : t("words.generateActionError"),
+      );
+    }
+  }, [
+    contextMenu,
+    coursePath,
+    dayId,
+    localWordUpdates,
+    onWordFieldsUpdated,
+    t,
+    words,
+  ]);
 
   const selectableCellSx = useCallback(
     (row: number, col: number) => ({
@@ -1190,6 +1282,10 @@ export default function WordTable({
         onClose={() => setContextMenu(null)}
         onCopy={handleContextMenuCopy}
         onEdit={contextMenuEditField ? handleContextMenuEdit : null}
+        onTranslate={contextMenuCanTranslate ? handleContextMenuTranslate : null}
+        translateLabel={
+          contextMenuCanTranslate ? "correct it with DeepL" : undefined
+        }
         onGenerate={contextMenuField ? handleContextMenuGenerate : null}
       />
 

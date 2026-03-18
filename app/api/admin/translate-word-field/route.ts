@@ -1,6 +1,8 @@
 import { getServerAISettings } from "@/lib/server/aiSettings";
 import {
+  translateEnglishToJapanese,
   translateExampleToKorean,
+  translateKoreanToJapanese,
   translateTranslationToEnglish,
 } from "@/lib/server/deepl";
 import {
@@ -15,6 +17,8 @@ export const POST = createTranslateWordFieldHandler({
   getServerAISettings,
   translateExampleToKoreanWithDeepL: translateExampleToKorean,
   translateTranslationToEnglishWithDeepL: translateTranslationToEnglish,
+  translateKoreanToJapaneseWithDeepL: translateKoreanToJapanese,
+  translateEnglishToJapaneseWithDeepL: translateEnglishToJapanese,
   translateExampleToKoreanWithGoogle,
   translateTranslationToEnglishWithGoogle,
   verifySessionUser,

@@ -10,6 +10,8 @@ interface CellContextMenuProps {
   onClose: () => void;
   onCopy: () => void;
   onEdit: (() => void) | null;
+  onTranslate?: (() => void) | null;
+  translateLabel?: string;
   onGenerate: (() => void) | null;
 }
 
@@ -18,6 +20,8 @@ export default function CellContextMenu({
   onClose,
   onCopy,
   onEdit,
+  onTranslate = null,
+  translateLabel,
   onGenerate,
 }: CellContextMenuProps) {
   const { t } = useTranslation();
@@ -42,6 +46,12 @@ export default function CellContextMenu({
     onClose();
   }, [onClose, onGenerate]);
 
+  const handleTranslate = useCallback(() => {
+    if (!onTranslate) return;
+    deferredActionRef.current = onTranslate;
+    onClose();
+  }, [onClose, onTranslate]);
+
   const handleExited = useCallback(() => {
     const deferredAction = deferredActionRef.current;
     deferredActionRef.current = null;
@@ -63,6 +73,11 @@ export default function CellContextMenu({
       <MenuItem disabled={onEdit === null} onClick={onEdit ? handleEdit : undefined}>
         {t("words.contextMenuEdit")}
       </MenuItem>
+      {onTranslate ? (
+        <MenuItem onClick={handleTranslate}>
+          {translateLabel || t("words.contextMenuTranslate", "Translate")}
+        </MenuItem>
+      ) : null}
       <MenuItem
         disabled={onGenerate === null}
         onClick={onGenerate ? handleGenerate : undefined}

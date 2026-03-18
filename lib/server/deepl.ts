@@ -1,5 +1,5 @@
 export type DeepLSourceLang = "EN" | "KO";
-export type DeepLTargetLang = "EN" | "KO";
+export type DeepLTargetLang = "EN" | "KO" | "JA";
 
 interface DeepLTranslation {
   text?: string;
@@ -110,6 +110,30 @@ export function translateTranslationToEnglish(
     text: translation,
     sourceLang: "KO",
     targetLang: "EN",
+    ...options,
+  });
+}
+
+export function translateKoreanToJapanese(
+  translation: string,
+  options?: Omit<TranslateWithDeepLArgs, "text" | "sourceLang" | "targetLang">,
+) {
+  return translateWithDeepL({
+    text: translation,
+    sourceLang: "KO",
+    targetLang: "JA",
+    ...options,
+  });
+}
+
+export function translateEnglishToJapanese(
+  translation: string,
+  options?: Omit<TranslateWithDeepLArgs, "text" | "sourceLang" | "targetLang">,
+) {
+  return translateWithDeepL({
+    text: translation,
+    sourceLang: "EN",
+    targetLang: "JA",
     ...options,
   });
 }

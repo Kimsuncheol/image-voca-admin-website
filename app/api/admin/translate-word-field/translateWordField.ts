@@ -8,18 +8,24 @@ import {
 import type { AISettings } from "@/lib/aiSettings";
 import type { AppUser } from "@/types/user";
 
-type FieldType = "example" | "translation";
+type FieldType = "example" | "translation" | "jlpt-example";
+type ProviderOverride = "deepl";
 
 export interface TranslateWordFieldBody {
   field: FieldType;
   example?: string;
   translation?: string;
+  translationKorean?: string;
+  translationEnglish?: string;
+  provider?: ProviderOverride;
 }
 
 export interface TranslateWordFieldDependencies {
   getServerAISettings: () => Promise<AISettings>;
   translateExampleToKoreanWithDeepL: (example: string) => Promise<string>;
   translateTranslationToEnglishWithDeepL: (translation: string) => Promise<string>;
+  translateKoreanToJapaneseWithDeepL: (translation: string) => Promise<string>;
+  translateEnglishToJapaneseWithDeepL: (translation: string) => Promise<string>;
   translateExampleToKoreanWithGoogle: (example: string) => Promise<string>;
   translateTranslationToEnglishWithGoogle: (translation: string) => Promise<string>;
   verifySessionUser: (request: NextRequest) => Promise<AppUser | null>;
@@ -39,8 +45,17 @@ function getProviderErrorStatus(message: string): number {
 
 function getProviderTranslator(
   settings: Pick<AISettings, "exampleTranslationApi">,
+  providerOverride: ProviderOverride | undefined,
   dependencies: TranslateWordFieldDependencies,
 ) {
+  if (providerOverride === "deepl") {
+    return {
+      translateExampleToKorean: dependencies.translateExampleToKoreanWithDeepL,
+      translateTranslationToEnglish:
+        dependencies.translateTranslationToEnglishWithDeepL,
+    };
+  }
+
   if (settings.exampleTranslationApi === "google-translate") {
     return {
       translateExampleToKorean: dependencies.translateExampleToKoreanWithGoogle,
@@ -72,15 +87,29 @@ export function createTranslateWordFieldHandler(
       return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
     }
 
-    const { field, example, translation } = body;
-    if (field !== "example" && field !== "translation") {
+    const {
+      field,
+      example,
+      translation,
+      translationKorean,
+      translationEnglish,
+      provider,
+    } = body;
+    if (
+      field !== "example" &&
+      field !== "translation" &&
+      field !== "jlpt-example"
+    ) {
       return NextResponse.json({ error: "Invalid field" }, { status: 400 });
+    }
+    if (typeof provider !== "undefined" && provider !== "deepl") {
+      return NextResponse.json({ error: "Invalid provider" }, { status: 400 });
     }
 
     const settings = await dependencies.getServerAISettings();
     const blockReason = shouldBlockWordFieldGenerationForUser(
       settings,
-      field,
+      field === "jlpt-example" ? "example" : field,
       caller,
     );
 
@@ -99,6 +128,37 @@ export function createTranslateWordFieldHandler(
     }
 
     try {
+      if (field === "jlpt-example") {
+        const sourceKorean = hasText(translationKorean)
+          ? translationKorean
+          : null;
+        const sourceEnglish = !sourceKorean && hasText(translationEnglish)
+          ? translationEnglish
+          : null;
+
+        if (!sourceKorean && !sourceEnglish) {
+          return NextResponse.json(
+            { error: "translationKorean or translationEnglish is required" },
+            { status: 400 },
+          );
+        }
+
+        if (provider !== "deepl") {
+          return NextResponse.json(
+            { error: "DeepL provider is required" },
+            { status: 400 },
+          );
+        }
+
+        const translated = sourceKorean
+          ? await dependencies.translateKoreanToJapaneseWithDeepL(sourceKorean)
+          : await dependencies.translateEnglishToJapaneseWithDeepL(
+              sourceEnglish as string,
+            );
+
+        return NextResponse.json({ example: translated });
+      }
+
       if (field === "example") {
         if (!hasText(example)) {
           return NextResponse.json(
@@ -107,7 +167,7 @@ export function createTranslateWordFieldHandler(
           );
         }
 
-        const translator = getProviderTranslator(settings, dependencies);
+        const translator = getProviderTranslator(settings, provider, dependencies);
         const translated = await translator.translateExampleToKorean(example);
         return NextResponse.json({ translation: translated });
       }
@@ -119,7 +179,7 @@ export function createTranslateWordFieldHandler(
         );
       }
 
-      const translator = getProviderTranslator(settings, dependencies);
+      const translator = getProviderTranslator(settings, provider, dependencies);
       const translated = await translator.translateTranslationToEnglish(
         translation,
       );
