@@ -81,10 +81,21 @@ export default function CourseDaysPage({
   const isFlat = course?.flat === true;
   const isJlptGroup = isJlptCourse(courseId);
   const isJlptLevel = JLPT_LEVEL_COURSES.some((l) => l.id === courseId);
-  // Generic /courses/JLPT page — show level chips only, no day fetch
+  // Generic /courses/JLPT page — redirect to the default level
   const isJlptGroupRoot = isJlptGroup && !isJlptLevel;
-  const isLoading = course && !isJlptGroupRoot ? loading : false;
-  const resolvedError = course ? error : "Course not found";
+  const isRedirectingToDefaultJlptLevel = isJlptGroupRoot;
+  const isLoading =
+    isRedirectingToDefaultJlptLevel || (Boolean(course) && !isJlptGroupRoot ? loading : false);
+  const resolvedError = isRedirectingToDefaultJlptLevel
+    ? ""
+    : course
+      ? error
+      : "Course not found";
+
+  useEffect(() => {
+    if (!isRedirectingToDefaultJlptLevel) return;
+    router.replace("/courses/JLPT_N1");
+  }, [isRedirectingToDefaultJlptLevel, router]);
 
   // ── Firestore data fetch ──────────────────────────────────────────
   useEffect(() => {
