@@ -5,13 +5,15 @@ import Button from "@mui/material/Button";
 import FormControl from "@mui/material/FormControl";
 import InputAdornment from "@mui/material/InputAdornment";
 import InputLabel from "@mui/material/InputLabel";
+import Divider from "@mui/material/Divider";
+import ListSubheader from "@mui/material/ListSubheader";
 import MenuItem from "@mui/material/MenuItem";
 import Select from "@mui/material/Select";
 import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import { useTranslation } from "react-i18next";
 
-import { COURSES } from "@/types/course";
+import { COURSES, JLPT_LEVEL_COURSES } from "@/types/course";
 import type { WordFinderMissingField, WordFinderType } from "@/types/wordFinder";
 
 interface WordFinderFiltersProps {
@@ -90,6 +92,13 @@ export default function WordFinderFilters({
           >
             <MenuItem value="all">{t("words.allCourses")}</MenuItem>
             {COURSES.filter((course) => Boolean(course.path)).map((course) => (
+              <MenuItem key={course.id} value={course.id}>
+                {course.label}
+              </MenuItem>
+            ))}
+            <Divider />
+            <ListSubheader>JLPT</ListSubheader>
+            {JLPT_LEVEL_COURSES.map((course) => (
               <MenuItem key={course.id} value={course.id}>
                 {course.label}
               </MenuItem>

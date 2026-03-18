@@ -14,7 +14,7 @@ import {
   normalizeWordFinderText,
 } from "@/lib/server/wordFinderSearch";
 import { verifySessionUser } from "@/lib/server/sessionUser";
-import { COURSES, type Course } from "@/types/course";
+import { COURSES, JLPT_LEVEL_COURSES, type Course } from "@/types/course";
 import type {
   WordFinderMissingField,
   WordFinderResponse,
@@ -22,6 +22,8 @@ import type {
 } from "@/types/wordFinder";
 
 const MAX_RESULTS = 200;
+
+const SEARCHABLE_COURSES = [...COURSES, ...JLPT_LEVEL_COURSES];
 
 // ---------------------------------------------------------------------------
 // Type-aware course selection
@@ -245,8 +247,8 @@ export async function GET(request: NextRequest) {
     // Select courses based on courseId param, then narrow by type
     let selectedCourses =
       courseId === "all"
-        ? COURSES.filter((course) => Boolean(course.path))
-        : COURSES.filter(
+        ? SEARCHABLE_COURSES.filter((course) => Boolean(course.path))
+        : SEARCHABLE_COURSES.filter(
             (course) => course.id === courseId && Boolean(course.path),
           );
 
