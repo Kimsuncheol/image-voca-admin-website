@@ -67,6 +67,7 @@ import {
 } from "@/lib/wordFinderCourseAdapter";
 import { useAdminAIAccess } from "@/lib/hooks/useAdminAccess";
 import { formatPersistedPronunciation, getIpaUSUKBatch } from "@/lib/utils/ipaLookup";
+import { containsKorean } from "@/lib/utils/korean";
 import type { CourseDayMissingField } from "@/types/courseDayMissingField";
 import type { WordFinderResult, WordFinderResultFieldUpdates } from "@/types/wordFinder";
 
@@ -82,6 +83,7 @@ interface BulkFeedback {
 
 function getMissingFieldOptions(
   isCollocation: boolean,
+  isJlpt: boolean,
   showImageUrl: boolean,
   t: (key: string, options?: Record<string, unknown>) => string,
 ): Array<{ value: CourseDayMissingField; label: string }> {
@@ -108,6 +110,10 @@ function getMissingFieldOptions(
 
   if (showImageUrl) {
     options.push({ value: "image", label: t("courses.missingImage") });
+  }
+
+  if (isJlpt) {
+    options.push({ value: "exampleHasKorean", label: t("courses.exampleHasKorean") });
   }
 
   return options;
@@ -270,21 +276,23 @@ export default function DayWordsPage({
   const showImageUrl = isSupportedImageGenerationCourseId(courseId);
 
   const missingFieldOptions = useMemo(
-    () => getMissingFieldOptions(isCollocation, showImageUrl, t),
-    [isCollocation, showImageUrl, t],
+    () => getMissingFieldOptions(isCollocation, isJlpt, showImageUrl, t),
+    [isCollocation, isJlpt, showImageUrl, t],
   );
 
   const filteredWords = useMemo(
     () =>
-      words.filter((word) =>
-        missingField === "all"
-          ? true
-          : isCourseWordFieldMissing(
-              word,
-              { isCollocation, isJlpt, isFamousQuote, showImageUrl },
-              missingField,
-            ),
-      ),
+      words.filter((word) => {
+        if (missingField === "all") return true;
+        if (missingField === "exampleHasKorean") {
+          return containsKorean((word as unknown as { example?: string }).example);
+        }
+        return isCourseWordFieldMissing(
+          word,
+          { isCollocation, isJlpt, isFamousQuote, showImageUrl },
+          missingField,
+        );
+      }),
     [isCollocation, isJlpt, isFamousQuote, missingField, showImageUrl, words],
   );
 
@@ -655,6 +663,7 @@ export default function DayWordsPage({
     bulkLoadingField,
     courseId,
     filteredResults,
+    isJlpt,
     persistResolvedUpdates,
     settings,
     t,

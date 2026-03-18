@@ -4,6 +4,7 @@ export type CourseDayMissingField =
   | "meaning"
   | "pronunciation"
   | "example"
+  | "exampleHasKorean"
   | "translation"
   | "image";
 

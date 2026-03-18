@@ -183,6 +183,7 @@
     "missingExample": "예문 없음",
     "missingTranslation": "번역 없음",
     "missingImage": "이미지 없음",
+    "exampleHasKorean": "예문에 한국어 포함",
     "missingWordValue": "단어 추가",
     "missingCollocationValue": "연어 추가",
     "missingMeaningValue": "의미 추가",

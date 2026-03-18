@@ -20,6 +20,7 @@ import CellContextMenu from "@/components/shared/CellContextMenu";
 import InlineEditableText from "@/components/shared/InlineEditableText";
 import WordFinderMissingFieldDialog from "@/components/words/WordFinderMissingFieldDialog";
 import { updateWordTextField } from "@/lib/firebase/firestore";
+import { containsKorean } from "@/lib/utils/korean";
 import { getCourseById, type CourseId } from "@/types/course";
 import type { CollocationWord, JlptWord, StandardWord, Word } from "@/types/word";
 import { isCollocationWord, isFamousQuoteWord, isJlptWord } from "@/types/word";
@@ -505,6 +506,7 @@ export default function WordTable({
               ...localUpdate,
             },
           }));
+          onWordFieldsUpdated?.(word.id, localUpdate);
         }
 
         setEditingCell(null);
@@ -970,7 +972,13 @@ export default function WordTable({
                     <TableCell
                       onClick={(e) => handleCellClick(e, rowIdx, 5)}
                       onContextMenu={(e) => handleCellContextMenu(e, rowIdx, 5)}
-                      sx={selectableCellSx(rowIdx, 5)}
+                      sx={{
+                        ...selectableCellSx(rowIdx, 5),
+                        ...(containsKorean(mergedWord.example) && {
+                          outline: "2px solid",
+                          outlineColor: "warning.main",
+                        }),
+                      }}
                     >
                       {renderEditableTextCell(mergedWord, "example", mergedWord.example, {
                         emptyLabel: t("words.none"),
