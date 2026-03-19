@@ -32,6 +32,10 @@
 import { useState, useEffect, useCallback } from "react";
 import Typography from "@mui/material/Typography";
 import Alert from "@mui/material/Alert";
+import Box from "@mui/material/Box";
+import Button from "@mui/material/Button";
+import CampaignIcon from "@mui/icons-material/Campaign";
+import AddIcon from "@mui/icons-material/Add";
 import { useTranslation } from "react-i18next";
 
 // ── Layout ────────────────────────────────────────────────────────────
@@ -169,7 +173,38 @@ export default function AdsPage() {
       {/* ── Ad list / empty state ─────────────────────────────────────── */}
       {ads.length === 0 ? (
         // Empty state: no ads have been created yet
-        <Typography color="text.secondary">{t("ads.noAds")}</Typography>
+        <Box
+          sx={{
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            textAlign: "center",
+            py: 8,
+            px: 3,
+            mt: 4,
+            borderRadius: 4,
+            border: "1px dashed",
+            borderColor: "divider",
+            backgroundColor: "action.hover",
+          }}
+        >
+          <CampaignIcon sx={{ fontSize: 64, color: "text.disabled", opacity: 0.6, mb: 2 }} />
+          <Typography variant="h6" fontWeight={600} color="text.primary" gutterBottom>
+            {t("ads.noAds", "No advertisements")}
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ maxWidth: 400, mb: 3 }}>
+            {t("ads.noAdsDescription", "Get started by creating a new advertisement. Ads will be displayed to users in the mobile app.")}
+          </Typography>
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={() => setModalOpen(true)}
+            sx={{ borderRadius: 2 }}
+          >
+            {t("ads.createFirst", "Create Ad")}
+          </Button>
+        </Box>
       ) : (
         /*
          * AdList renders a table with columns:

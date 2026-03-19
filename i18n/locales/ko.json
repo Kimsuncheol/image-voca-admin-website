@@ -156,6 +156,8 @@
     "days": "일차",
     "words": "단어",
     "noData": "데이터가 없습니다",
+    "noDataHint": "이 일차에 아직 업로드된 단어가 없습니다.",
+    "noDataFilteredHint": "선택한 누락 필드 조건과 일치하는 단어가 없습니다.",
     "fetchError": "데이터를 불러올 수 없습니다. 다시 시도해주세요.",
     "word": "단어",
     "meaning": "의미",

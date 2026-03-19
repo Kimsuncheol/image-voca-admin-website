@@ -156,6 +156,8 @@
     "days": "Days",
     "words": "Words",
     "noData": "No data available",
+    "noDataHint": "No words have been uploaded for this day yet.",
+    "noDataFilteredHint": "No words match the selected missing field filter.",
     "fetchError": "Failed to load data. Please try again.",
     "word": "Word",
     "meaning": "Meaning",

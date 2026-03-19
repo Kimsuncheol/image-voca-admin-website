@@ -31,6 +31,7 @@
  */
 
 import { useState, useEffect, use, useCallback, useMemo } from "react";
+import InboxIcon from "@mui/icons-material/Inbox";
 import Typography from "@mui/material/Typography";
 import Alert from "@mui/material/Alert";
 import Button from "@mui/material/Button";
@@ -939,7 +940,31 @@ export default function DayWordsPage({
       {/* ── Word table / empty state ──────────────────────────────────── */}
       {filteredWords.length === 0 && !error ? (
         // Empty state: no words have been uploaded for this day yet
-        <Typography color="text.secondary">{t("courses.noData")}</Typography>
+        <Stack
+          alignItems="center"
+          justifyContent="center"
+          spacing={1.5}
+          sx={{
+            py: 8,
+            px: 3,
+            borderRadius: 3,
+            border: "1px dashed",
+            borderColor: "divider",
+            backgroundColor: "action.hover",
+          }}
+        >
+          <InboxIcon sx={{ fontSize: 56, color: "text.disabled", opacity: 0.6 }} />
+          <Stack alignItems="center" spacing={0.5}>
+            <Typography variant="h6" color="text.secondary" fontWeight={600}>
+              {t("courses.noData")}
+            </Typography>
+            <Typography variant="body2" color="text.disabled">
+              {missingField === "all"
+                ? t("courses.noDataHint")
+                : t("courses.noDataFilteredHint")}
+            </Typography>
+          </Stack>
+        </Stack>
       ) : (
         // WordTable renders differently depending on isCollocation:
         //   false → standard columns: word, pronunciation, meaning, example
