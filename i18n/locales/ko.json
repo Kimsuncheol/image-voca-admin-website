@@ -465,6 +465,7 @@
     "backHome": "홈으로 돌아가기"
   },
   "common": {
+    "all": "전체",
     "loading": "로딩 중...",
     "error": "오류",
     "apply": "적용",

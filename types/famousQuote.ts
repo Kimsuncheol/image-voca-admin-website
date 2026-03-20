@@ -2,6 +2,7 @@ export const FAMOUS_QUOTE_FILTER_LANGUAGES = [
   "All",
   "English",
   "Japanese",
+  "None",
 ] as const;
 
 export const FAMOUS_QUOTE_LANGUAGES = [

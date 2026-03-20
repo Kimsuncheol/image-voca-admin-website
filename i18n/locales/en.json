@@ -465,6 +465,7 @@
     "backHome": "Back to Home"
   },
   "common": {
+    "all": "All",
     "loading": "Loading...",
     "error": "Error",
     "apply": "Apply",

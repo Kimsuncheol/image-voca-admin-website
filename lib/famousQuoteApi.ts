@@ -30,3 +30,32 @@ export async function fetchFilteredFamousQuotes(
 
   return (await response.json()) as FamousQuoteWord[];
 }
+
+async function fillFamousQuotesLanguage(
+  coursePath: string,
+  ids: string[],
+  language: "English" | "Japanese",
+): Promise<void> {
+  const response = await fetch("/api/admin/famous-quotes", {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ coursePath, ids, language }),
+  });
+  if (!response.ok) {
+    throw new Error(`Fill ${language} failed (${response.status})`);
+  }
+}
+
+export function fillFamousQuotesEnglish(
+  coursePath: string,
+  ids: string[],
+): Promise<void> {
+  return fillFamousQuotesLanguage(coursePath, ids, "English");
+}
+
+export function fillFamousQuotesJapanese(
+  coursePath: string,
+  ids: string[],
+): Promise<void> {
+  return fillFamousQuotesLanguage(coursePath, ids, "Japanese");
+}

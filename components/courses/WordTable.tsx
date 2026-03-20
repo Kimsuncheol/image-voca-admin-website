@@ -699,7 +699,7 @@ export default function WordTable({
         return [m.collocation, m.meaning, m.explanation, m.example, m.translation, ""];
       }
       if (isFamousQuote && isFamousQuoteWord(m)) {
-        return [m.quote, m.author, m.translation, m.language ?? 'English'];
+        return [m.quote, m.author, m.translation, m.language ?? ''];
       }
       const s = m as StandardWord;
       return [s.word, s.meaning, s.pronunciation, s.example, s.translation, ""];
@@ -1247,7 +1247,7 @@ export default function WordTable({
                       onContextMenu={(e) => handleCellContextMenu(e, rowIdx, 3)}
                       sx={selectableCellSx(rowIdx, 3)}
                     >
-                      {mergedWord.language ?? 'English'}
+                      {mergedWord.language ?? ''}
                     </TableCell>
                   </>
                   ) : (

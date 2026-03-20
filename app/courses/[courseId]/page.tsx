@@ -40,6 +40,7 @@ import Typography from "@mui/material/Typography";
 import Box from "@mui/material/Box";
 import Chip from "@mui/material/Chip";
 import Alert from "@mui/material/Alert";
+import Button from "@mui/material/Button";
 import { useTranslation } from "react-i18next";
 
 // ── Layout & structural components ────────────────────────────────────
@@ -54,7 +55,11 @@ import {
 } from "@/types/famousQuote";
 import type { FamousQuoteWord } from "@/types/word";
 import { getCourseDays } from "@/lib/firebase/firestore";
-import { fetchFilteredFamousQuotes } from "@/lib/famousQuoteApi";
+import {
+  fetchFilteredFamousQuotes,
+  fillFamousQuotesEnglish,
+  fillFamousQuotesJapanese,
+} from "@/lib/famousQuoteApi";
 
 // ── Feature-specific components ───────────────────────────────────────
 import DayCard from "@/components/courses/DayCard";
@@ -82,6 +87,8 @@ export default function CourseDaysPage({
   const [quotes, setQuotes] = useState<FamousQuoteWord[]>([]);
   const [languageFilter, setLanguageFilter] =
     useState<FamousQuoteFilterLanguage>("All");
+  const [refreshKey, setRefreshKey] = useState(0);
+  const [filling, setFilling] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -107,6 +114,52 @@ export default function CourseDaysPage({
     if (nextLanguage === languageFilter) return;
     setLoading(true);
     setLanguageFilter(nextLanguage);
+  }
+
+  async function handleFillEnglish() {
+    if (!course || quotes.length === 0) return;
+    if (
+      !window.confirm(
+        t(
+          "courses.fillEnglishConfirm",
+          `Set language = English for all ${quotes.length} quotes?`,
+        ),
+      )
+    )
+      return;
+    setFilling(true);
+    try {
+      await fillFamousQuotesEnglish(
+        course.path,
+        quotes.map((q) => q.id),
+      );
+      setRefreshKey((k) => k + 1);
+    } finally {
+      setFilling(false);
+    }
+  }
+
+  async function handleFillJapanese() {
+    if (!course || quotes.length === 0) return;
+    if (
+      !window.confirm(
+        t(
+          "courses.fillJapaneseConfirm",
+          `Set language = Japanese for all ${quotes.length} quotes?`,
+        ),
+      )
+    )
+      return;
+    setFilling(true);
+    try {
+      await fillFamousQuotesJapanese(
+        course.path,
+        quotes.map((q) => q.id),
+      );
+      setRefreshKey((k) => k + 1);
+    } finally {
+      setFilling(false);
+    }
   }
 
   useEffect(() => {
@@ -154,7 +207,7 @@ export default function CourseDaysPage({
     return () => {
       isCancelled = true;
     };
-  }, [course, isFlat, isJlptGroupRoot, languageFilter, t]);
+  }, [course, isFlat, isJlptGroupRoot, languageFilter, refreshKey, t]);
 
   // ── Loading state ─────────────────────────────────────────────────
   if (isLoading) {
@@ -229,6 +282,28 @@ export default function CourseDaysPage({
               }}
             />
           ))}
+          {languageFilter === "None" && quotes.length > 0 && (
+            <>
+              <Button
+                size="small"
+                variant="outlined"
+                disabled={filling}
+                onClick={handleFillEnglish}
+                sx={{ ml: 0.5, borderRadius: "999px", textTransform: "none" }}
+              >
+                {filling ? t("common.loading") : t("courses.fillEnglish", "Fill English")}
+              </Button>
+              <Button
+                size="small"
+                variant="outlined"
+                disabled={filling}
+                onClick={handleFillJapanese}
+                sx={{ borderRadius: "999px", textTransform: "none" }}
+              >
+                {filling ? t("common.loading") : t("courses.fillJapanese", "Fill Japanese")}
+              </Button>
+            </>
+          )}
         </Box>
       )}
 
