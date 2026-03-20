@@ -1,4 +1,4 @@
-import { FieldPath } from "firebase-admin/firestore";
+import { FieldPath, type DocumentReference } from "firebase-admin/firestore";
 import { NextRequest, NextResponse } from "next/server";
 
 import { adminDb } from "@/lib/firebase/admin";
@@ -42,17 +42,13 @@ interface FamousQuoteDependencies {
   verifySessionUser: (request: NextRequest) => Promise<AppUser | null>;
 }
 
-interface FillEnglishDocRef {
-  // minimal interface for WriteBatch.update
-}
-
 interface FillEnglishBatch {
-  update: (ref: FillEnglishDocRef, data: Record<string, unknown>) => void;
+  update: (ref: DocumentReference, data: Record<string, unknown>) => void;
   commit: () => Promise<void>;
 }
 
 interface FillEnglishCollectionRef {
-  doc: (id: string) => FillEnglishDocRef;
+  doc: (id: string) => DocumentReference;
 }
 
 interface FillEnglishDependencies {
