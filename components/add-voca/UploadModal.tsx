@@ -203,8 +203,9 @@ export default function UploadModal({
               label={t("addVoca.day")}
               value={dayName.replace(/^Day/i, "")}
               onChange={(e) => {
-                const val = e.target.value.replace(/\s+/g, "");
-                setDayName(val ? `Day${val}` : "");
+                const digits = e.target.value.replace(/\D/g, "");
+                const num = digits ? parseInt(digits, 10) : 0;
+                setDayName(num >= 1 ? `Day${num}` : "");
               }}
               InputProps={{
                 startAdornment: (
