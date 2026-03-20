@@ -1,19 +1,23 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Dialog from "@mui/material/Dialog";
 import DialogTitle from "@mui/material/DialogTitle";
 import DialogContent from "@mui/material/DialogContent";
 import DialogActions from "@mui/material/DialogActions";
 import Button from "@mui/material/Button";
+import Chip from "@mui/material/Chip";
 import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
+import Typography from "@mui/material/Typography";
 import { useTranslation } from "react-i18next";
+import { containsEnglish, containsJapanese } from "@/lib/utils/quoteLanguage";
 
 export interface QuoteSetInput {
   quote: string;
   author: string;
   translation: string;
+  language: 'English' | 'Japanese';
 }
 
 interface QuoteUploadModalProps {
@@ -33,12 +37,20 @@ export default function QuoteUploadModal({
   const [quote, setQuote] = useState(initialValue?.quote ?? "");
   const [author, setAuthor] = useState(initialValue?.author ?? "");
   const [translation, setTranslation] = useState(initialValue?.translation ?? "");
+  const [language, setLanguage] = useState<'English' | 'Japanese'>(initialValue?.language ?? 'English');
+
+  const quoteLanguageError = useMemo(() => {
+    if (!quote.trim()) return false;
+    if (language === 'English') return !containsEnglish(quote);
+    return !containsJapanese(quote);
+  }, [quote, language]);
 
   const handleClose = () => {
     const isDirty =
       quote.trim() !== (initialValue?.quote ?? "").trim() ||
       author.trim() !== (initialValue?.author ?? "").trim() ||
-      translation.trim() !== (initialValue?.translation ?? "").trim();
+      translation.trim() !== (initialValue?.translation ?? "").trim() ||
+      language !== (initialValue?.language ?? 'English');
 
     if (
       isDirty &&
@@ -55,6 +67,7 @@ export default function QuoteUploadModal({
     setQuote(initialValue?.quote ?? "");
     setAuthor(initialValue?.author ?? "");
     setTranslation(initialValue?.translation ?? "");
+    setLanguage(initialValue?.language ?? 'English');
   };
 
   const handleConfirm = () => {
@@ -62,8 +75,9 @@ export default function QuoteUploadModal({
       quote: quote.trim(),
       author: author.trim(),
       translation: translation.trim(),
+      language,
     };
-    if (!normalized.quote || !normalized.author || !normalized.translation) {
+    if (!normalized.quote || !normalized.translation) {
       return;
     }
     onConfirm(normalized);
@@ -98,14 +112,32 @@ export default function QuoteUploadModal({
             fullWidth
             multiline
             minRows={3}
+            error={quoteLanguageError}
+            helperText={quoteLanguageError ? t("addVoca.quoteLangError") : undefined}
           />
           <TextField
             label={t("courses.author")}
             value={author}
             onChange={(e) => setAuthor(e.target.value)}
-            required
             fullWidth
           />
+          <Stack spacing={0.75}>
+            <Typography variant="caption" color="text.secondary">
+              {t("courses.language")}
+            </Typography>
+            <Stack direction="row" spacing={1}>
+              {(["English", "Japanese"] as const).map((lang) => (
+                <Chip
+                  key={lang}
+                  label={lang}
+                  clickable
+                  color={language === lang ? "primary" : "default"}
+                  variant={language === lang ? "filled" : "outlined"}
+                  onClick={() => setLanguage(lang)}
+                />
+              ))}
+            </Stack>
+          </Stack>
           <TextField
             label={t("courses.translation")}
             value={translation}
@@ -125,7 +157,7 @@ export default function QuoteUploadModal({
           onClick={handleConfirm}
           variant="contained"
           sx={{ borderRadius: 2 }}
-          disabled={!quote.trim() || !author.trim() || !translation.trim()}
+          disabled={!quote.trim() || !translation.trim() || quoteLanguageError}
         >
           {t("common.confirm")}
         </Button>

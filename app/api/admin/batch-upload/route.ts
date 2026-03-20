@@ -26,6 +26,7 @@ interface FamousQuotePayload {
   quote: string;
   author: string;
   translation: string;
+  language?: string;
 }
 
 interface NamedWordPayload {
@@ -91,15 +92,12 @@ function parseQuotePayload(raw: unknown): FamousQuotePayload | null {
   if (!raw || typeof raw !== "object") return null;
   const item = raw as Record<string, unknown>;
   const quote = item.quote;
-  const author = item.author;
+  const author = item.author ?? "";
   const translation = item.translation;
-  if (
-    typeof quote !== "string" ||
-    typeof author !== "string" ||
-    typeof translation !== "string"
-  ) {
-    return null;
-  }
+  const language = item.language;
+
+  if (typeof quote !== "string" || typeof translation !== "string") return null;
+  if (typeof author !== "string") return null;
 
   const parsed: FamousQuotePayload = {
     quote: quote.trim(),
@@ -107,7 +105,12 @@ function parseQuotePayload(raw: unknown): FamousQuotePayload | null {
     translation: translation.trim(),
   };
 
-  if (!parsed.quote || !parsed.author || !parsed.translation) return null;
+  if (!parsed.quote || !parsed.translation) return null;
+
+  if (language === "English" || language === "Japanese") {
+    parsed.language = language;
+  }
+
   return parsed;
 }
 

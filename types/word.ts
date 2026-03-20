@@ -44,6 +44,7 @@ export interface FamousQuoteWord {
   quote: string;
   author: string;
   translation: string;
+  language?: 'English' | 'Japanese';
 }
 
 export type Word = StandardWord | JlptWord | CollocationWord | FamousQuoteWord;

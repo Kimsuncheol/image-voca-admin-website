@@ -38,6 +38,7 @@ export const famousQuoteWordSchema = z.object({
   quote: z.string().min(1),
   author: z.string().optional().default(''),
   translation: z.string().optional().default(''),
+  language: z.enum(['English', 'Japanese']).default('English'),
 });
 
 export type StandardWordInput = z.infer<typeof standardWordSchema>;

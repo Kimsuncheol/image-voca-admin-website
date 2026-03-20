@@ -9,7 +9,7 @@
  * 표시 가능 에러 종류:
  *  - authError          : Google OAuth 인증 실패 메시지
  *  - urlFetchError      : Google Sheets 데이터 fetch 실패 메시지
- *  - urlValidationError : CSV/시트 헤더 구조 검증 실패 결과
+ *  - urlValidationError : CSV/시트 구조 또는 행 단위 검증 실패 결과
  *
  * 에러가 하나도 없으면 null을 반환하여 DOM에 아무것도 렌더링하지 않습니다.
  */
@@ -26,10 +26,7 @@ interface ErrorAlertsProps {
   authError: string;
   /** Google Sheets fetch 실패 시 에러 메시지 */
   urlFetchError: string;
-  /**
-   * CSV/시트 헤더 검증 실패 결과.
-   * blockingError 필드가 있을 때만 Alert를 표시합니다.
-   */
+  /** CSV/시트 헤더 또는 행 단위 검증 실패 결과 */
   urlValidationError: ParseResult | null;
   /** authError Alert 닫기 핸들러 */
   onClearAuthError: () => void;
@@ -67,8 +64,11 @@ export default function ErrorAlerts({
   const getBlockingErrorMessage = useBlockingErrorMessage();
 
   // 표시할 에러가 없으면 렌더링 생략
-  const hasError =
-    authError || urlFetchError || urlValidationError?.blockingError;
+  const hasValidationError = Boolean(
+    urlValidationError?.blockingError ||
+    urlValidationError?.errors.length,
+  );
+  const hasError = authError || urlFetchError || hasValidationError;
   if (!hasError) return null;
 
   return (
@@ -87,7 +87,7 @@ export default function ErrorAlerts({
         </Alert>
       )}
 
-      {/* 3) 헤더 구조 검증 에러 */}
+      {/* 3) 구조 검증 에러 */}
       {urlValidationError?.blockingError && (
         <Alert severity="error" onClose={onClearValidationError}>
           {/* 주 에러 메시지 */}
@@ -115,6 +115,24 @@ export default function ErrorAlerts({
           )}
         </Alert>
       )}
+
+      {/* 4) 행 단위 검증 경고 */}
+      {!urlValidationError?.blockingError &&
+        !!urlValidationError?.errors.length && (
+          <Alert severity="warning" onClose={onClearValidationError}>
+            {urlValidationError.detectedHeaders.length > 0 && (
+              <Typography variant="body2" sx={{ mb: 0.5 }}>
+                <strong>Detected columns:</strong>{" "}
+                {urlValidationError.detectedHeaders.join(", ")}
+              </Typography>
+            )}
+            {urlValidationError.errors.slice(0, 5).map((err, index) => (
+              <Typography key={index} variant="body2">
+                {err}
+              </Typography>
+            ))}
+          </Alert>
+        )}
     </Stack>
   );
 }

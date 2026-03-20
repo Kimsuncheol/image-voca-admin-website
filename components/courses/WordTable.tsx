@@ -699,7 +699,7 @@ export default function WordTable({
         return [m.collocation, m.meaning, m.explanation, m.example, m.translation, ""];
       }
       if (isFamousQuote && isFamousQuoteWord(m)) {
-        return [m.quote, m.author, m.translation];
+        return [m.quote, m.author, m.translation, m.language ?? 'English'];
       }
       const s = m as StandardWord;
       return [s.word, s.meaning, s.pronunciation, s.example, s.translation, ""];
@@ -950,6 +950,7 @@ export default function WordTable({
                   <TableCell>{t("courses.quote")}</TableCell>
                   <TableCell>{t("courses.author")}</TableCell>
                   <TableCell>{t("courses.translation")}</TableCell>
+                  <TableCell>{t("courses.language")}</TableCell>
                 </>
               ) : (
                 <>
@@ -1241,6 +1242,13 @@ export default function WordTable({
                         tooltipKey="words.useSharedTranslations"
                       />
                     )}
+                    <TableCell
+                      onClick={(e) => handleCellClick(e, rowIdx, 3)}
+                      onContextMenu={(e) => handleCellContextMenu(e, rowIdx, 3)}
+                      sx={selectableCellSx(rowIdx, 3)}
+                    >
+                      {mergedWord.language ?? 'English'}
+                    </TableCell>
                   </>
                   ) : (
                   <>

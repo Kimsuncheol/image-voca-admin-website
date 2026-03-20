@@ -9,6 +9,8 @@ import {
   type CollocationWordInput,
   type FamousQuoteWordInput,
 } from '@/lib/schemas/vocaSchemas';
+import { textMatchesLanguage, quoteMatchesLanguage } from '@/lib/utils/quoteLanguage';
+import type { FamousQuoteLanguage } from '@/types/famousQuote';
 
 export type SchemaType = 'standard' | 'jlpt' | 'collocation' | 'famousQuote';
 
@@ -42,6 +44,7 @@ const JLPT_HEADERS = [
 const JLPT_OPTIONAL_HEADERS = ['imageurl', 'example(roman)'] as const;
 const COLLOCATION_HEADERS = ['collocation', 'meaning', 'explanation', 'example', 'translation'] as const;
 const FAMOUS_QUOTE_HEADERS = ['quote', 'author', 'translation'] as const;
+const FAMOUS_QUOTE_OPTIONAL_HEADERS = ['language'] as const;
 const STANDARD_THIRD_HEADER_SET = new Set(['pronunciation', 'pronounciation']);
 const STANDARD_FOURTH_HEADER_SET = new Set(['example', 'example sentence']);
 
@@ -60,6 +63,7 @@ function normalizeRow(row: Record<string, unknown>, schemaType: SchemaType): Rec
     const quoteAliases = ['quote', '_1'];
     const authorAliases = ['author', '_2'];
     const translationAliases = ['translation', '_3'];
+    const languageAliases = ['language', '_4'];
 
     for (const [key, value] of Object.entries(row)) {
       const cleanKey = key.trim().toLowerCase();
@@ -68,12 +72,14 @@ function normalizeRow(row: Record<string, unknown>, schemaType: SchemaType): Rec
       if (quoteAliases.includes(cleanKey)) normalized['quote'] = cleanValue;
       else if (authorAliases.includes(cleanKey)) normalized['author'] = cleanValue;
       else if (translationAliases.includes(cleanKey)) normalized['translation'] = cleanValue;
+      else if (languageAliases.includes(cleanKey)) normalized['language'] = cleanValue;
       else normalized[cleanKey] = cleanValue;
     }
 
     normalized['quote'] = normalized['quote'] ?? '';
     normalized['author'] = normalized['author'] ?? '';
     normalized['translation'] = normalized['translation'] ?? '';
+    // language defaults to 'English' via Zod schema if absent
     return normalized;
   }
 
@@ -218,6 +224,51 @@ function detectAndParse(
   )[] = [];
   const errors: string[] = [];
 
+  function getUploadValidationConfig(currentSchemaType: SchemaType): {
+    primaryField: 'word' | 'collocation';
+    language: FamousQuoteLanguage;
+  } | null {
+    if (currentSchemaType === 'standard') {
+      return { primaryField: 'word', language: 'English' };
+    }
+    if (currentSchemaType === 'collocation') {
+      return { primaryField: 'collocation', language: 'English' };
+    }
+    if (currentSchemaType === 'jlpt') {
+      return { primaryField: 'word', language: 'Japanese' };
+    }
+    return null;
+  }
+
+  function validateUploadRowLanguage(
+    parsedWord: StandardWordInput | JlptWordInput | CollocationWordInput,
+    currentSchemaType: Exclude<SchemaType, 'famousQuote'>,
+  ): string | null {
+    const config = getUploadValidationConfig(currentSchemaType);
+    if (!config) return null;
+
+    const failedFields: string[] = [];
+    const primaryValue = String(parsedWord[config.primaryField] ?? '').trim();
+    const exampleValue = String(parsedWord.example ?? '').trim();
+
+    if (primaryValue && !textMatchesLanguage(primaryValue, config.language)) {
+      failedFields.push(config.primaryField);
+    }
+
+    if (exampleValue && !textMatchesLanguage(exampleValue, config.language)) {
+      failedFields.push('example');
+    }
+
+    if (failedFields.length === 0) return null;
+
+    const lastField = failedFields[failedFields.length - 1];
+    const fieldLabel =
+      failedFields.length === 1
+        ? failedFields[0]
+        : `${failedFields.slice(0, -1).join(', ')} and ${lastField}`;
+    return `must contain ${config.language} characters in ${fieldLabel}`;
+  }
+
   data.forEach((row, index) => {
     const normalized = normalizeRow(row, schemaType);
 
@@ -239,6 +290,24 @@ function detectAndParse(
 
     const parsed = schema.safeParse(normalized);
     if (parsed.success) {
+      if (schemaType === 'famousQuote') {
+        const quoteData = parsed.data as FamousQuoteWordInput;
+        const lang = quoteData.language ?? 'English';
+        const langValid = quoteMatchesLanguage(quoteData.quote, lang);
+        if (!langValid) {
+          errors.push(`Row ${index + 1}: quote does not match the selected language (${lang})`);
+          return;
+        }
+      } else {
+        const languageWarning = validateUploadRowLanguage(
+          parsed.data as StandardWordInput | JlptWordInput | CollocationWordInput,
+          schemaType,
+        );
+        if (languageWarning) {
+          errors.push(`Row ${index + 1}: ${languageWarning}`);
+          return;
+        }
+      }
       words.push(parsed.data);
     } else {
       errors.push(
@@ -264,6 +333,14 @@ function isExactHeaderSet(
 ): boolean {
   if (schemaType === 'jlpt') {
     const allowedHeaders = new Set([...expectedHeaders, ...JLPT_OPTIONAL_HEADERS]);
+    const headerSet = new Set(headers);
+    if (headers.length < expectedHeaders.length) return false;
+    if (!expectedHeaders.every((h) => headerSet.has(h))) return false;
+    return headers.every((header) => allowedHeaders.has(header));
+  }
+
+  if (schemaType === 'famousQuote') {
+    const allowedHeaders = new Set([...expectedHeaders, ...FAMOUS_QUOTE_OPTIONAL_HEADERS]);
     const headerSet = new Set(headers);
     if (headers.length < expectedHeaders.length) return false;
     if (!expectedHeaders.every((h) => headerSet.has(h))) return false;
@@ -336,7 +413,7 @@ const KNOWN_FIELDS = new Set([
   'pronunciation(roman)', 'pronunciation roman', 'roman',
   'explanation', 'example', 'example sentence', 'example(roman)', 'example roman', 'translation',
   'translation(english)', 'translation english', 'translation(korean)', 'translation korean',
-  'quote', 'author',
+  'quote', 'author', 'language',
 ]);
 
 /**

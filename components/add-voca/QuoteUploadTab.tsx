@@ -57,6 +57,7 @@ function quoteKey(quoteSet: QuoteSetInput): string {
     normalizeKeyPart(quoteSet.quote),
     normalizeKeyPart(quoteSet.author),
     normalizeKeyPart(quoteSet.translation),
+    quoteSet.language ?? 'English',
   ].join("||");
 }
 
@@ -67,12 +68,13 @@ function toParseResult(quoteSet: QuoteSetInput): ParseResult {
         quote: quoteSet.quote,
         author: quoteSet.author,
         translation: quoteSet.translation,
+        language: quoteSet.language ?? 'English',
       },
     ],
     schemaType: "famousQuote",
     isCollocation: false,
     errors: [],
-    detectedHeaders: ["quote", "author", "translation"],
+    detectedHeaders: ["quote", "author", "translation", "language"],
   };
 }
 
@@ -104,9 +106,9 @@ export default function QuoteUploadTab({
     try {
       const quotes = await fetchQuotes();
       const rows = quotes.map((q) =>
-        [q.quote, q.author, q.translation].map(escapeCsvCell).join(","),
+        [q.quote, q.author, q.translation, q.language ?? 'English'].map(escapeCsvCell).join(","),
       );
-      const csv = ["quote,author,translation", ...rows].join("\n");
+      const csv = ["quote,author,translation,language", ...rows].join("\n");
       const blob = new Blob(["\uFEFF", csv], { type: "text/csv;charset=utf-8;" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -125,8 +127,8 @@ export default function QuoteUploadTab({
     try {
       const quotes = await fetchQuotes();
       const data = [
-        ["quote", "author", "translation"],
-        ...quotes.map((q) => [q.quote, q.author, q.translation]),
+        ["quote", "author", "translation", "language"],
+        ...quotes.map((q) => [q.quote, q.author, q.translation, q.language ?? 'English']),
       ];
       const ws = XLSX.utils.aoa_to_sheet(data);
       const wb = XLSX.utils.book_new();
@@ -279,6 +281,7 @@ export default function QuoteUploadTab({
                 quote={item.quoteSet.quote}
                 author={item.quoteSet.author}
                 translation={item.quoteSet.translation}
+                language={item.quoteSet.language}
                 onClick={() => handleItemClick(index)}
                 onDelete={() => handleDelete(index)}
               />

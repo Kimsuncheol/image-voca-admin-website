@@ -29,7 +29,10 @@ import { useState } from "react";
 import Box from "@mui/material/Box";
 import Stack from "@mui/material/Stack";
 import { useGoogleSheetsAuth } from "@/lib/hooks/useGoogleSheetsAuth";
-import { fetchSheetWithToken } from "@/lib/utils/sheetsApi";
+import {
+  fetchSheetWithToken,
+  shouldTreatSheetParseAsValidationError,
+} from "@/lib/utils/sheetsApi";
 import type { ParseResult, SchemaType } from "@/lib/utils/csvParser";
 import UploadModal from "./UploadModal";
 
@@ -124,7 +127,7 @@ export default function UrlUploadTab({
     try {
       const data = await fetchSheetWithToken(urlInput, token, schemaType);
       // 검증 에러가 있으면 항목 추가 없이 에러만 표시
-      if (data.blockingError) {
+      if (shouldTreatSheetParseAsValidationError(data)) {
         setUrlValidationError(data);
         return;
       }

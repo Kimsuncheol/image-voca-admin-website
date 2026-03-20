@@ -1,5 +1,14 @@
 import { parseRowArrays, type ParseResult, type SchemaType } from './csvParser';
 
+export function shouldTreatSheetParseAsValidationError(
+  result: ParseResult,
+): boolean {
+  return Boolean(
+    result.blockingError ||
+    (result.words.length === 0 && result.errors.length > 0),
+  );
+}
+
 /** Extracts spreadsheet ID and optional gid from a Google Sheets URL. */
 function extractSheetInfo(url: string): { id: string; gid?: string } | null {
   const match = url.match(/spreadsheets\/d\/([a-zA-Z0-9_-]+)/);

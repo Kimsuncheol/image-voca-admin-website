@@ -11,6 +11,7 @@ interface QuoteListItemProps {
   quote: string;
   author: string;
   translation: string;
+  language?: 'English' | 'Japanese';
   onClick: () => void;
   onDelete: () => void;
 }
@@ -19,6 +20,7 @@ export default function QuoteListItem({
   quote,
   author,
   translation,
+  language,
   onClick,
   onDelete,
 }: QuoteListItemProps) {
@@ -75,7 +77,7 @@ export default function QuoteListItem({
           {quote}
         </Typography>
 
-        {/* Row 2 — author */}
+        {/* Row 2 — author + language */}
         <Typography
           variant="caption"
           sx={{
@@ -86,6 +88,23 @@ export default function QuoteListItem({
           }}
         >
           {author}
+          {language && language !== 'English' && (
+            <Typography
+              component="span"
+              variant="caption"
+              sx={{
+                ml: 0.75,
+                px: 0.75,
+                py: 0.25,
+                borderRadius: 1,
+                bgcolor: 'action.selected',
+                color: 'text.secondary',
+                fontSize: '0.65rem',
+              }}
+            >
+              {language}
+            </Typography>
+          )}
         </Typography>
 
         {/* Row 3 — translation */}

@@ -149,7 +149,8 @@
     "imageGeneratorErrorInternal": "Image generation failed. Please try again.",
     "imageGeneratorDisabled": "Image generation is disabled in AI settings.",
     "imageGeneratorPermissionDenied": "Image generation is disabled for your administrator account.",
-    "filenameMismatch": "The file name does not include the course name ({{courseLabel}}). Please use a file intended for this course."
+    "filenameMismatch": "The file name does not include the course name ({{courseLabel}}). Please use a file intended for this course.",
+    "quoteLangError": "Quote does not appear to be in the selected language."
   },
   "courses": {
     "title": "Courses",
@@ -172,6 +173,9 @@
     "explanation": "Explanation",
     "quote": "Quote",
     "author": "Author",
+    "language": "Language",
+    "english": "English",
+    "japanese": "Japanese",
     "image": "Image",
     "missingFilter": "Missing field",
     "missingAll": "Any field state",

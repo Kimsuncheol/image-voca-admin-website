@@ -10,7 +10,7 @@
  *  The famous_quote Firestore collection stores quotes **flat** — documents
  *  live directly in the collection root, not inside DayN subcollections.
  *  When `course.flat === true` we skip the day grid entirely and render a
- *  WordTable of quotes inline, using `getFamousQuotes`.
+ *  WordTable of quotes inline, using the admin filtered-quote API.
  *
  * ── Data flow (standard courses) ─────────────────────────────────────
  *  1. `courseId` is extracted from Next.js params (Promise-based API).
@@ -48,8 +48,13 @@ import PageLayout from "@/components/layout/PageLayout";
 // ── Course-domain types & data helpers ────────────────────────────────
 import { getCourseById, JLPT_LEVEL_COURSES, isJlptCourse } from "@/types/course";
 import type { Day } from "@/types/course";
+import {
+  FAMOUS_QUOTE_FILTER_LANGUAGES,
+  type FamousQuoteFilterLanguage,
+} from "@/types/famousQuote";
 import type { FamousQuoteWord } from "@/types/word";
-import { getCourseDays, getFamousQuotes } from "@/lib/firebase/firestore";
+import { getCourseDays } from "@/lib/firebase/firestore";
+import { fetchFilteredFamousQuotes } from "@/lib/famousQuoteApi";
 
 // ── Feature-specific components ───────────────────────────────────────
 import DayCard from "@/components/courses/DayCard";
@@ -75,6 +80,8 @@ export default function CourseDaysPage({
   // ── Local state ───────────────────────────────────────────────────
   const [days, setDays] = useState<Day[]>([]);
   const [quotes, setQuotes] = useState<FamousQuoteWord[]>([]);
+  const [languageFilter, setLanguageFilter] =
+    useState<FamousQuoteFilterLanguage>("All");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -94,38 +101,60 @@ export default function CourseDaysPage({
       ? error
       : "Course not found";
 
+  function handleLanguageFilterChange(
+    nextLanguage: FamousQuoteFilterLanguage,
+  ) {
+    if (nextLanguage === languageFilter) return;
+    setLoading(true);
+    setLanguageFilter(nextLanguage);
+  }
+
   useEffect(() => {
     if (!isRedirectingToDefaultJlptLevel) return;
     router.replace("/courses/JLPT_N1");
   }, [isRedirectingToDefaultJlptLevel, router]);
 
-  // ── Firestore data fetch ──────────────────────────────────────────
+  // ── Standard course data fetch ────────────────────────────────────
   useEffect(() => {
-    if (!course || isJlptGroupRoot) {
-      setLoading(false);
-      return;
-    }
+    if (!course || isJlptGroupRoot || isFlat) return;
 
-    if (isFlat) {
-      // ── Flat course: fetch quotes directly from the collection root ──
-      getFamousQuotes(course.path)
-        .then((data) => {
-          console.log("Fetched famous quotes:", data);
-          setQuotes(data);
-        })
-        .catch(() => setError(t("courses.fetchError")))
-        .finally(() => setLoading(false));
-    } else {
-      // ── Standard course: derive day list from totalDays counter ──────
-      getCourseDays(course.path)
-        .then((data) => {
-          console.log("Fetched course days:", data);
-          setDays(data);
-        })
-        .catch(() => setError(t("courses.fetchError")))
-        .finally(() => setLoading(false));
-    }
+    getCourseDays(course.path)
+      .then((data) => {
+        console.log("Fetched course days:", data);
+        setDays(data);
+        setError("");
+      })
+      .catch(() => setError(t("courses.fetchError")))
+      .finally(() => setLoading(false));
   }, [course, isFlat, isJlptGroupRoot, t]);
+
+  // ── Famous Quote filtered fetch ───────────────────────────────────
+  useEffect(() => {
+    if (!course || isJlptGroupRoot || !isFlat) return;
+
+    let isCancelled = false;
+
+    fetchFilteredFamousQuotes(course.path, languageFilter)
+      .then((data) => {
+        if (isCancelled) return;
+        console.log("Fetched famous quotes:", data);
+        setQuotes(data);
+        setError("");
+      })
+      .catch(() => {
+        if (isCancelled) return;
+        setError(t("courses.fetchError"));
+        setQuotes([]);
+      })
+      .finally(() => {
+        if (isCancelled) return;
+        setLoading(false);
+      });
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [course, isFlat, isJlptGroupRoot, languageFilter, t]);
 
   // ── Loading state ─────────────────────────────────────────────────
   if (isLoading) {
@@ -180,6 +209,27 @@ export default function CourseDaysPage({
         <Alert severity="error" sx={{ mb: 2 }}>
           {resolvedError}
         </Alert>
+      )}
+
+      {/* ── Famous Quote language filter chips ───────────────────────── */}
+      {isFlat && !resolvedError && (
+        <Box sx={{ display: "flex", gap: 0.75, mb: 2, alignItems: "center" }}>
+          {FAMOUS_QUOTE_FILTER_LANGUAGES.map((lang) => (
+            <Chip
+              key={lang}
+              label={lang === "All" ? t("common.all") : lang}
+              size="small"
+              onClick={() => handleLanguageFilterChange(lang)}
+              color={languageFilter === lang ? "primary" : "default"}
+              variant={languageFilter === lang ? "filled" : "outlined"}
+              sx={{
+                borderRadius: "999px",
+                fontWeight: languageFilter === lang ? 600 : 400,
+                "& .MuiChip-label": { px: "8px", py: "6px" },
+              }}
+            />
+          ))}
+        </Box>
       )}
 
       {/* ── JLPT group root: level chips only, no day grid ───────────── */}
