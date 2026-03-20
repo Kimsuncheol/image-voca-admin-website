@@ -908,14 +908,14 @@ export default function WordTable({
         setSelectionExtent(null);
         return;
       }
-      if (e.key === "c" && (e.metaKey || e.ctrlKey) && selectionAnchor && selectionExtent) {
+      if (!editingCell && e.key === "c" && (e.metaKey || e.ctrlKey) && selectionAnchor && selectionExtent) {
         e.preventDefault();
         copyRangeToClipboard(selectionAnchor, selectionExtent);
       }
     };
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
-  }, [selectionAnchor, selectionExtent, copyRangeToClipboard]);
+  }, [selectionAnchor, selectionExtent, copyRangeToClipboard, editingCell]);
 
   return (
     <>
