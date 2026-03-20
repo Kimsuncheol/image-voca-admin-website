@@ -44,7 +44,7 @@ interface FamousQuoteDependencies {
 
 interface FillEnglishBatch {
   update: (ref: DocumentReference, data: Record<string, unknown>) => void;
-  commit: () => Promise<void>;
+  commit: () => Promise<unknown>;
 }
 
 interface FillEnglishCollectionRef {
