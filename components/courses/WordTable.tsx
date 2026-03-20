@@ -10,6 +10,8 @@ import TableRow from "@mui/material/TableRow";
 import Paper from "@mui/material/Paper";
 import Box from "@mui/material/Box";
 import IconButton from "@mui/material/IconButton";
+import Alert from "@mui/material/Alert";
+import Snackbar from "@mui/material/Snackbar";
 import Typography from "@mui/material/Typography";
 import Tooltip from "@mui/material/Tooltip";
 import AddPhotoAlternateIcon from "@mui/icons-material/AddPhotoAlternate";
@@ -354,6 +356,7 @@ export default function WordTable({
   const [selectionAnchor, setSelectionAnchor] = useState<CellPos | null>(null);
   const [selectionExtent, setSelectionExtent] = useState<CellPos | null>(null);
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
+  const [copySnackbar, setCopySnackbar] = useState<{ open: boolean; success: boolean }>({ open: false, success: true });
 
   const courseLabel = useMemo(() => {
     if (!courseId) return "";
@@ -750,7 +753,7 @@ export default function WordTable({
   );
 
   const copyRangeToClipboard = useCallback(
-    (anchor: CellPos, extent: CellPos) => {
+    async (anchor: CellPos, extent: CellPos) => {
       const minRow = Math.min(anchor.row, extent.row);
       const maxRow = Math.max(anchor.row, extent.row);
       const minCol = Math.min(anchor.col, extent.col);
@@ -763,7 +766,12 @@ export default function WordTable({
         }
         rows.push(cols.join("\t"));
       }
-      void navigator.clipboard.writeText(rows.join("\n"));
+      try {
+        await navigator.clipboard.writeText(rows.join("\n"));
+        setCopySnackbar({ open: true, success: true });
+      } catch {
+        setCopySnackbar({ open: true, success: false });
+      }
     },
     [cellGrid],
   );
@@ -782,7 +790,7 @@ export default function WordTable({
 
   const handleContextMenuCopy = useCallback(() => {
     if (!selectionAnchor || !selectionExtent) return;
-    copyRangeToClipboard(selectionAnchor, selectionExtent);
+    void copyRangeToClipboard(selectionAnchor, selectionExtent);
   }, [selectionAnchor, selectionExtent, copyRangeToClipboard]);
 
   const handleContextMenuGenerate = useCallback(() => {
@@ -910,7 +918,7 @@ export default function WordTable({
       }
       if (!editingCell && e.key === "c" && (e.metaKey || e.ctrlKey) && selectionAnchor && selectionExtent) {
         e.preventDefault();
-        copyRangeToClipboard(selectionAnchor, selectionExtent);
+        void copyRangeToClipboard(selectionAnchor, selectionExtent);
       }
     };
     document.addEventListener("keydown", onKeyDown);
@@ -1371,6 +1379,20 @@ export default function WordTable({
           onResolved={handleResolved}
         />
       )}
+
+      <Snackbar
+        open={copySnackbar.open}
+        autoHideDuration={1500}
+        onClose={() => setCopySnackbar((prev) => ({ ...prev, open: false }))}
+        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+      >
+        <Alert
+          severity={copySnackbar.success ? "success" : "error"}
+          onClose={() => setCopySnackbar((prev) => ({ ...prev, open: false }))}
+        >
+          {copySnackbar.success ? t("common.copied") : t("common.copyFailed")}
+        </Alert>
+      </Snackbar>
     </>
   );
 }

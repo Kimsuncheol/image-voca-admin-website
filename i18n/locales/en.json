@@ -475,6 +475,8 @@
     "no": "No",
     "save": "Save",
     "delete": "Delete",
-    "signOut": "Sign Out"
+    "signOut": "Sign Out",
+    "copied": "Copied!",
+    "copyFailed": "Copy failed"
   }
 }

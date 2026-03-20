@@ -475,6 +475,8 @@
     "no": "아니오",
     "save": "저장",
     "delete": "삭제",
-    "signOut": "로그아웃"
+    "signOut": "로그아웃",
+    "copied": "복사됨!",
+    "copyFailed": "복사 실패"
   }
 }
