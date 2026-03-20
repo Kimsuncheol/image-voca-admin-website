@@ -224,18 +224,17 @@ function detectAndParse(
   )[] = [];
   const errors: string[] = [];
 
-  function getUploadValidationConfig(currentSchemaType: SchemaType): {
-    primaryField: 'word' | 'collocation';
-    language: FamousQuoteLanguage;
-  } | null {
+  function getUploadValidationLanguage(
+    currentSchemaType: SchemaType,
+  ): FamousQuoteLanguage | null {
     if (currentSchemaType === 'standard') {
-      return { primaryField: 'word', language: 'English' };
+      return 'English';
     }
     if (currentSchemaType === 'collocation') {
-      return { primaryField: 'collocation', language: 'English' };
+      return 'English';
     }
     if (currentSchemaType === 'jlpt') {
-      return { primaryField: 'word', language: 'Japanese' };
+      return 'Japanese';
     }
     return null;
   }
@@ -244,19 +243,30 @@ function detectAndParse(
     parsedWord: StandardWordInput | JlptWordInput | CollocationWordInput,
     currentSchemaType: Exclude<SchemaType, 'famousQuote'>,
   ): string | null {
-    const config = getUploadValidationConfig(currentSchemaType);
-    if (!config) return null;
+    const language = getUploadValidationLanguage(currentSchemaType);
+    if (!language) return null;
 
     const failedFields: string[] = [];
-    const primaryValue = String(parsedWord[config.primaryField] ?? '').trim();
-    const exampleValue = String(parsedWord.example ?? '').trim();
+    if (currentSchemaType === 'collocation') {
+      const collocationWord = parsedWord as CollocationWordInput;
+      const exampleValue = collocationWord.example.trim();
 
-    if (primaryValue && !textMatchesLanguage(primaryValue, config.language)) {
-      failedFields.push(config.primaryField);
-    }
+      if (!textMatchesLanguage(collocationWord.collocation.trim(), language)) {
+        failedFields.push('collocation');
+      }
+      if (exampleValue && !textMatchesLanguage(exampleValue, language)) {
+        failedFields.push('example');
+      }
+    } else {
+      const standardLikeWord = parsedWord as StandardWordInput | JlptWordInput;
+      const exampleValue = standardLikeWord.example.trim();
 
-    if (exampleValue && !textMatchesLanguage(exampleValue, config.language)) {
-      failedFields.push('example');
+      if (!textMatchesLanguage(standardLikeWord.word.trim(), language)) {
+        failedFields.push('word');
+      }
+      if (exampleValue && !textMatchesLanguage(exampleValue, language)) {
+        failedFields.push('example');
+      }
     }
 
     if (failedFields.length === 0) return null;
@@ -266,7 +276,7 @@ function detectAndParse(
       failedFields.length === 1
         ? failedFields[0]
         : `${failedFields.slice(0, -1).join(', ')} and ${lastField}`;
-    return `must contain ${config.language} characters in ${fieldLabel}`;
+    return `must contain ${language} characters in ${fieldLabel}`;
   }
 
   data.forEach((row, index) => {

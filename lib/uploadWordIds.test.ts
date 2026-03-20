@@ -85,7 +85,7 @@ test("assignDeterministicUploadIdsForItems preserves non-standard schemas", () =
     [
       {
         dayName: "Day1",
-        words: [{ quote: "Stay hungry.", author: "Jobs", translation: "배고프게 살아라." }],
+        words: [{ quote: "Stay hungry.", author: "Jobs", translation: "배고프게 살아라.", language: "English" }],
       },
     ],
     "famousQuote",
@@ -95,7 +95,7 @@ test("assignDeterministicUploadIdsForItems preserves non-standard schemas", () =
   assert.deepEqual(result, [
     {
       dayName: "Day1",
-      words: [{ quote: "Stay hungry.", author: "Jobs", translation: "배고프게 살아라." }],
+      words: [{ quote: "Stay hungry.", author: "Jobs", translation: "배고프게 살아라.", language: "English" }],
     },
   ]);
 });

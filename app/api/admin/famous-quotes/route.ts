@@ -26,12 +26,12 @@ interface FamousQuoteQuerySnapshot {
 
 interface FamousQuoteQuery {
   limit: (batchSize: number) => FamousQuoteQuery;
-  startAfter: (cursor: unknown) => FamousQuoteQuery;
+  startAfter: (cursor: FamousQuoteDocSnapshot) => FamousQuoteQuery;
   get: () => Promise<FamousQuoteQuerySnapshot>;
 }
 
 interface FamousQuoteCollectionRef {
-  orderBy: (field: unknown) => FamousQuoteQuery;
+  orderBy: (field: string | FieldPath) => FamousQuoteQuery;
 }
 
 interface FamousQuoteDependencies {

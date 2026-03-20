@@ -48,8 +48,7 @@ function createFakeDependencies() {
       email: "admin@example.com",
       displayName: "Admin",
       role: "admin" as const,
-      createdAt: "",
-      updatedAt: "",
+      createdAt: new Date(),
     }),
   };
 
@@ -274,7 +273,7 @@ describe("GET /api/admin/famous-quotes", () => {
   it("rejects unauthorized callers", async () => {
     const handler = createFamousQuotesHandler({
       adminDb: {
-        collection() {
+        collection(_coursePath: string) {
           return {
             orderBy() {
               return createQuery([]);
