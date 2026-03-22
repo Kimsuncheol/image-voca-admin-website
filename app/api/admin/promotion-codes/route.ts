@@ -5,6 +5,9 @@ import { FieldValue } from 'firebase-admin/firestore';
 import { adminAuth, adminDb } from '@/lib/firebase/admin';
 import type { CodeGenerationRequest } from '@/types/promotionCode';
 
+const HMAC_SECRET = process.env.PROMOTION_CODE_HMAC_SECRET;
+if (!HMAC_SECRET) throw new Error('Missing required environment variable: PROMOTION_CODE_HMAC_SECRET');
+
 async function verifySession(request: NextRequest) {
   const sessionCookie = request.cookies.get('__session')?.value;
   if (!sessionCookie) return null;
@@ -34,8 +37,7 @@ function generateCode(): string {
 }
 
 function hashCode(code: string): string {
-  const secret = process.env.PROMOTION_CODE_HMAC_SECRET ?? '';
-  return createHmac('sha256', secret).update(code).digest('hex');
+  return createHmac('sha256', HMAC_SECRET!).update(code).digest('hex');
 }
 
 async function deleteExpiredUnusedCodes(): Promise<void> {
@@ -73,7 +75,9 @@ export async function GET(request: NextRequest) {
 
   try {
     // Fire-and-forget cleanup — errors are logged but never block the response
-    deleteExpiredUnusedCodes().catch(console.error);
+    deleteExpiredUnusedCodes().catch((err) => {
+      console.error('[promotion-codes] expiry cleanup failed:', err);
+    });
 
     const snapshot = await adminDb
       .collection('promotionCodes')
@@ -105,11 +109,48 @@ export async function POST(request: NextRequest) {
     const body: CodeGenerationRequest = await request.json();
     const { eventPeriod, benefit, maxUses, maxUsesPerUser, description, count } = body;
 
+    // #2 — Validate description and count
     if (!description || description.trim() === '') {
       return NextResponse.json({ error: 'Description is required' }, { status: 400 });
     }
     if (!count || count < 1 || count > 100) {
       return NextResponse.json({ error: 'Count must be between 1 and 100' }, { status: 400 });
+    }
+
+    // #2 — Validate eventPeriod date format (YYYY-MM-DD or empty)
+    const datePattern = /^\d{4}-\d{2}-\d{2}$/;
+    if (
+      eventPeriod?.startDate !== '' && eventPeriod?.startDate && !datePattern.test(eventPeriod.startDate) ||
+      eventPeriod?.endDate !== '' && eventPeriod?.endDate && !datePattern.test(eventPeriod.endDate)
+    ) {
+      return NextResponse.json({ error: 'Invalid date format. Use YYYY-MM-DD' }, { status: 400 });
+    }
+
+    // #2 — Validate benefit fields
+    if (benefit?.type !== 'subscription') {
+      return NextResponse.json({ error: 'benefit.type must be "subscription"' }, { status: 400 });
+    }
+    if (benefit?.planId !== 'voca_unlimited' && benefit?.planId !== 'voca_speaking') {
+      return NextResponse.json({ error: 'benefit.planId must be "voca_unlimited" or "voca_speaking"' }, { status: 400 });
+    }
+    if (typeof benefit?.isPermanent !== 'boolean') {
+      return NextResponse.json({ error: 'benefit.isPermanent must be a boolean' }, { status: 400 });
+    }
+
+    // #9 — Validate durationDays when not permanent
+    if (!benefit.isPermanent) {
+      const days = benefit.durationDays;
+      if (!Number.isInteger(days) || (days as number) < 1) {
+        return NextResponse.json({ error: 'benefit.durationDays must be a positive integer when isPermanent is false' }, { status: 400 });
+      }
+    }
+
+    // #3 — Validate maxUses and maxUsesPerUser with explicit bounds
+    if (!Number.isInteger(maxUses) || maxUses < 1 || maxUses > 10000) {
+      return NextResponse.json({ error: 'maxUses must be an integer between 1 and 10000' }, { status: 400 });
+    }
+    if (!Number.isInteger(maxUsesPerUser) || maxUsesPerUser < 1 || maxUsesPerUser > 100) {
+      return NextResponse.json({ error: 'maxUsesPerUser must be an integer between 1 and 100' }, { status: 400 });
     }
 
     const codes: string[] = [];
@@ -126,8 +167,8 @@ export async function POST(request: NextRequest) {
         codeHash,
         eventPeriod,
         benefit,
-        maxUses: Number(maxUses) || 0,
-        maxUsesPerUser: Number(maxUsesPerUser) || 1,
+        maxUses,
+        maxUsesPerUser,
         currentUses: 0,
         createdAt: FieldValue.serverTimestamp(),
         createdBy: caller.uid,
@@ -163,15 +204,30 @@ export async function PATCH(request: NextRequest) {
     }
 
     const docRef = adminDb.collection('promotionCodes').doc(codeId);
-    const doc = await docRef.get();
-    if (!doc.exists) {
-      return NextResponse.json({ error: 'Promotion code not found' }, { status: 404 });
-    }
 
-    await docRef.update({ status: 'inactive' });
+    // #7 — Atomic transaction eliminates the TOCTOU race between read and update
+    // #5 — Status check inside the transaction ensures idempotency
+    // #4 — Audit fields recorded atomically with the status change
+    await adminDb.runTransaction(async (tx) => {
+      const doc = await tx.get(docRef);
+      if (!doc.exists) throw Object.assign(new Error('not_found'), { code: 'not_found' });
+      if (doc.data()!.status !== 'active') throw Object.assign(new Error('not_active'), { code: 'not_active' });
+      tx.update(docRef, {
+        status: 'inactive',
+        deactivatedBy: caller.uid,
+        deactivatedAt: FieldValue.serverTimestamp(),
+      });
+    });
 
     return NextResponse.json({ status: 'success' });
-  } catch {
+  } catch (err) {
+    const code = (err as { code?: string }).code;
+    if (code === 'not_found') {
+      return NextResponse.json({ error: 'Promotion code not found' }, { status: 404 });
+    }
+    if (code === 'not_active') {
+      return NextResponse.json({ error: 'Promotion code is not active' }, { status: 409 });
+    }
     return NextResponse.json({ error: 'Failed to deactivate promotion code' }, { status: 500 });
   }
 }

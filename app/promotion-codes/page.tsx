@@ -178,7 +178,7 @@ export default function PromotionCodesPage() {
   }
 
   // Prevent flash while redirect is in flight
-  if (user?.role === "user") return null;
+  if (user?.role !== "admin" && user?.role !== "super-admin") return null;
 
   // ── Resolved state ────────────────────────────────────────────────
   return (

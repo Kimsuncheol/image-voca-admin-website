@@ -34,7 +34,7 @@ export function useAdminGuard() {
   useEffect(() => {
     // Only redirect once auth state has resolved; avoids flashing the redirect
     // on initial render when `user` is briefly null.
-    if (!authLoading && user?.role === "user") {
+    if (!authLoading && user?.role !== "admin" && user?.role !== "super-admin") {
       router.replace("/");
     }
   }, [authLoading, user, router]);
