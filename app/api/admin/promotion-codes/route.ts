@@ -5,8 +5,6 @@ import { FieldValue } from 'firebase-admin/firestore';
 import { adminAuth, adminDb } from '@/lib/firebase/admin';
 import type { CodeGenerationRequest } from '@/types/promotionCode';
 
-const HMAC_SECRET = process.env.PROMOTION_CODE_HMAC_SECRET;
-if (!HMAC_SECRET) throw new Error('Missing required environment variable: PROMOTION_CODE_HMAC_SECRET');
 
 async function verifySession(request: NextRequest) {
   const sessionCookie = request.cookies.get('__session')?.value;
@@ -37,7 +35,9 @@ function generateCode(): string {
 }
 
 function hashCode(code: string): string {
-  return createHmac('sha256', HMAC_SECRET!).update(code).digest('hex');
+  const secret = process.env.PROMOTION_CODE_HMAC_SECRET;
+  if (!secret) throw new Error('Missing required environment variable: PROMOTION_CODE_HMAC_SECRET');
+  return createHmac('sha256', secret).update(code).digest('hex');
 }
 
 async function deleteExpiredUnusedCodes(): Promise<void> {
