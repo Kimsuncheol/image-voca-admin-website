@@ -1,10 +1,8 @@
 "use client";
 
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState, type MouseEvent } from "react";
-import LaunchIcon from "@mui/icons-material/Launch";
 import Box from "@mui/material/Box";
-import Button from "@mui/material/Button";
 import Chip from "@mui/material/Chip";
 import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
@@ -18,15 +16,10 @@ import Typography from "@mui/material/Typography";
 import { useTranslation } from "react-i18next";
 
 import CellContextMenu from "@/components/shared/CellContextMenu";
-import InlineEditableText from "@/components/shared/InlineEditableText";
 import {
   formatWordFinderLocation,
   isWordFinderFieldMissing,
 } from "@/lib/wordFinderMissingFieldActions";
-import {
-  resolveWordFinderInlineEditField,
-  type InlineEditableWordFinderField,
-} from "@/lib/wordFinderInlineEdit";
 import type { WordFinderResult } from "@/types/wordFinder";
 import type { WordFinderActionField } from "@/types/wordFinder";
 
@@ -45,31 +38,12 @@ function getColField(col: number): WordFinderActionField | null {
   return col === 2 ? "translation" : null;
 }
 
-function getColEditField(col: number): InlineEditableWordFinderField | null {
-  if (col === 0) return "primaryText";
-  if (col === 1) return "meaning";
-  return null;
-}
-
 interface WordFinderTableProps {
   results: WordFinderResult[];
   onMissingFieldClick?: (
     result: WordFinderResult,
     field: WordFinderActionField,
   ) => void;
-  onTextEdit?: (
-    result: WordFinderResult,
-    field: InlineEditableWordFinderField,
-    value: string,
-  ) => Promise<void>;
-}
-
-interface EditingCellState {
-  resultKey: string;
-  field: InlineEditableWordFinderField;
-  draft: string;
-  saving: boolean;
-  error: string;
 }
 
 function getTypeLabel(
@@ -107,7 +81,7 @@ function renderStatusChip(
       size="small"
       variant={filled ? "filled" : "outlined"}
       label={label}
-      onClick={onMissingFieldClick ? () => onMissingFieldClick(result, field) : undefined}
+      onClick={onMissingFieldClick ? (e) => { e.stopPropagation(); onMissingFieldClick(result, field); } : undefined}
       clickable={Boolean(onMissingFieldClick)}
       sx={onMissingFieldClick ? { cursor: "pointer" } : undefined}
     />
@@ -117,14 +91,13 @@ function renderStatusChip(
 export default function WordFinderTable({
   results,
   onMissingFieldClick,
-  onTextEdit,
 }: WordFinderTableProps) {
   const { t } = useTranslation();
-  const [editingCell, setEditingCell] = useState<EditingCellState | null>(null);
+  const router = useRouter();
   const [selectionAnchor, setSelectionAnchor] = useState<CellPos | null>(null);
   const [selectionExtent, setSelectionExtent] = useState<CellPos | null>(null);
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
-  // cols: 0=primaryText, 1=meaning, 2=translation, 3="" (image), 4=location, 5="" (status), 6="" (actions)
+  // cols: 0=primaryText, 1=meaning, 2=translation, 3="" (image), 4=location, 5="" (status)
   const cellGrid = useMemo(
     () =>
       results.map((r) => [
@@ -133,7 +106,6 @@ export default function WordFinderTable({
         r.translation ?? "",
         "",
         formatWordFinderLocation(r, ""),
-        "",
         "",
       ]),
     [results],
@@ -181,8 +153,8 @@ export default function WordFinderTable({
 
   const handleCellClick = useCallback(
     (e: MouseEvent, row: number, col: number) => {
-      e.stopPropagation();
       if (e.shiftKey && selectionAnchor) {
+        e.stopPropagation();
         setSelectionExtent({ row, col });
       } else {
         setSelectionAnchor({ row, col });
@@ -234,124 +206,7 @@ export default function WordFinderTable({
     onMissingFieldClick(result, field);
   }, [contextMenu, results, onMissingFieldClick]);
 
-  const activateInlineEdit = useCallback((result: WordFinderResult, field: InlineEditableWordFinderField) => {
-    const editable = resolveWordFinderInlineEditField(result, field);
-    if (!editable || !onTextEdit) return;
-
-    setEditingCell({
-      resultKey: `${result.courseId}:${result.dayId ?? "root"}:${result.id}`,
-      field,
-      draft: editable.value,
-      saving: false,
-      error: "",
-    });
-  }, [onTextEdit]);
-
-  const handleContextMenuEdit = useCallback(() => {
-    if (!contextMenu) return;
-    const editField = getColEditField(contextMenu.col);
-    if (!editField) return;
-    const result = results[contextMenu.row];
-    if (!result) return;
-    activateInlineEdit(result, editField);
-  }, [contextMenu, results, activateInlineEdit]);
-
-  const updateInlineDraft = useCallback((draft: string) => {
-    setEditingCell((prev) => (prev ? { ...prev, draft, error: "" } : prev));
-  }, []);
-
-  const cancelInlineEdit = useCallback(() => {
-    setEditingCell(null);
-  }, []);
-
-  const commitInlineEdit = useCallback(
-    async (result: WordFinderResult) => {
-      if (!editingCell || editingCell.saving || !onTextEdit) return;
-
-      const resultKey = `${result.courseId}:${result.dayId ?? "root"}:${result.id}`;
-      if (editingCell.resultKey !== resultKey) return;
-
-      const editable = resolveWordFinderInlineEditField(result, editingCell.field);
-      if (!editable) {
-        setEditingCell(null);
-        return;
-      }
-
-      const nextValue = editingCell.draft.trim();
-      if (!nextValue || nextValue === editable.value) {
-        setEditingCell(null);
-        return;
-      }
-
-      setEditingCell((prev) => (prev ? { ...prev, saving: true, error: "" } : prev));
-
-      try {
-        await onTextEdit(result, editingCell.field, nextValue);
-        setEditingCell(null);
-      } catch {
-        setEditingCell((prev) =>
-          prev ? { ...prev, saving: false, error: t("words.generateActionError") } : prev,
-        );
-      }
-    },
-    [editingCell, onTextEdit, t],
-  );
-
-  const renderEditableText = useCallback(
-    (
-      result: WordFinderResult,
-      field: InlineEditableWordFinderField,
-      value: string,
-      options?: {
-        textVariant?: "body1" | "body2";
-        fontWeight?: number;
-      },
-    ) => {
-      const editable = resolveWordFinderInlineEditField(result, field);
-      const resultKey = `${result.courseId}:${result.dayId ?? "root"}:${result.id}`;
-      const isEditing =
-        editingCell?.resultKey === resultKey && editingCell.field === field;
-
-      if (!editable || !onTextEdit) {
-        return (
-          <Typography variant={options?.textVariant ?? "body1"} fontWeight={options?.fontWeight}>
-            {value || t("words.none")}
-          </Typography>
-        );
-      }
-
-      return (
-        <InlineEditableText
-          value={value}
-          emptyLabel={t("words.none")}
-          isEditing={isEditing}
-          draft={isEditing ? editingCell.draft : value}
-          saving={isEditing ? editingCell.saving : false}
-          error={isEditing ? editingCell.error : ""}
-          textVariant={options?.textVariant}
-          fontWeight={options?.fontWeight}
-          onActivate={() => activateInlineEdit(result, field)}
-          onDraftChange={updateInlineDraft}
-          onCommit={() => {
-            void commitInlineEdit(result);
-          }}
-          onCancel={cancelInlineEdit}
-        />
-      );
-    },
-    [
-      activateInlineEdit,
-      cancelInlineEdit,
-      commitInlineEdit,
-      editingCell,
-      onTextEdit,
-      t,
-      updateInlineDraft,
-    ],
-  );
-
   const contextMenuField = contextMenu ? getColField(contextMenu.col) : null;
-  const contextMenuEditField = contextMenu ? getColEditField(contextMenu.col) : null;
 
   return (
     <>
@@ -395,21 +250,22 @@ export default function WordFinderTable({
             <TableCell>{t("courses.image", "Image")}</TableCell>
             <TableCell>{t("words.location")}</TableCell>
             <TableCell>{t("words.status")}</TableCell>
-            <TableCell align="right">{t("words.actions")}</TableCell>
           </TableRow>
         </TableHead>
         <TableBody>
           {results.map((result, rowIdx) => (
-            <TableRow key={`${result.courseId}:${result.dayId ?? "root"}:${result.id}`}>
+            <TableRow
+              key={`${result.courseId}:${result.dayId ?? "root"}:${result.id}`}
+              onClick={() => router.push(result.sourceHref)}
+              sx={{ cursor: "pointer" }}
+            >
               <TableCell
                 sx={{ minWidth: 220, ...selectableCellSx(rowIdx, 0) }}
                 onClick={(e) => handleCellClick(e, rowIdx, 0)}
                 onContextMenu={(e) => handleCellContextMenu(e, rowIdx, 0)}
               >
                 <Stack spacing={0.75}>
-                  {renderEditableText(result, "primaryText", result.primaryText, {
-                    fontWeight: 600,
-                  })}
+                  <Typography fontWeight={600}>{result.primaryText || t("words.none")}</Typography>
                   <Chip
                     label={getTypeLabel(result.type, t)}
                     size="small"
@@ -423,12 +279,9 @@ export default function WordFinderTable({
                 onContextMenu={(e) => handleCellContextMenu(e, rowIdx, 1)}
               >
                 <Stack spacing={0.5}>
-                  {renderEditableText(
-                    result,
-                    "meaning",
-                    result.meaning || result.secondaryText || "",
-                    { textVariant: "body2" },
-                  )}
+                  <Typography variant="body2">
+                    {result.meaning || result.secondaryText || t("words.none")}
+                  </Typography>
                   {result.secondaryText && result.secondaryText !== result.meaning && (
                     <Typography variant="caption" color="text.secondary">
                       {result.secondaryText}
@@ -521,16 +374,6 @@ export default function WordFinderTable({
                   )}
                 </Stack>
               </TableCell>
-              <TableCell align="right">
-                <Button
-                  component={Link}
-                  href={result.sourceHref}
-                  size="small"
-                  endIcon={<LaunchIcon />}
-                >
-                  {t("words.openSource")}
-                </Button>
-              </TableCell>
             </TableRow>
           ))}
         </TableBody>
@@ -541,7 +384,6 @@ export default function WordFinderTable({
       anchorPosition={contextMenu?.anchorPosition ?? null}
       onClose={() => setContextMenu(null)}
       onCopy={handleContextMenuCopy}
-      onEdit={contextMenuEditField && onTextEdit ? handleContextMenuEdit : null}
       onGenerate={
         contextMenuField && onMissingFieldClick ? handleContextMenuGenerate : null
       }

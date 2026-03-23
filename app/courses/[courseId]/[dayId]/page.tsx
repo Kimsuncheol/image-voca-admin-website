@@ -797,6 +797,14 @@ export default function DayWordsPage({
       .finally(() => setLoading(false));
   }, [course, dayId, t]);
 
+  // ── Scroll to word anchor after words load ────────────────────────
+  useEffect(() => {
+    if (loading || !words.length) return;
+    const hash = window.location.hash.slice(1);
+    if (!hash) return;
+    document.getElementById(hash)?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [loading, words]);
+
   // ── Missing course (synchronous guard) ───────────────────────────
   // Handled here (not in the effect) to avoid synchronous setState in effects.
   if (!course) {

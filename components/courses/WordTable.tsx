@@ -979,6 +979,7 @@ export default function WordTable({
               return (
                 <TableRow
                   key={word.id}
+                  id={word.id}
                   sx={exitingWordIds?.has(word.id) ? {
                     animation: "rowFadeOut 350ms ease forwards",
                     "@keyframes rowFadeOut": {
