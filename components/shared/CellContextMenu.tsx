@@ -9,7 +9,7 @@ interface CellContextMenuProps {
   anchorPosition: { top: number; left: number } | null;
   onClose: () => void;
   onCopy: () => void;
-  onEdit: (() => void) | null;
+  onEdit?: (() => void) | null;
   onTranslate?: (() => void) | null;
   translateLabel?: string;
   onGenerate: (() => void) | null;
