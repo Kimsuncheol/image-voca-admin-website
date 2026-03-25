@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import { test } from "vitest";
 
+import type { StandardWordInput } from "@/lib/schemas/vocaSchemas";
 import { buildDerivativeAwareWordsForUpload } from "@/services/vocaSaveService";
 import type { DerivativePreviewItemResult } from "@/types/vocabulary";
 
@@ -100,7 +101,7 @@ test("assignDeterministicUploadIdsForItems preserves non-standard schemas", () =
   ]);
 });
 
-test("derivative-expanded uploads receive sequential deterministic ids", () => {
+test("derivative selections stay on the base word and receive only original deterministic ids", () => {
   const previewItems: DerivativePreviewItemResult[] = [
     {
       itemId: "item-1",
@@ -122,7 +123,7 @@ test("derivative-expanded uploads receive sequential deterministic ids", () => {
     },
   ];
 
-  const expandedItems = buildDerivativeAwareWordsForUpload(
+  const processedItems = buildDerivativeAwareWordsForUpload(
     [
       {
         id: "item-1",
@@ -145,22 +146,22 @@ test("derivative-expanded uploads receive sequential deterministic ids", () => {
   );
 
   const wordsWithIds = assignDeterministicUploadWordIds(
-    expandedItems[0].data.words,
+    processedItems[0].data.words as StandardWordInput[],
     "CSAT",
-    expandedItems[0].dayName,
-  );
+    processedItems[0].dayName,
+  ) as Array<StandardWordInput & { id: string }>;
 
   assert.deepEqual(
     wordsWithIds.map((word) => word.id),
-    ["CSAT_Day2_1", "CSAT_Day2_2"],
+    ["CSAT_Day2_1"],
   );
-  assert.deepEqual(
-    wordsWithIds.map((word) => word.word),
-    ["care", "careful"],
-  );
+  assert.equal(wordsWithIds[0]?.word, "care");
+  assert.deepEqual(wordsWithIds[0]?.derivative, [
+    { word: "careful", meaning: "showing care" },
+  ]);
 });
 
-test("batched item generation keeps derivative-expanded numbering identical to single-item generation", () => {
+test("batched item generation keeps base-word numbering identical when derivatives are stored inline", () => {
   const previewItems: DerivativePreviewItemResult[] = [
     {
       itemId: "item-1",
@@ -182,7 +183,7 @@ test("batched item generation keeps derivative-expanded numbering identical to s
     },
   ];
 
-  const expandedItems = buildDerivativeAwareWordsForUpload(
+  const processedItems = buildDerivativeAwareWordsForUpload(
     [
       {
         id: "item-1",
@@ -205,7 +206,7 @@ test("batched item generation keeps derivative-expanded numbering identical to s
   );
 
   const batched = assignDeterministicUploadIdsForItems(
-    expandedItems.map((item) => ({
+    processedItems.map((item) => ({
       dayName: item.dayName,
       words: item.data.words,
     })),
@@ -213,10 +214,14 @@ test("batched item generation keeps derivative-expanded numbering identical to s
     "CSAT",
   );
   const single = assignDeterministicUploadWordIds(
-    expandedItems[0].data.words,
+    processedItems[0].data.words as StandardWordInput[],
     "CSAT",
-    expandedItems[0].dayName,
-  );
+    processedItems[0].dayName,
+  ) as Array<StandardWordInput & { id: string }>;
 
   assert.deepEqual(batched[0]?.words, single);
+  assert.equal(single.length, 1);
+  assert.deepEqual(single[0]?.derivative, [
+    { word: "careful", meaning: "showing care" },
+  ]);
 });

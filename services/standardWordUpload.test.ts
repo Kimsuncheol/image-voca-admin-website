@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import { test } from "vitest";
 
 import type { StandardWordInput } from "@/lib/schemas/vocaSchemas";
 
@@ -60,7 +60,7 @@ test("prepareStandardWordsForUpload backfills empty imageUrl for exam courses", 
   ]);
 });
 
-test("prepareStandardWordsForUpload preserves derivative-like fields", () => {
+test("prepareStandardWordsForUpload preserves derivative arrays", () => {
   const derivativeLikeWords = [
     {
       word: "portable",
@@ -68,11 +68,7 @@ test("prepareStandardWordsForUpload preserves derivative-like fields", () => {
       pronunciation: "",
       example: "",
       translation: "",
-      derivativeInfo: {
-        type: "adjective",
-        sourceWords: ["port"],
-        source: "ai",
-      },
+      derivative: [{ word: "portability", meaning: "the quality of being portable" }],
     },
   ] as unknown as StandardWordInput[];
 
@@ -85,11 +81,7 @@ test("prepareStandardWordsForUpload preserves derivative-like fields", () => {
       pronunciation: "",
       example: "",
       translation: "",
-      derivativeInfo: {
-        type: "adjective",
-        sourceWords: ["port"],
-        source: "ai",
-      },
+      derivative: [{ word: "portability", meaning: "the quality of being portable" }],
       imageUrl: "",
     },
   ]);
