@@ -23,6 +23,9 @@ vi.mock("react-i18next", () => ({
         "courses.generatePronunciation": "Generate pronunciation",
         "courses.missingWordValue": "Missing word",
         "courses.missingMeaningValue": "Missing meaning",
+        "words.derivative": "Derivatives",
+        "words.generateDerivatives": "Generate derivatives",
+        "words.contextMenuEdit": "Edit",
         "words.none": "None",
       };
 
@@ -42,6 +45,10 @@ vi.mock("@/lib/firebase/firestore", () => ({
 }));
 
 vi.mock("@/components/words/WordFinderMissingFieldDialog", () => ({
+  default: () => null,
+}));
+
+vi.mock("@/components/derivatives/DerivativeGenerationDialog", () => ({
   default: () => null,
 }));
 
@@ -111,5 +118,40 @@ describe("WordTable", () => {
     expect(markup).toContain("neko");
     expect(markup).toContain("neko ga iru.");
     expect(markup).toContain("https://example.com/jlpt.png");
+  });
+
+  it("renders derivative content and a generate affordance for supported standard rows", () => {
+    const markup = renderToStaticMarkup(
+      <WordTable
+        words={[
+          {
+            id: "std-1",
+            word: "care",
+            meaning: "attention",
+            pronunciation: "",
+            example: "",
+            translation: "",
+          },
+          {
+            id: "std-2",
+            word: "use",
+            meaning: "purpose",
+            pronunciation: "",
+            example: "",
+            translation: "",
+            derivative: [{ word: "useful", meaning: "helpful or practical" }],
+          },
+        ]}
+        isCollocation={false}
+        showImageUrl={false}
+        courseId="TOEIC"
+        coursePath="courses/TOEIC"
+        dayId="Day1"
+      />,
+    );
+
+    expect(markup).toContain("Derivatives");
+    expect(markup).toContain("Generate derivatives");
+    expect(markup).toContain("useful");
   });
 });

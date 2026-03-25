@@ -14,6 +14,7 @@ export type WordFinderMissingField =
   | "image"
   | "pronunciation"
   | "example"
+  | "derivative"
   | "translation";
 
 export type WordFinderActionField = Exclude<WordFinderMissingField, "all">;
@@ -40,6 +41,7 @@ export interface WordFinderResult {
   pronunciationRoman?: string | null;
   exampleRoman?: string | null;
   imageUrl: string | null;
+  derivative?: Array<{ word: string; meaning: string }> | null;
   prefix?: string | null;
   postfix?: string | null;
 }
@@ -57,6 +59,7 @@ export type WordFinderResultFieldUpdates = Partial<
     | "translation"
     | "translationEnglish"
     | "translationKorean"
+    | "derivative"
   >
 >;
 

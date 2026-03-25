@@ -34,6 +34,30 @@ function createJlptResult(
   };
 }
 
+function createStandardResult(
+  overrides: Partial<WordFinderResult> = {},
+): WordFinderResult {
+  return {
+    id: "toeic-1",
+    courseId: "TOEIC",
+    courseLabel: "TOEIC",
+    coursePath: "courses/TOEIC",
+    schemaVariant: "standard",
+    dayId: "Day1",
+    sourceHref: "/courses/TOEIC/Day1",
+    type: "standard",
+    primaryText: "wander",
+    secondaryText: "to move around",
+    meaning: "to move around",
+    translation: "돌아다니다",
+    example: "We wander through the city.",
+    pronunciation: "wan-der",
+    imageUrl: null,
+    derivative: null,
+    ...overrides,
+  };
+}
+
 describe("wordFinderMissingFieldActions JLPT", () => {
   it("treats pronunciation and translation as composite fields", () => {
     const missing = createJlptResult({
@@ -63,5 +87,24 @@ describe("wordFinderMissingFieldActions JLPT", () => {
     expect(getWordFinderFieldValue(present, "image")).toBe(
       "https://example.com/jlpt.png",
     );
+  });
+
+  it("treats derivatives as a supported standard-only missing field", () => {
+    const missing = createStandardResult({ derivative: [] });
+    const present = createStandardResult({
+      derivative: [{ word: "wandering", meaning: "moving around" }],
+    });
+    const unsupported = createStandardResult({
+      courseId: "JLPT",
+      courseLabel: "JLPT",
+      coursePath: "courses/JLPT",
+      schemaVariant: "jlpt",
+      derivative: null,
+    });
+
+    expect(isWordFinderFieldMissing(missing, "derivative")).toBe(true);
+    expect(isWordFinderFieldMissing(present, "derivative")).toBe(false);
+    expect(isWordFinderFieldMissing(unsupported, "derivative")).toBe(false);
+    expect(getWordFinderFieldValue(present, "derivative")).toContain("wandering");
   });
 });

@@ -8,13 +8,21 @@ import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import { useTranslation } from "react-i18next";
 
+import DerivativeGenerationDialog from "@/components/derivatives/DerivativeGenerationDialog";
 import PageLayout from "@/components/layout/PageLayout";
 import WordFinderFilters from "@/components/words/WordFinderFilters";
 import WordFinderMissingFieldDialog from "@/components/words/WordFinderMissingFieldDialog";
 import WordFinderTable from "@/components/words/WordFinderTable";
 import { useAdminGuard } from "@/hooks/useAdminGuard";
 import {
+  buildDerivativePreviewRequestItems,
+  buildDerivativeUpdatesFromPreview,
+  requestDerivativePreview,
+} from "@/lib/derivativeGeneration";
+import { updateWordDerivatives } from "@/lib/firebase/firestore";
+import {
   applyWordFinderResultUpdates,
+  formatWordFinderLocation,
   getWordFinderResultKey,
 } from "@/lib/wordFinderMissingFieldActions";
 import type {
@@ -25,6 +33,7 @@ import type {
   WordFinderResultFieldUpdates,
   WordFinderType,
 } from "@/types/wordFinder";
+import type { DerivativePreviewItemResult } from "@/types/vocabulary";
 
 function getSearchParamValue(value: string | null, fallback: string): string {
   return value && value.trim() ? value : fallback;
@@ -69,6 +78,14 @@ function WordsPageContent({
   const [limited, setLimited] = useState(false);
   const [activeField, setActiveField] = useState<WordFinderActionField | null>(null);
   const [activeResultKey, setActiveResultKey] = useState("");
+  const [derivativeDialogOpen, setDerivativeDialogOpen] = useState(false);
+  const [derivativeDialogLoading, setDerivativeDialogLoading] = useState(false);
+  const [derivativeDialogSaving, setDerivativeDialogSaving] = useState(false);
+  const [derivativeDialogItems, setDerivativeDialogItems] = useState<
+    DerivativePreviewItemResult[]
+  >([]);
+  const [derivativeDialogError, setDerivativeDialogError] = useState("");
+  const [derivativeTargetKeys, setDerivativeTargetKeys] = useState<string[]>([]);
 
   useEffect(() => {
     if (!hasCriteria) {
@@ -172,16 +189,56 @@ function WordsPageContent({
 
   const handleMissingFieldClick = useCallback(
     (result: WordFinderResult, field: WordFinderActionField) => {
+      if (field === "derivative") {
+        setDerivativeTargetKeys([getWordFinderResultKey(result)]);
+        setDerivativeDialogOpen(true);
+        setDerivativeDialogLoading(true);
+        setDerivativeDialogSaving(false);
+        setDerivativeDialogItems([]);
+        setDerivativeDialogError("");
+
+        void requestDerivativePreview(
+          result.courseId,
+          buildDerivativePreviewRequestItems([result], () =>
+            formatWordFinderLocation(result, t("words.noDay")),
+          ),
+        )
+          .then((preview) => {
+            setDerivativeDialogItems(preview.items);
+          })
+          .catch((error) => {
+            setDerivativeDialogError(
+              error instanceof Error
+                ? error.message
+                : t("words.generateActionError"),
+            );
+          })
+          .finally(() => {
+            setDerivativeDialogLoading(false);
+          });
+        return;
+      }
+
       setActiveResultKey(getWordFinderResultKey(result));
       setActiveField(field);
     },
-    [],
+    [t],
   );
 
   const handleModalClose = useCallback(() => {
     setActiveField(null);
     setActiveResultKey("");
   }, []);
+
+  const handleDerivativeDialogClose = useCallback(() => {
+    if (derivativeDialogSaving) return;
+    setDerivativeDialogOpen(false);
+    setDerivativeDialogLoading(false);
+    setDerivativeDialogSaving(false);
+    setDerivativeDialogItems([]);
+    setDerivativeDialogError("");
+    setDerivativeTargetKeys([]);
+  }, [derivativeDialogSaving]);
 
   const handleResultResolved = useCallback(
     (updates: WordFinderResultFieldUpdates) => {
@@ -194,6 +251,74 @@ function WordsPageContent({
       );
     },
     [activeResultKey],
+  );
+
+  const handleDerivativeConfirm = useCallback(
+    async (selectionMap: Record<string, Record<string, Record<string, boolean>>>) => {
+      const targetResults = results.filter((result) =>
+        derivativeTargetKeys.includes(getWordFinderResultKey(result)),
+      );
+
+      if (targetResults.length === 0) {
+        handleDerivativeDialogClose();
+        return;
+      }
+
+      setDerivativeDialogSaving(true);
+      setDerivativeDialogError("");
+
+      try {
+        const updates = buildDerivativeUpdatesFromPreview(
+          targetResults,
+          derivativeDialogItems,
+          selectionMap,
+        );
+
+        await Promise.all(
+          updates.map(async (update) => {
+            const target = targetResults.find((result) => result.id === update.id);
+            if (!target?.dayId) return;
+            await updateWordDerivatives(
+              target.coursePath,
+              target.dayId,
+              target.id,
+              update.derivative,
+            );
+          }),
+        );
+
+        const updateMap = new Map(
+          updates.map((update) => [update.id, update.derivative]),
+        );
+
+        setResults((prev) =>
+          prev.map((result) =>
+            updateMap.has(result.id)
+              ? applyWordFinderResultUpdates(result, {
+                  derivative: updateMap.get(result.id) ?? [],
+                })
+              : result,
+          ),
+        );
+
+        handleDerivativeDialogClose();
+      } catch (error) {
+        setDerivativeDialogError(
+          error instanceof Error
+            ? error.message
+            : t("words.generateActionError"),
+        );
+      } finally {
+        setDerivativeDialogSaving(false);
+      }
+    },
+    [
+      derivativeDialogItems,
+      derivativeTargetKeys,
+      handleDerivativeDialogClose,
+      results,
+      t,
+    ],
   );
 
 
@@ -254,6 +379,16 @@ function WordsPageContent({
         result={activeResult}
         onClose={handleModalClose}
         onResolved={handleResultResolved}
+      />
+
+      <DerivativeGenerationDialog
+        open={derivativeDialogOpen}
+        loading={derivativeDialogLoading}
+        saving={derivativeDialogSaving}
+        items={derivativeDialogItems}
+        error={derivativeDialogError}
+        onClose={handleDerivativeDialogClose}
+        onConfirm={handleDerivativeConfirm}
       />
     </PageLayout>
   );

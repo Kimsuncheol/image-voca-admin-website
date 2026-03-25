@@ -2,6 +2,10 @@ import type {
   WordFinderMissingField,
   WordFinderResult,
 } from "../../types/wordFinder.ts";
+import {
+  hasDerivativeEntries,
+  supportsDerivativeGenerationForResult,
+} from "../derivativeGeneration.ts";
 
 export function normalizeWordFinderText(value: unknown): string {
   if (typeof value !== "string") return "";
@@ -86,6 +90,11 @@ export function matchesMissingField(
       return result.type === "standard" && !result.pronunciation;
     case "example":
       return result.type !== "famousQuote" && !result.example;
+    case "derivative":
+      return (
+        supportsDerivativeGenerationForResult(result) &&
+        !hasDerivativeEntries(result.derivative)
+      );
     case "translation":
       return !result.translation;
     default:

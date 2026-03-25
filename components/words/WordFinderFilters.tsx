@@ -142,6 +142,7 @@ export default function WordFinderFilters({
             </MenuItem>
             <MenuItem value="example">{t("words.missingExample")}</MenuItem>
             <MenuItem value="translation">{t("words.missingTranslation")}</MenuItem>
+            <MenuItem value="derivative">{t("words.missingDerivative")}</MenuItem>
           </Select>
         </FormControl>
       </Stack>

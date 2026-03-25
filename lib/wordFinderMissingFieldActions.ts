@@ -3,6 +3,10 @@ import type {
   WordFinderResult,
   WordFinderResultFieldUpdates,
 } from "../types/wordFinder.ts";
+import {
+  hasDerivativeEntries,
+  supportsDerivativeGenerationForResult,
+} from "./derivativeGeneration";
 
 export function normalizeWordFinderComparableText(
   value: string | null | undefined,
@@ -42,6 +46,12 @@ export function getWordFinderFieldValue(
         : result.pronunciation;
     case "example":
       return result.example;
+    case "derivative":
+      return hasDerivativeEntries(result.derivative)
+        ? result.derivative
+            .map((entry) => `${entry.word}: ${entry.meaning}`)
+            .join("\n")
+        : null;
     case "translation":
       return result.schemaVariant === "jlpt"
         ? [result.translationEnglish, result.translationKorean]
@@ -68,6 +78,11 @@ export function isWordFinderFieldMissing(
       );
     case "example":
       return result.type !== "famousQuote" && !result.example;
+    case "derivative":
+      return (
+        supportsDerivativeGenerationForResult(result) &&
+        !hasDerivativeEntries(result.derivative)
+      );
     case "translation":
       return result.schemaVariant === "jlpt"
         ? !result.translationEnglish || !result.translationKorean
@@ -146,6 +161,10 @@ export function applyWordFinderResultUpdates(
     ]
       .filter((value): value is string => Boolean(value))
       .join(" / ");
+  }
+
+  if (Array.isArray(updates.derivative)) {
+    next.derivative = updates.derivative;
   }
 
   return next;

@@ -6,6 +6,7 @@ export type CourseDayMissingField =
   | "example"
   | "exampleHasKorean"
   | "translation"
+  | "derivative"
   | "image";
 
 export type CourseDayActionableMissingField = Exclude<

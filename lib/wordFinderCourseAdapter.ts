@@ -19,6 +19,7 @@ import type {
   WordFinderResultFieldUpdates,
   WordFinderType,
 } from "../types/wordFinder.ts";
+import { hasDerivativeEntries } from "./derivativeGeneration.ts";
 
 interface AdaptCourseWordToWordFinderResultArgs {
   word: Word;
@@ -34,7 +35,10 @@ interface AdaptCourseWordToWordFinderResultArgs {
 }
 
 export type CourseWordResolvedUpdates = Partial<
-  Pick<StandardWord, "pronunciation" | "example" | "translation" | "imageUrl"> &
+  Pick<
+    StandardWord,
+    "pronunciation" | "example" | "translation" | "imageUrl" | "derivative"
+  > &
     Pick<
       JlptWord,
       | "pronunciation"
@@ -256,6 +260,7 @@ export function adaptCourseWordToWordFinderResult(
     example: standard.example || null,
     pronunciation: standard.pronunciation || null,
     imageUrl: standard.imageUrl || null,
+    derivative: standard.derivative ?? null,
   };
 }
 
@@ -268,6 +273,7 @@ export function getWordTableMissingActionField(
     isPrefix?: boolean;
     isPostfix?: boolean;
     showImageUrl?: boolean;
+    supportsDerivatives?: boolean;
   },
 ): WordFinderActionField[] {
   const actionOrder: WordFinderActionField[] = [
@@ -275,6 +281,7 @@ export function getWordTableMissingActionField(
     "pronunciation",
     "example",
     "translation",
+    "derivative",
   ];
 
   const missingActions = getCourseWordMissingFields(word, args).filter(
@@ -294,6 +301,7 @@ export function isCourseWordFieldMissing(
     isPrefix?: boolean;
     isPostfix?: boolean;
     showImageUrl?: boolean;
+    supportsDerivatives?: boolean;
   },
   field: Exclude<CourseDayMissingField, "all">,
 ): boolean {
@@ -318,6 +326,7 @@ export function isCourseWordFieldMissing(
       case "image":
         return Boolean(args.showImageUrl) && !hasTrimmedText(collocation.imageUrl);
       case "pronunciation":
+      case "derivative":
         return false;
       default:
         return false;
@@ -343,6 +352,8 @@ export function isCourseWordFieldMissing(
         );
       case "image":
         return Boolean(args.showImageUrl) && !hasTrimmedText(jlpt.imageUrl);
+      case "derivative":
+        return false;
       default:
         return false;
     }
@@ -356,7 +367,9 @@ export function isCourseWordFieldMissing(
       case "pronunciation": return !hasTrimmedText(p.pronunciation) || !hasTrimmedText(p.pronunciationRoman);
       case "example": return !hasTrimmedText(p.example);
       case "translation": return !hasTrimmedText(p.translationEnglish) || !hasTrimmedText(p.translationKorean);
-      case "image": return false;
+      case "image":
+      case "derivative":
+        return false;
       default: return false;
     }
   }
@@ -369,7 +382,9 @@ export function isCourseWordFieldMissing(
       case "pronunciation": return !hasTrimmedText(p.pronunciation) || !hasTrimmedText(p.pronunciationRoman);
       case "example": return !hasTrimmedText(p.example);
       case "translation": return !hasTrimmedText(p.translationEnglish) || !hasTrimmedText(p.translationKorean);
-      case "image": return false;
+      case "image":
+      case "derivative":
+        return false;
       default: return false;
     }
   }
@@ -387,6 +402,11 @@ export function isCourseWordFieldMissing(
       return !hasTrimmedText(standard.example);
     case "translation":
       return !hasTrimmedText(standard.translation);
+    case "derivative":
+      return (
+        Boolean(args.supportsDerivatives) &&
+        !hasDerivativeEntries(standard.derivative)
+      );
     case "image":
       return Boolean(args.showImageUrl) && !hasTrimmedText(standard.imageUrl);
     default:
@@ -403,6 +423,7 @@ export function getCourseWordMissingFields(
     isPrefix?: boolean;
     isPostfix?: boolean;
     showImageUrl?: boolean;
+    supportsDerivatives?: boolean;
   },
 ): Exclude<CourseDayMissingField, "all">[] {
   const orderedFields: Exclude<CourseDayMissingField, "all">[] = [
@@ -411,6 +432,7 @@ export function getCourseWordMissingFields(
     "pronunciation",
     "example",
     "translation",
+    "derivative",
     "image",
   ];
 
@@ -447,6 +469,16 @@ export function applyCourseWordResolvedUpdates(
   }
   if (typeof updates.imageUrl === "string" && !("quote" in word) && !isPrefixWord(word) && !isPostfixWord(word)) {
     next.imageUrl = updates.imageUrl;
+  }
+  if (
+    Array.isArray(updates.derivative) &&
+    !("quote" in word) &&
+    !("collocation" in word) &&
+    !isJlptWord(word) &&
+    !isPrefixWord(word) &&
+    !isPostfixWord(word)
+  ) {
+    next.derivative = updates.derivative;
   }
   return next;
 }

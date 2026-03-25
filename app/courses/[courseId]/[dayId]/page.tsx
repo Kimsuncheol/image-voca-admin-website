@@ -40,17 +40,29 @@ import CircularProgress from "@mui/material/CircularProgress";
 import Stack from "@mui/material/Stack";
 import { useTranslation } from "react-i18next";
 
+import DerivativeGenerationDialog from "@/components/derivatives/DerivativeGenerationDialog";
 // ── Layout ────────────────────────────────────────────────────────────
 import PageLayout from "@/components/layout/PageLayout";
 
 // ── Course-domain types & data helpers ────────────────────────────────
 import { getCourseById } from "@/types/course";
+import { supportsDerivativeCourse } from "@/constants/supportedDerivativeCourses";
 import {
   isSupportedImageGenerationCourseId,
   type GenerateImagesSuccessResponse,
 } from "@/types/imageGeneration";
 import type { Word } from "@/types/word";
-import { getDayWords, updateWordField, updateWordImageUrl } from "@/lib/firebase/firestore";
+import {
+  getDayWords,
+  updateWordDerivatives,
+  updateWordField,
+  updateWordImageUrl,
+} from "@/lib/firebase/firestore";
+import {
+  buildDerivativePreviewRequestItems,
+  buildDerivativeUpdatesFromPreview,
+  requestDerivativePreview,
+} from "@/lib/derivativeGeneration";
 import {
   createCourseDayGenerateWordFieldRequest,
   createCourseDayImageGenerationWords,
@@ -61,6 +73,7 @@ import {
   planCourseDayBulkGeneration,
   type CourseDayBulkAction,
   type CourseDayBulkGeneratableField,
+  type CourseDayBulkPreviewField,
   type CourseDayBulkSkippedItem,
 } from "@/lib/courseDayBulkGeneration";
 import {
@@ -73,6 +86,7 @@ import { formatPersistedPronunciation, getIpaUSUKBatch } from "@/lib/utils/ipaLo
 import { containsKorean } from "@/lib/utils/korean";
 import type { CourseDayMissingField } from "@/types/courseDayMissingField";
 import type { WordFinderResult, WordFinderResultFieldUpdates } from "@/types/wordFinder";
+import type { DerivativePreviewItemResult } from "@/types/vocabulary";
 
 // ── Feature-specific components ───────────────────────────────────────
 import WordTable from "@/components/courses/WordTable";
@@ -88,6 +102,7 @@ function getMissingFieldOptions(
   isCollocation: boolean,
   isJlpt: boolean,
   showImageUrl: boolean,
+  supportsDerivatives: boolean,
   t: (key: string, options?: Record<string, unknown>) => string,
 ): Array<{ value: CourseDayMissingField; label: string }> {
   const primaryTextLabel = isCollocation
@@ -110,6 +125,13 @@ function getMissingFieldOptions(
     { value: "example", label: t("courses.missingExample") },
     { value: "translation", label: t("courses.missingTranslation") },
   );
+
+  if (supportsDerivatives) {
+    options.push({
+      value: "derivative",
+      label: t("courses.missingDerivative"),
+    });
+  }
 
   if (showImageUrl) {
     options.push({ value: "image", label: t("courses.missingImage") });
@@ -137,6 +159,8 @@ function getBulkActionLabel(
       return t("courses.generateMissingExamples");
     case "translation":
       return t("courses.generateMissingTranslations");
+    case "derivative":
+      return t("courses.generateMissingDerivatives");
     case "image":
       return t("courses.generateMissingImages");
     default:
@@ -168,6 +192,10 @@ function getBulkDisabledReason(
     if (options.exampleTranslationBlockedByPermissions) {
       return t("courses.enrichGenerationPermissionDenied");
     }
+    return null;
+  }
+
+  if (action.kind === "derivative-preview") {
     return null;
   }
 
@@ -283,10 +311,18 @@ export default function DayWordsPage({
   const [missingField, setMissingField] = useState<CourseDayMissingField>("all");
   const [exitingWordIds, setExitingWordIds] = useState<Set<string>>(new Set());
   const [bulkLoadingField, setBulkLoadingField] =
-    useState<CourseDayBulkGeneratableField | null>(null);
+    useState<CourseDayBulkGeneratableField | CourseDayBulkPreviewField | null>(null);
   const [jlptExampleCorrectionLoading, setJlptExampleCorrectionLoading] =
     useState(false);
   const [bulkFeedback, setBulkFeedback] = useState<BulkFeedback | null>(null);
+  const [derivativeDialogOpen, setDerivativeDialogOpen] = useState(false);
+  const [derivativeDialogLoading, setDerivativeDialogLoading] = useState(false);
+  const [derivativeDialogSaving, setDerivativeDialogSaving] = useState(false);
+  const [derivativeDialogItems, setDerivativeDialogItems] = useState<
+    DerivativePreviewItemResult[]
+  >([]);
+  const [derivativeDialogError, setDerivativeDialogError] = useState("");
+  const [derivativeTargets, setDerivativeTargets] = useState<WordFinderResult[]>([]);
 
   // ── Resolve course metadata from static list ──────────────────────
   // This is a synchronous lookup — no effect needed to detect a missing course.
@@ -299,10 +335,19 @@ export default function DayWordsPage({
   const isJlpt = course?.schema === "jlpt";
   const isFamousQuote = course?.schema === "famousQuote";
   const showImageUrl = isSupportedImageGenerationCourseId(courseId);
+  const supportsDerivatives =
+    course?.schema === "standard" && supportsDerivativeCourse(course.id);
 
   const missingFieldOptions = useMemo(
-    () => getMissingFieldOptions(isCollocation, isJlpt, showImageUrl, t),
-    [isCollocation, isJlpt, showImageUrl, t],
+    () =>
+      getMissingFieldOptions(
+        isCollocation,
+        isJlpt,
+        showImageUrl,
+        supportsDerivatives,
+        t,
+      ),
+    [isCollocation, isJlpt, showImageUrl, supportsDerivatives, t],
   );
 
   const filteredWords = useMemo(
@@ -315,11 +360,26 @@ export default function DayWordsPage({
         }
         return isCourseWordFieldMissing(
           word,
-          { isCollocation, isJlpt, isFamousQuote, showImageUrl },
+          {
+            isCollocation,
+            isJlpt,
+            isFamousQuote,
+            showImageUrl,
+            supportsDerivatives,
+          },
           missingField,
         );
       }),
-    [isCollocation, isJlpt, isFamousQuote, missingField, showImageUrl, words, exitingWordIds],
+    [
+      isCollocation,
+      isJlpt,
+      isFamousQuote,
+      missingField,
+      showImageUrl,
+      supportsDerivatives,
+      words,
+      exitingWordIds,
+    ],
   );
 
   const filteredResults = useMemo(
@@ -349,8 +409,8 @@ export default function DayWordsPage({
   );
 
   const bulkAction = useMemo(
-    () => getCourseDayBulkAction(missingField, isJlpt),
-    [isJlpt, missingField],
+    () => getCourseDayBulkAction(missingField, isJlpt, supportsDerivatives),
+    [isJlpt, missingField, supportsDerivatives],
   );
   const bulkField = bulkAction?.kind === "generate" ? bulkAction.field : null;
   const isJlptExampleCorrection =
@@ -500,6 +560,77 @@ export default function DayWordsPage({
       await Promise.all(tasks);
     },
     [],
+  );
+
+  const closeDerivativeDialog = useCallback(() => {
+    if (derivativeDialogSaving) return;
+    setDerivativeDialogOpen(false);
+    setDerivativeDialogLoading(false);
+    setDerivativeDialogSaving(false);
+    setDerivativeDialogItems([]);
+    setDerivativeDialogError("");
+    setDerivativeTargets([]);
+  }, [derivativeDialogSaving]);
+
+  const handleDerivativeDialogConfirm = useCallback(
+    async (selectionMap: Record<string, Record<string, Record<string, boolean>>>) => {
+      if (derivativeTargets.length === 0) {
+        closeDerivativeDialog();
+        return;
+      }
+
+      setDerivativeDialogSaving(true);
+      setDerivativeDialogError("");
+
+      try {
+        const updates = buildDerivativeUpdatesFromPreview(
+          derivativeTargets,
+          derivativeDialogItems,
+          selectionMap,
+        );
+
+        await Promise.all(
+          updates.map(async (update) => {
+            const target = derivativeTargets.find((result) => result.id === update.id);
+            if (!target?.dayId) return;
+            await updateWordDerivatives(
+              target.coursePath,
+              target.dayId,
+              target.id,
+              update.derivative,
+            );
+            applyResolvedUpdatesToState(target.id, {
+              derivative: update.derivative,
+            });
+          }),
+        );
+
+        const { skipped } = planCourseDayBulkGeneration(derivativeTargets, "derivative");
+        setBulkFeedback(
+          formatBulkSummary(t, {
+            updated: updates.length,
+            skipped,
+            failed: 0,
+          }),
+        );
+        closeDerivativeDialog();
+      } catch (error) {
+        setDerivativeDialogError(
+          error instanceof Error
+            ? error.message
+            : t("words.generateActionError"),
+        );
+      } finally {
+        setDerivativeDialogSaving(false);
+      }
+    },
+    [
+      applyResolvedUpdatesToState,
+      closeDerivativeDialog,
+      derivativeDialogItems,
+      derivativeTargets,
+      t,
+    ],
   );
 
   const handleBulkGenerate = useCallback(async () => {
@@ -698,6 +829,77 @@ export default function DayWordsPage({
     t,
   ]);
 
+  const handleDerivativeBulkGenerate = useCallback(async () => {
+    if (
+      bulkAction?.kind !== "derivative-preview" ||
+      bulkDisabledReason ||
+      bulkLoadingField
+    ) {
+      return;
+    }
+
+    const snapshot = filteredResults;
+    const { eligible, skipped } = planCourseDayBulkGeneration(
+      snapshot,
+      "derivative",
+    );
+
+    if (eligible.length === 0) {
+      setBulkFeedback({
+        severity: "warning",
+        message: t("courses.bulkGenerateNoEligible"),
+      });
+      return;
+    }
+
+    setBulkLoadingField("derivative");
+    setBulkFeedback(null);
+    setDerivativeTargets(eligible);
+    setDerivativeDialogOpen(true);
+    setDerivativeDialogLoading(true);
+    setDerivativeDialogSaving(false);
+    setDerivativeDialogItems([]);
+    setDerivativeDialogError("");
+
+    try {
+      const preview = await requestDerivativePreview(
+        course?.id ?? "CSAT",
+        buildDerivativePreviewRequestItems(
+          eligible,
+          () => `${course?.label ?? courseId} / ${dayId}`,
+        ),
+      );
+      setDerivativeDialogItems(preview.items);
+
+      if (
+        skipped.length > 0 &&
+        !preview.items.some((item) =>
+          item.words.some((word) => word.candidates.length > 0),
+        )
+      ) {
+        setBulkFeedback(formatBulkSummary(t, { updated: 0, skipped, failed: 0 }));
+      }
+    } catch (error) {
+      setDerivativeDialogError(
+        error instanceof Error
+          ? error.message
+          : t("words.generateActionError"),
+      );
+    } finally {
+      setDerivativeDialogLoading(false);
+      setBulkLoadingField(null);
+    }
+  }, [
+    bulkAction,
+    bulkDisabledReason,
+    bulkLoadingField,
+    course?.label,
+    courseId,
+    dayId,
+    filteredResults,
+    t,
+  ]);
+
   const handleJlptExampleCorrection = useCallback(async () => {
     if (!isJlptExampleCorrection || bulkDisabledReason || jlptExampleCorrectionLoading) {
       return;
@@ -891,6 +1093,11 @@ export default function DayWordsPage({
                   return;
                 }
 
+                if (bulkAction.kind === "derivative-preview") {
+                  void handleDerivativeBulkGenerate();
+                  return;
+                }
+
                 void handleJlptExampleCorrection();
               }}
               sx={{ borderRadius: "20px" }}
@@ -901,6 +1108,8 @@ export default function DayWordsPage({
               }
               startIcon={
                 (bulkAction.kind === "generate" && bulkLoadingField === bulkAction.field) ||
+                (bulkAction.kind === "derivative-preview" &&
+                  bulkLoadingField === bulkAction.field) ||
                 (bulkAction.kind === "jlpt-example-correction" &&
                   jlptExampleCorrectionLoading) ? (
                   <CircularProgress size={16} color="inherit" />
@@ -944,6 +1153,16 @@ export default function DayWordsPage({
           {bulkFeedback.message}
         </Alert>
       )}
+
+      <DerivativeGenerationDialog
+        open={derivativeDialogOpen}
+        loading={derivativeDialogLoading}
+        saving={derivativeDialogSaving}
+        items={derivativeDialogItems}
+        error={derivativeDialogError}
+        onClose={closeDerivativeDialog}
+        onConfirm={handleDerivativeDialogConfirm}
+      />
 
       {/* ── Word table / empty state ──────────────────────────────────── */}
       {filteredWords.length === 0 && !error ? (
@@ -1009,19 +1228,7 @@ export default function DayWordsPage({
                 });
               }, 400);
             }
-            setWords((prev) =>
-              prev.map((w) => {
-                if (w.id !== wordId) return w;
-
-                const nextFields = Object.fromEntries(
-                  Object.entries(fields).filter(
-                    (entry): entry is [string, string] =>
-                      typeof entry[1] === "string",
-                  ),
-                );
-                return { ...w, ...nextFields };
-              }),
-            );
+            applyResolvedUpdatesToState(wordId, fields);
           }}
         />
       )}

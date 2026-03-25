@@ -51,6 +51,8 @@ vi.mock("react-i18next", () => ({
         "words.missingExample": "Missing example",
         "words.hasTranslation": "Has translation",
         "words.missingTranslation": "Missing translation",
+        "words.hasDerivative": "Has derivatives",
+        "words.missingDerivative": "Missing derivatives",
         "words.openSource": "Open source",
         "words.noDay": "No day",
         "words.none": "None",
@@ -241,5 +243,36 @@ describe("WordFinderTable", () => {
     expect(markup).toContain("-的");
     expect(markup).toContain("Missing image");
     expect(markup).toContain("Has pronunciation");
+  });
+
+  it("renders derivative status only for supported standard English rows", () => {
+    const markup = renderToStaticMarkup(
+      <WordFinderTable
+        results={[
+          createResult({
+            id: "toeic-standard",
+            courseId: "TOEIC",
+            schemaVariant: "standard",
+            derivative: null,
+          }),
+          createResult({
+            id: "toeic-derivative-present",
+            courseId: "TOEIC",
+            schemaVariant: "standard",
+            derivative: [{ word: "wandering", meaning: "moving around aimlessly" }],
+          }),
+          createResult({
+            id: "jlpt-standard",
+            courseId: "JLPT",
+            schemaVariant: "jlpt",
+            derivative: null,
+          }),
+        ]}
+      />,
+    );
+
+    expect(markup).toContain("Missing derivatives");
+    expect(markup).toContain("Has derivatives");
+    expect(markup).not.toContain("words.missingDerivative");
   });
 });

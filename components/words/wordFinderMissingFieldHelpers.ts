@@ -12,6 +12,8 @@ export function getFieldLabel(field: WordFinderActionField, t: TFunction): strin
       return t("courses.pronunciation");
     case "example":
       return t("courses.example");
+    case "derivative":
+      return t("words.derivative");
     case "translation":
       return t("courses.translation");
     default:
@@ -27,6 +29,8 @@ export function getGenerateButtonLabel(field: WordFinderActionField, t: TFunctio
       return t("words.generatePronunciationAction");
     case "example":
       return t("words.generateNewExamples");
+    case "derivative":
+      return t("words.generateDerivatives");
     case "translation":
       return t("words.generateNewTranslations");
     default:
@@ -42,6 +46,8 @@ export function getSharedButtonLabel(field: WordFinderActionField, t: TFunction)
       return t("words.useSharedPronunciation");
     case "example":
       return t("words.useSharedExamples");
+    case "derivative":
+      return t("words.useSharedAction");
     case "translation":
       return t("words.useSharedTranslations");
     default:
@@ -79,6 +85,19 @@ export function getGenerateDisabledReason(
     if (!result.dayId) return t("words.pronunciationUnavailable");
     if (result.primaryText.includes(" ")) {
       return t("words.pronunciationGenerationUnavailableForPhrase");
+    }
+    return null;
+  }
+
+  if (field === "derivative") {
+    if (!result.dayId) {
+      return t("words.pronunciationUnavailable");
+    }
+    if (result.primaryText.includes(" ")) {
+      return t("words.pronunciationGenerationUnavailableForPhrase");
+    }
+    if (!result.meaning) {
+      return t("words.generateRequiresMeaning");
     }
     return null;
   }

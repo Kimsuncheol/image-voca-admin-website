@@ -16,8 +16,16 @@ export type CourseDayBulkGeneratableField = Extract<
   CourseDayActionableMissingField,
   "pronunciation" | "example" | "translation" | "image"
 >;
+export type CourseDayBulkPreviewField = Extract<
+  CourseDayActionableMissingField,
+  "derivative"
+>;
+export type CourseDayBulkPlannableField =
+  | CourseDayBulkGeneratableField
+  | CourseDayBulkPreviewField;
 export type CourseDayBulkAction =
   | { kind: "generate"; field: CourseDayBulkGeneratableField }
+  | { kind: "derivative-preview"; field: CourseDayBulkPreviewField }
   | { kind: "jlpt-example-correction" };
 
 export type CourseDayBulkSkipReason = "missingMeaning" | "multiWord";
@@ -53,12 +61,17 @@ export function isCourseDayBulkGeneratableField(
 export function getCourseDayBulkAction(
   field: CourseDayMissingField,
   isJlpt: boolean,
+  supportsDerivatives = false,
 ): CourseDayBulkAction | null {
   if (isCourseDayBulkGeneratableField(field)) {
     if (!isJlpt || field === "pronunciation" || field === "image") {
       return { kind: "generate", field };
     }
     return null;
+  }
+
+  if (field === "derivative") {
+    return supportsDerivatives ? { kind: "derivative-preview", field } : null;
   }
 
   if (isJlpt && field === "exampleHasKorean") {
@@ -74,7 +87,7 @@ function isSingleWordEntry(value: string): boolean {
 
 export function planCourseDayBulkGeneration(
   results: WordFinderResult[],
-  field: CourseDayBulkGeneratableField,
+  field: CourseDayBulkPlannableField,
 ): {
   eligible: WordFinderResult[];
   skipped: CourseDayBulkSkippedItem[];
@@ -83,16 +96,14 @@ export function planCourseDayBulkGeneration(
   const skipped: CourseDayBulkSkippedItem[] = [];
 
   results.forEach((result) => {
-    if (field === "pronunciation") {
+    if (field === "pronunciation" || field === "derivative") {
       if (!isSingleWordEntry(result.primaryText)) {
         skipped.push({ result, reason: "multiWord" });
         return;
       }
-      eligible.push(result);
-      return;
     }
 
-    if (!hasTrimmedText(result.meaning)) {
+    if (field !== "pronunciation" && !hasTrimmedText(result.meaning)) {
       skipped.push({ result, reason: "missingMeaning" });
       return;
     }

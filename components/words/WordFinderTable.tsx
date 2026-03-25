@@ -20,6 +20,7 @@ import {
   formatWordFinderLocation,
   isWordFinderFieldMissing,
 } from "@/lib/wordFinderMissingFieldActions";
+import { supportsDerivativeGenerationForResult } from "@/lib/derivativeGeneration";
 import type { WordFinderResult } from "@/types/wordFinder";
 import type { WordFinderActionField } from "@/types/wordFinder";
 
@@ -372,6 +373,16 @@ export default function WordFinderTable({
                     Boolean(result.translation),
                     result.schemaVariant === "jlpt" ? undefined : onMissingFieldClick,
                   )}
+                  {supportsDerivativeGenerationForResult(result) &&
+                    renderStatusChip(
+                      result,
+                      "derivative",
+                      result.derivative?.length
+                        ? t("words.hasDerivative")
+                        : t("words.missingDerivative"),
+                      Boolean(result.derivative?.length),
+                      onMissingFieldClick,
+                    )}
                 </Stack>
               </TableCell>
             </TableRow>

@@ -24,7 +24,11 @@ import CellContextMenu from "@/components/shared/CellContextMenu";
 import InlineEditableText from "@/components/shared/InlineEditableText";
 import WordFinderMissingFieldDialog from "@/components/words/WordFinderMissingFieldDialog";
 import { updateWordTextField, updateWordImageUrl, updateWordDerivatives } from "@/lib/firebase/firestore";
+import {
+  isDerivativeGenerationEligibleResult,
+} from "@/lib/derivativeGeneration";
 import { containsKorean } from "@/lib/utils/korean";
+import { supportsDerivativeCourse } from "@/constants/supportedDerivativeCourses";
 import { getCourseById, type CourseId } from "@/types/course";
 import type { CollocationWord, JlptWord, PostfixWord, PrefixWord, StandardWord, Word } from "@/types/word";
 import DerivativeEditDialog from "@/components/courses/DerivativeEditDialog";
@@ -48,7 +52,12 @@ function hasTrimmedText(value: string | null | undefined): value is string {
   return typeof value === "string" && value.trim().length > 0;
 }
 
-function getWordTableColField(col: number, word: Word): WordFinderActionField | null {
+function getWordTableColField(
+  col: number,
+  word: Word,
+  showImageUrl?: boolean,
+  supportsDerivatives?: boolean,
+): WordFinderActionField | null {
   if (isPrefixWord(word) || isPostfixWord(word)) {
     if (col === 3 || col === 4) return "pronunciation";
     if (col === 5 || col === 6) return "example";
@@ -75,7 +84,13 @@ function getWordTableColField(col: number, word: Word): WordFinderActionField | 
   if (col === 2) return "pronunciation";
   if (col === 3) return "example";
   if (col === 4) return "translation";
-  if (col === 5) return "image";
+  if (showImageUrl && col === 5) return "image";
+  if (
+    supportsDerivatives &&
+    ((showImageUrl && col === 6) || (!showImageUrl && col === 5))
+  ) {
+    return "derivative";
+  }
   return null;
 }
 
@@ -285,7 +300,16 @@ function ExampleCell({
 
 type GeneratableField = "pronunciation" | "example" | "translation";
 type WordTableLocalUpdates = Partial<
-  Pick<StandardWord, "word" | "meaning" | "pronunciation" | "example" | "translation" | "imageUrl"> &
+  Pick<
+    StandardWord,
+    | "word"
+    | "meaning"
+    | "pronunciation"
+    | "example"
+    | "translation"
+    | "imageUrl"
+    | "derivative"
+  > &
     Pick<
       JlptWord,
       | "word"
@@ -388,6 +412,15 @@ export default function WordTable({
     if (!courseId) return "";
     return getCourseById(courseId)?.label ?? courseId;
   }, [courseId]);
+  const supportsDerivatives = Boolean(
+    courseId &&
+      !isCollocation &&
+      !isJlpt &&
+      !isFamousQuote &&
+      !isPrefix &&
+      !isPostfix &&
+      supportsDerivativeCourse(courseId),
+  );
 
   const activeWord = useMemo(
     () => words.find((word) => word.id === activeWordId) ?? null,
@@ -425,6 +458,10 @@ export default function WordTable({
   ]);
 
   const openFieldModal = (wordId: string, field: WordFinderActionField) => {
+    if (field === "derivative") {
+      setDerivativeDialogWordId(wordId);
+      return;
+    }
     setActiveWordId(wordId);
     setActiveField(field);
   };
@@ -726,10 +763,26 @@ export default function WordTable({
     (word: Word, field: WordFinderActionField | "primaryText" | "meaning") =>
       isCourseWordFieldMissing(
         word,
-        { isCollocation, isJlpt, isFamousQuote, isPrefix, isPostfix, showImageUrl },
+        {
+          isCollocation,
+          isJlpt,
+          isFamousQuote,
+          isPrefix,
+          isPostfix,
+          showImageUrl,
+          supportsDerivatives,
+        },
         field,
       ),
-    [isCollocation, isJlpt, isFamousQuote, isPrefix, isPostfix, showImageUrl],
+    [
+      isCollocation,
+      isJlpt,
+      isFamousQuote,
+      isPrefix,
+      isPostfix,
+      showImageUrl,
+      supportsDerivatives,
+    ],
   );
 
   // 2D grid of copyable text per cell, schema-aware.
@@ -780,11 +833,29 @@ export default function WordTable({
   }, [contextMenu, words, localWordUpdates]);
 
   const contextMenuField = useMemo(
-    () =>
-      contextMenu && contextMenuWord
-        ? getWordTableColField(contextMenu.col, contextMenuWord)
-        : null,
-    [contextMenu, contextMenuWord],
+    () => {
+      if (!contextMenu || !contextMenuWord) return null;
+      const field = getWordTableColField(
+        contextMenu.col,
+        contextMenuWord,
+        showImageUrl,
+        supportsDerivatives,
+      );
+      if (
+        field === "derivative" &&
+        !isMissingField(contextMenuWord, "derivative")
+      ) {
+        return null;
+      }
+      return field;
+    },
+    [
+      contextMenu,
+      contextMenuWord,
+      isMissingField,
+      showImageUrl,
+      supportsDerivatives,
+    ],
   );
 
   const contextMenuEditField = useMemo(
@@ -862,10 +933,24 @@ export default function WordTable({
     const word = words[row];
     if (!word) return;
     const mergedWord = { ...word, ...localWordUpdates[word.id] } as Word;
-    const field = getWordTableColField(col, mergedWord);
+    const field = getWordTableColField(
+      col,
+      mergedWord,
+      showImageUrl,
+      supportsDerivatives,
+    );
     if (!field) return;
+    if (field === "derivative" && !isMissingField(mergedWord, "derivative")) return;
     openFieldModal(word.id, field);
-  }, [contextMenu, words, localWordUpdates]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [
+    contextMenu,
+    isMissingField,
+    words,
+    localWordUpdates,
+    openFieldModal,
+    showImageUrl,
+    supportsDerivatives,
+  ]);
 
   const handleContextMenuEdit = useCallback(() => {
     if (!contextMenu) return;
@@ -1055,7 +1140,7 @@ export default function WordTable({
                   <TableCell>{t("courses.example")}</TableCell>
                   <TableCell>{t("courses.translation")}</TableCell>
                   {showImageUrl && <TableCell>{t("courses.image", "Image")}</TableCell>}
-                  <TableCell>Derivative</TableCell>
+                  <TableCell>{t("words.derivative", "Derivatives")}</TableCell>
                 </>
               )}
             </TableRow>
@@ -1594,11 +1679,31 @@ export default function WordTable({
                     {(() => {
                       const derivatives = (mergedWord as StandardWord).derivative;
                       const hasDeriv = derivatives && derivatives.length > 0;
+                      const canGenerateDerivative =
+                        supportsDerivatives &&
+                        isDerivativeGenerationEligibleResult({
+                          courseId: courseId as CourseId,
+                          type: "standard",
+                          schemaVariant: "standard",
+                          primaryText: (mergedWord as StandardWord).word,
+                          meaning: (mergedWord as StandardWord).meaning,
+                        });
                       return (
                         <TableCell
                           onContextMenu={(e) => handleCellContextMenu(e, rowIdx, showImageUrl ? 6 : 5)}
-                          onClick={hasDeriv ? () => setDerivativeDialogWordId(word.id) : undefined}
-                          sx={hasDeriv ? { cursor: 'pointer', '&:hover': { bgcolor: 'action.hover' } } : undefined}
+                          onClick={
+                            supportsDerivatives
+                              ? () => setDerivativeDialogWordId(word.id)
+                              : undefined
+                          }
+                          sx={
+                            supportsDerivatives
+                              ? {
+                                  cursor: "pointer",
+                                  "&:hover": { bgcolor: "action.hover" },
+                                }
+                              : undefined
+                          }
                         >
                           {hasDeriv ? (
                             derivatives.map((d, i) => (
@@ -1612,9 +1717,29 @@ export default function WordTable({
                               </Box>
                             ))
                           ) : (
-                            <IconButton size="small" onClick={() => setDerivativeDialogWordId(word.id)}>
-                              <EditIcon fontSize="small" />
-                            </IconButton>
+                            <Tooltip
+                              title={
+                                canGenerateDerivative
+                                  ? t("words.generateDerivatives")
+                                  : t("words.contextMenuEdit", "Edit")
+                              }
+                            >
+                              <IconButton
+                                size="small"
+                                aria-label={
+                                  canGenerateDerivative
+                                    ? t("words.generateDerivatives")
+                                    : t("words.contextMenuEdit", "Edit")
+                                }
+                                onClick={() => setDerivativeDialogWordId(word.id)}
+                              >
+                                {canGenerateDerivative ? (
+                                  <AutoFixHighIcon fontSize="small" />
+                                ) : (
+                                  <EditIcon fontSize="small" />
+                                )}
+                              </IconButton>
+                            </Tooltip>
                           )}
                         </TableCell>
                       );
@@ -1669,19 +1794,36 @@ export default function WordTable({
         const merged = w ? { ...w, ...localWordUpdates[w.id] } as Word : null;
         const isStandard = merged && !isCollocationWord(merged) && !isJlptWord(merged) && !isPrefixWord(merged) && !isPostfixWord(merged) && !isFamousQuoteWord(merged);
         const initial = isStandard ? (merged as StandardWord).derivative ?? [] : [];
+        const canGenerate = Boolean(
+          isStandard &&
+            courseId &&
+            isDerivativeGenerationEligibleResult({
+              courseId,
+              type: "standard",
+              schemaVariant: "standard",
+              primaryText: (merged as StandardWord).word,
+              meaning: (merged as StandardWord).meaning,
+            }),
+        );
         return (
           <DerivativeEditDialog
             open
+            courseId={courseId ?? ""}
+            baseWord={isStandard ? (merged as StandardWord).word : ""}
+            baseMeaning={isStandard ? (merged as StandardWord).meaning : ""}
+            sourceLabel={dayId ? `${courseLabel} / ${dayId}` : courseLabel}
+            canGenerate={canGenerate}
             initial={initial}
             onClose={() => setDerivativeDialogWordId(null)}
-            onSave={(items) => {
+            onSave={async (items) => {
+              if (coursePath && dayId) {
+                await updateWordDerivatives(coursePath, dayId, derivativeDialogWordId, items);
+              }
               setLocalWordUpdates((prev) => ({
                 ...prev,
                 [derivativeDialogWordId]: { ...prev[derivativeDialogWordId], derivative: items },
               }));
-              if (coursePath && dayId) {
-                updateWordDerivatives(coursePath, dayId, derivativeDialogWordId, items).catch(() => {});
-              }
+              onWordFieldsUpdated?.(derivativeDialogWordId, { derivative: items });
               setDerivativeDialogWordId(null);
             }}
           />

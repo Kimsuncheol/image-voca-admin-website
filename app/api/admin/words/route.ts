@@ -70,7 +70,30 @@ function createStandardResult(
     example: normalizeNullableWordFinderText(data.example),
     pronunciation: normalizeNullableWordFinderText(data.pronunciation),
     imageUrl: normalizeNullableWordFinderText(data.imageUrl),
+    derivative: normalizeDerivativeEntries(data.derivative),
   };
+}
+
+function normalizeDerivativeEntries(
+  value: unknown,
+): Array<{ word: string; meaning: string }> | null {
+  if (!Array.isArray(value)) return null;
+
+  const derivatives = value.flatMap((entry) => {
+    if (!entry || typeof entry !== "object") return [];
+    const item = entry as Record<string, unknown>;
+    const word = normalizeWordFinderText(item.word);
+    if (!word) return [];
+
+    return [
+      {
+        word,
+        meaning: normalizeWordFinderText(item.meaning),
+      },
+    ];
+  });
+
+  return derivatives;
 }
 
 function createJlptResult(
