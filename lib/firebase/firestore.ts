@@ -113,6 +113,8 @@ export async function updateWordTextField(
   wordId: string,
   field:
     | 'word'
+    | 'prefix'
+    | 'postfix'
     | 'meaning'
     | 'collocation'
     | 'meaningEnglish'
