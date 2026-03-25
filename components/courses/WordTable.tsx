@@ -17,15 +17,17 @@ import Tooltip from "@mui/material/Tooltip";
 import AddPhotoAlternateIcon from "@mui/icons-material/AddPhotoAlternate";
 import AutoFixHighIcon from "@mui/icons-material/AutoFixHigh";
 import CloseIcon from "@mui/icons-material/Close";
+import EditIcon from "@mui/icons-material/Edit";
 import { useTranslation } from "react-i18next";
 
 import CellContextMenu from "@/components/shared/CellContextMenu";
 import InlineEditableText from "@/components/shared/InlineEditableText";
 import WordFinderMissingFieldDialog from "@/components/words/WordFinderMissingFieldDialog";
-import { updateWordTextField, updateWordImageUrl } from "@/lib/firebase/firestore";
+import { updateWordTextField, updateWordImageUrl, updateWordDerivatives } from "@/lib/firebase/firestore";
 import { containsKorean } from "@/lib/utils/korean";
 import { getCourseById, type CourseId } from "@/types/course";
 import type { CollocationWord, JlptWord, PostfixWord, PrefixWord, StandardWord, Word } from "@/types/word";
+import DerivativeEditDialog from "@/components/courses/DerivativeEditDialog";
 import { isCollocationWord, isFamousQuoteWord, isJlptWord, isPostfixWord, isPrefixWord } from "@/types/word";
 import {
   adaptCourseWordToWordFinderResult,
@@ -380,6 +382,7 @@ export default function WordTable({
   const [selectionExtent, setSelectionExtent] = useState<CellPos | null>(null);
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const [copySnackbar, setCopySnackbar] = useState<{ open: boolean; success: boolean }>({ open: false, success: true });
+  const [derivativeDialogWordId, setDerivativeDialogWordId] = useState<string | null>(null);
 
   const courseLabel = useMemo(() => {
     if (!courseId) return "";
@@ -1052,6 +1055,7 @@ export default function WordTable({
                   <TableCell>{t("courses.example")}</TableCell>
                   <TableCell>{t("courses.translation")}</TableCell>
                   {showImageUrl && <TableCell>{t("courses.image", "Image")}</TableCell>}
+                  <TableCell>Derivative</TableCell>
                 </>
               )}
             </TableRow>
@@ -1587,6 +1591,16 @@ export default function WordTable({
                         </Box>
                       </TableCell>
                     )}
+                    <TableCell>
+                      {(mergedWord as StandardWord).derivative?.map((d, i) => (
+                        <Typography key={i} variant="caption" display="block">
+                          {d.word} ({d.meaning})
+                        </Typography>
+                      ))}
+                      <IconButton size="small" onClick={() => setDerivativeDialogWordId(word.id)}>
+                        <EditIcon fontSize="small" />
+                      </IconButton>
+                    </TableCell>
                   </>
                   )}
                 </TableRow>
@@ -1631,6 +1645,30 @@ export default function WordTable({
           {copySnackbar.success ? t("common.copied") : t("common.copyFailed")}
         </Alert>
       </Snackbar>
+
+      {derivativeDialogWordId && (() => {
+        const w = words.find((ww) => ww.id === derivativeDialogWordId);
+        const merged = w ? { ...w, ...localWordUpdates[w.id] } as Word : null;
+        const isStandard = merged && !isCollocationWord(merged) && !isJlptWord(merged) && !isPrefixWord(merged) && !isPostfixWord(merged) && !isFamousQuoteWord(merged);
+        const initial = isStandard ? (merged as StandardWord).derivative ?? [] : [];
+        return (
+          <DerivativeEditDialog
+            open
+            initial={initial}
+            onClose={() => setDerivativeDialogWordId(null)}
+            onSave={(items) => {
+              setLocalWordUpdates((prev) => ({
+                ...prev,
+                [derivativeDialogWordId]: { ...prev[derivativeDialogWordId], derivative: items },
+              }));
+              if (coursePath && dayId) {
+                updateWordDerivatives(coursePath, dayId, derivativeDialogWordId, items).catch(() => {});
+              }
+              setDerivativeDialogWordId(null);
+            }}
+          />
+        );
+      })()}
     </>
   );
 }

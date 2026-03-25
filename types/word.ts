@@ -13,6 +13,7 @@ export interface StandardWord {
   imageUrl?: string;
   derivatives?: DerivativeBuckets;
   derivativeInfo?: PersistedDerivativeInfo;
+  derivative?: { word: string; meaning: string }[];
 }
 
 export interface JlptWord {

@@ -8,6 +8,7 @@ export const standardWordSchema = z.object({
   example: z.string().optional().default(''),
   translation: z.string().optional().default(''),
   imageUrl: z.string().optional(),
+  derivative: z.array(z.object({ word: z.string(), meaning: z.string() })).optional().default([]),
 });
 
 export const jlptWordSchema = z.object({

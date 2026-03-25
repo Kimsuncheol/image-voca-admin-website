@@ -107,6 +107,16 @@ export async function updateWordField(
   await updateDoc(wordRef, { [field]: value });
 }
 
+export async function updateWordDerivatives(
+  coursePath: string,
+  dayId: string,
+  wordId: string,
+  derivative: { word: string; meaning: string }[],
+): Promise<void> {
+  const wordRef = doc(collection(doc(db, coursePath), dayId), wordId);
+  await updateDoc(wordRef, { derivative });
+}
+
 export async function updateWordTextField(
   coursePath: string,
   dayId: string,
