@@ -632,7 +632,9 @@ export default function AddVocaPage() {
       daysToUpload.length > 0 &&
       (schemaType === "standard" ||
         schemaType === "jlpt" ||
-        schemaType === "collocation")
+        schemaType === "collocation" ||
+        schemaType === "prefix" ||
+        schemaType === "postfix")
     ) {
       const startedAt = Date.now();
       const normalizedDays = assignDeterministicUploadIdsForItems(

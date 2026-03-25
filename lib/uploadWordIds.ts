@@ -11,7 +11,9 @@ import type { SchemaType } from "@/lib/utils/csvParser";
 type UploadWordWithOptionalId =
   | StandardWordInput
   | JlptWordInput
-  | CollocationWordInput;
+  | CollocationWordInput
+  | PrefixWordInput
+  | PostfixWordInput;
 type UploadParseWord =
   | StandardWordInput
   | JlptWordInput
@@ -65,7 +67,9 @@ export function assignDeterministicUploadIdsForSchema<
   if (
     schemaType === "standard" ||
     schemaType === "jlpt" ||
-    schemaType === "collocation"
+    schemaType === "collocation" ||
+    schemaType === "prefix" ||
+    schemaType === "postfix"
   ) {
     return assignDeterministicUploadWordIds(
       words as readonly UploadWordWithOptionalId[],
@@ -87,7 +91,9 @@ export function assignDeterministicUploadIdsForItems<
   if (
     schemaType !== "standard" &&
     schemaType !== "jlpt" &&
-    schemaType !== "collocation"
+    schemaType !== "collocation" &&
+    schemaType !== "prefix" &&
+    schemaType !== "postfix"
   ) {
     return items.map((item) => ({
       ...item,
