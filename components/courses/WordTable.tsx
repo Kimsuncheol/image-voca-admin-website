@@ -1591,16 +1591,34 @@ export default function WordTable({
                         </Box>
                       </TableCell>
                     )}
-                    <TableCell>
-                      {(mergedWord as StandardWord).derivative?.map((d, i) => (
-                        <Typography key={i} variant="caption" display="block">
-                          {d.word} ({d.meaning})
-                        </Typography>
-                      ))}
-                      <IconButton size="small" onClick={() => setDerivativeDialogWordId(word.id)}>
-                        <EditIcon fontSize="small" />
-                      </IconButton>
-                    </TableCell>
+                    {(() => {
+                      const derivatives = (mergedWord as StandardWord).derivative;
+                      const hasDeriv = derivatives && derivatives.length > 0;
+                      return (
+                        <TableCell
+                          onContextMenu={(e) => handleCellContextMenu(e, rowIdx, showImageUrl ? 6 : 5)}
+                          onClick={hasDeriv ? () => setDerivativeDialogWordId(word.id) : undefined}
+                          sx={hasDeriv ? { cursor: 'pointer', '&:hover': { bgcolor: 'action.hover' } } : undefined}
+                        >
+                          {hasDeriv ? (
+                            derivatives.map((d, i) => (
+                              <Box key={i} mb={0.5}>
+                                <Typography variant="body2" fontWeight={600} lineHeight={1.2}>
+                                  {d.word}
+                                </Typography>
+                                <Typography variant="caption" color="text.secondary" display="block" lineHeight={1.3} sx={{ whiteSpace: 'pre-line' }}>
+                                  {d.meaning.replace(/\\n/g, '\n').replace(/([^\n])(\d+\.)/g, '$1\n$2').replace(/(\d+\.)\n/g, '$1 ')}
+                                </Typography>
+                              </Box>
+                            ))
+                          ) : (
+                            <IconButton size="small" onClick={() => setDerivativeDialogWordId(word.id)}>
+                              <EditIcon fontSize="small" />
+                            </IconButton>
+                          )}
+                        </TableCell>
+                      );
+                    })()}
                   </>
                   )}
                 </TableRow>

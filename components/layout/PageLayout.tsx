@@ -8,8 +8,10 @@ import AppNavSidebar from "./AppNavSidebar";
 
 export default function PageLayout({
   children,
+  maxWidth,
 }: {
   children: React.ReactNode;
+  maxWidth?: number | string;
 }) {
   // ── Sidebar open/close state ───────────────────────────────────────────
   // Initialise from localStorage so the preference survives page navigation.
@@ -46,7 +48,7 @@ export default function PageLayout({
         <AppNav open={open} onToggle={toggleDrawer} />
         <Container
           maxWidth="lg"
-          sx={{ flex: 1, py: 3, display: "flex", flexDirection: "column" }}
+          sx={{ flex: 1, py: 3, display: "flex", flexDirection: "column", ...(maxWidth !== undefined && { maxWidth: `${maxWidth}px !important` }) }}
         >
           {children}
         </Container>

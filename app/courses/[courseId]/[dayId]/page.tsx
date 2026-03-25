@@ -822,7 +822,7 @@ export default function DayWordsPage({
 
   // ── Resolved state ────────────────────────────────────────────────
   return (
-    <PageLayout>
+    <PageLayout maxWidth={1280}>
       {/* ── Breadcrumb navigation: Courses › [Course] › [Day] ───────── */}
       <CourseBreadcrumbs
         courseId={courseId}
