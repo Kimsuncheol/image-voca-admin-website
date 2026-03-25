@@ -497,7 +497,9 @@ export default function WordTable({
       [wordId]: { ...prev[wordId], imageUrl: "" },
     }));
     onWordImageUpdated?.(wordId, "");
-    updateWordImageUrl(coursePath, dayId, wordId, "").catch(() => {});
+    if (coursePath && dayId) {
+      updateWordImageUrl(coursePath, dayId, wordId, "").catch(() => {});
+    }
   };
 
   const activateInlineEdit = useCallback(
