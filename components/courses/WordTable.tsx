@@ -1622,7 +1622,7 @@ export default function WordTable({
         open={copySnackbar.open}
         autoHideDuration={1500}
         onClose={() => setCopySnackbar((prev) => ({ ...prev, open: false }))}
-        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+        anchorOrigin={{ vertical: "top", horizontal: "center" }}
       >
         <Alert
           severity={copySnackbar.success ? "success" : "error"}
