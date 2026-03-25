@@ -281,6 +281,8 @@ function detectAndParse(
     | JlptWordInput
     | CollocationWordInput
     | FamousQuoteWordInput
+    | PrefixWordInput
+    | PostfixWordInput
   )[] = [];
   const errors: string[] = [];
 
