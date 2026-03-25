@@ -152,3 +152,124 @@ test("inline edit patches update word finder rows and course rows locally", () =
     collocation: "carry out",
   });
 });
+
+// ── Prefix word ──────────────────────────────────────────────────────────────
+
+const prefixWord = {
+  id: "px-1",
+  prefix: "再-",
+  meaningEnglish: "again",
+  meaningKorean: "다시",
+  pronunciation: "さい",
+  pronunciationRoman: "sai",
+  example: "再生する",
+  exampleRoman: "saisei suru",
+  translationEnglish: "to regenerate",
+  translationKorean: "재생하다",
+};
+
+test("prefix primaryText resolves to sourceField 'prefix'", () => {
+  const result = resolveCourseInlineEditField({
+    word: prefixWord,
+    isCollocation: false,
+    isPrefix: true,
+    field: "primaryText",
+  });
+
+  assert.deepEqual(result, { sourceField: "prefix", value: "再-" });
+});
+
+test("prefix meaningEnglish resolves correctly", () => {
+  const result = resolveCourseInlineEditField({
+    word: prefixWord,
+    isCollocation: false,
+    isPrefix: true,
+    field: "meaningEnglish",
+  });
+
+  assert.deepEqual(result, { sourceField: "meaningEnglish", value: "again" });
+});
+
+test("prefix word detected by type guard without isPrefix flag", () => {
+  const result = resolveCourseInlineEditField({
+    word: prefixWord,
+    isCollocation: false,
+    field: "primaryText",
+  });
+
+  assert.deepEqual(result, { sourceField: "prefix", value: "再-" });
+});
+
+test("applyCourseInlineEdit maps primaryText to prefix field", () => {
+  const patch = applyCourseInlineEdit(prefixWord, "primaryText", "未-");
+  assert.deepEqual(patch, { prefix: "未-" });
+});
+
+test("applyCourseInlineEdit maps meaningEnglish for prefix", () => {
+  const patch = applyCourseInlineEdit(prefixWord, "meaningEnglish", "not yet");
+  assert.deepEqual(patch, { meaningEnglish: "not yet" });
+});
+
+test("applyCourseInlineEdit maps example for prefix", () => {
+  const patch = applyCourseInlineEdit(prefixWord, "example", "未完成");
+  assert.deepEqual(patch, { example: "未完成" });
+});
+
+// ── Postfix word ─────────────────────────────────────────────────────────────
+
+const postfixWord = {
+  id: "pf-1",
+  postfix: "-的",
+  meaningEnglish: "-like",
+  meaningKorean: "-적",
+  pronunciation: "てき",
+  pronunciationRoman: "teki",
+  example: "科学的",
+  exampleRoman: "kagakuteki",
+  translationEnglish: "scientific",
+  translationKorean: "과학적",
+};
+
+test("postfix primaryText resolves to sourceField 'postfix'", () => {
+  const result = resolveCourseInlineEditField({
+    word: postfixWord,
+    isCollocation: false,
+    isPostfix: true,
+    field: "primaryText",
+  });
+
+  assert.deepEqual(result, { sourceField: "postfix", value: "-的" });
+});
+
+test("postfix word detected by type guard without isPostfix flag", () => {
+  const result = resolveCourseInlineEditField({
+    word: postfixWord,
+    isCollocation: false,
+    field: "primaryText",
+  });
+
+  assert.deepEqual(result, { sourceField: "postfix", value: "-的" });
+});
+
+test("applyCourseInlineEdit maps primaryText to postfix field", () => {
+  const patch = applyCourseInlineEdit(postfixWord, "primaryText", "-化");
+  assert.deepEqual(patch, { postfix: "-化" });
+});
+
+test("applyCourseInlineEdit maps translationKorean for postfix", () => {
+  const patch = applyCourseInlineEdit(postfixWord, "translationKorean", "화학적");
+  assert.deepEqual(patch, { translationKorean: "화학적" });
+});
+
+// ── Mutual exclusion ─────────────────────────────────────────────────────────
+
+test("prefix field is null for unsupported fields", () => {
+  const result = resolveCourseInlineEditField({
+    word: prefixWord,
+    isCollocation: false,
+    isPrefix: true,
+    field: "meaning",  // prefix uses meaningEnglish/meaningKorean, not meaning
+  });
+
+  assert.equal(result, null);
+});

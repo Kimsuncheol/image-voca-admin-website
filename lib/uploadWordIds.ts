@@ -2,6 +2,8 @@ import type {
   CollocationWordInput,
   FamousQuoteWordInput,
   JlptWordInput,
+  PostfixWordInput,
+  PrefixWordInput,
   StandardWordInput,
 } from "@/lib/schemas/vocaSchemas";
 import type { SchemaType } from "@/lib/utils/csvParser";
@@ -14,7 +16,9 @@ type UploadParseWord =
   | StandardWordInput
   | JlptWordInput
   | CollocationWordInput
-  | FamousQuoteWordInput;
+  | FamousQuoteWordInput
+  | PrefixWordInput
+  | PostfixWordInput;
 type UploadBatchItem<TWord extends UploadParseWord = UploadParseWord> = {
   dayName: string;
   words: readonly TWord[];

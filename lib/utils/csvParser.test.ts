@@ -198,6 +198,17 @@ describe("csvParser JLPT schema", () => {
     ]);
   });
 
+  it("skips a stray JLPT header row that slips into the data", () => {
+    const headerRow = [
+      "word", "meaning(english)", "meaning(korean)", "pronunciation",
+      "pronunciation(roman)", "example", "translation(english)", "translation(korean)",
+    ];
+    const result = parseRowArrays([headerRow, headerRow, ["猫","cat","고양이","ねこ","neko","猫がいる。","There is a cat.","고양이가 있다."]], "jlpt");
+
+    expect(result.errors).toHaveLength(0);
+    expect(result.words).toHaveLength(1);
+  });
+
   it("accepts optional imageUrl and exampleRoman for JLPT uploads", () => {
     const result = parseRowArrays(
       [
@@ -235,5 +246,153 @@ describe("csvParser JLPT schema", () => {
       exampleRoman: "neko ga iru.",
       imageUrl: "https://example.com/jlpt.png",
     });
+  });
+});
+
+const PREFIX_HEADERS = [
+  "prefix", "meaning(english)", "meaning(korean)", "pronunciation",
+  "pronunciation(roman)", "example", "translation(english)", "translation(korean)",
+];
+const POSTFIX_HEADERS = [
+  "postfix", "meaning(english)", "meaning(korean)", "pronunciation",
+  "pronunciation(roman)", "example", "translation(english)", "translation(korean)",
+];
+const VALID_PREFIX_ROW = ["再-", "again", "다시", "さい", "sai", "再生する", "to regenerate", "재생하다"];
+const VALID_POSTFIX_ROW = ["-的", "-like", "-적", "てき", "teki", "科学的", "scientific", "과학적"];
+
+describe("csvParser prefix schema", () => {
+  it("parses a valid prefix CSV into one word", () => {
+    const result = parseRowArrays([PREFIX_HEADERS, VALID_PREFIX_ROW], "prefix");
+
+    expect(result.schemaType).toBe("prefix");
+    expect(result.blockingError).toBeUndefined();
+    expect(result.errors).toHaveLength(0);
+    expect(result.words).toHaveLength(1);
+    expect(result.words[0]).toMatchObject({
+      prefix: "再-",
+      meaningEnglish: "again",
+      meaningKorean: "다시",
+      pronunciation: "さい",
+      pronunciationRoman: "sai",
+      example: "再生する",
+      translationEnglish: "to regenerate",
+      translationKorean: "재생하다",
+    });
+  });
+
+  it("accepts the optional example(roman) header", () => {
+    const result = parseRowArrays(
+      [[...PREFIX_HEADERS, "example(roman)"], [...VALID_PREFIX_ROW, "saisei suru"]],
+      "prefix",
+    );
+
+    expect(result.blockingError).toBeUndefined();
+    expect(result.errors).toHaveLength(0);
+    expect(result.words[0]).toMatchObject({ exampleRoman: "saisei suru" });
+  });
+
+  it("returns HEADER_MISMATCH when standard headers are provided instead", () => {
+    const result = parseRowArrays(
+      [["prefix", "meaning", "pronunciation", "example", "translation"], VALID_PREFIX_ROW],
+      "prefix",
+    );
+
+    expect(result.blockingError).toBe("HEADER_MISMATCH");
+    expect(result.words).toHaveLength(0);
+  });
+
+  it("returns HEADER_REQUIRED when no recognisable header row is present", () => {
+    // None of these cells are in KNOWN_FIELDS so matchCount < 2
+    const result = parseRowArrays([["再-", "again", "다시", "さい", "sai", "再生する", "재생하다", "재생하다"]], "prefix");
+
+    expect(result.blockingError).toBe("HEADER_REQUIRED");
+    expect(result.words).toHaveLength(0);
+  });
+
+  it("rejects a non-Japanese prefix with a language error", () => {
+    const latinRow = ["re-", "again", "다시", "ri", "ri", "restart", "to restart", "재시작"];
+    const result = parseRowArrays([PREFIX_HEADERS, latinRow], "prefix");
+
+    expect(result.errors).toHaveLength(1);
+    expect(result.errors[0]).toMatch(/Row 1.*Japanese/);
+    expect(result.words).toHaveLength(0);
+  });
+
+  it("skips a stray prefix header row in the data", () => {
+    const result = parseRowArrays([PREFIX_HEADERS, PREFIX_HEADERS, VALID_PREFIX_ROW], "prefix");
+
+    expect(result.errors).toHaveLength(0);
+    expect(result.words).toHaveLength(1);
+  });
+
+  it("parses multiple rows and reports per-row errors", () => {
+    const row2 = ["未-", "not yet", "아직", "み", "mi", "未完成", "unfinished", "미완성"];
+    const badRow = ["re-", "again", "다시", "ri", "ri", "restart", "to restart", "재시작"];
+    const result = parseRowArrays([PREFIX_HEADERS, VALID_PREFIX_ROW, row2, badRow], "prefix");
+
+    expect(result.words).toHaveLength(2);
+    expect(result.errors).toHaveLength(1);
+    expect(result.errors[0]).toMatch(/Row 3/);
+  });
+
+  it("isCollocation is false for prefix", () => {
+    const result = parseRowArrays([PREFIX_HEADERS, VALID_PREFIX_ROW], "prefix");
+    expect(result.isCollocation).toBe(false);
+  });
+});
+
+describe("csvParser postfix schema", () => {
+  it("parses a valid postfix CSV into one word", () => {
+    const result = parseRowArrays([POSTFIX_HEADERS, VALID_POSTFIX_ROW], "postfix");
+
+    expect(result.schemaType).toBe("postfix");
+    expect(result.blockingError).toBeUndefined();
+    expect(result.errors).toHaveLength(0);
+    expect(result.words).toHaveLength(1);
+    expect(result.words[0]).toMatchObject({
+      postfix: "-的",
+      meaningEnglish: "-like",
+      meaningKorean: "-적",
+    });
+  });
+
+  it("accepts the optional example(roman) header", () => {
+    const result = parseRowArrays(
+      [[...POSTFIX_HEADERS, "example(roman)"], [...VALID_POSTFIX_ROW, "kagakuteki"]],
+      "postfix",
+    );
+
+    expect(result.blockingError).toBeUndefined();
+    expect(result.words[0]).toMatchObject({ exampleRoman: "kagakuteki" });
+  });
+
+  it("returns HEADER_MISMATCH when wrong headers are provided", () => {
+    const result = parseRowArrays(
+      [["postfix", "meaning", "pronunciation", "example", "translation"], VALID_POSTFIX_ROW],
+      "postfix",
+    );
+
+    expect(result.blockingError).toBe("HEADER_MISMATCH");
+  });
+
+  it("rejects a non-Japanese postfix with a language error", () => {
+    const latinRow = ["-ness", "state", "상태", "nesu", "nesu", "goodness", "goodness", "선함"];
+    const result = parseRowArrays([POSTFIX_HEADERS, latinRow], "postfix");
+
+    expect(result.errors).toHaveLength(1);
+    expect(result.errors[0]).toMatch(/Row 1.*Japanese/);
+    expect(result.words).toHaveLength(0);
+  });
+
+  it("skips a stray postfix header row in the data", () => {
+    const result = parseRowArrays([POSTFIX_HEADERS, POSTFIX_HEADERS, VALID_POSTFIX_ROW], "postfix");
+
+    expect(result.errors).toHaveLength(0);
+    expect(result.words).toHaveLength(1);
+  });
+
+  it("isCollocation is false for postfix", () => {
+    const result = parseRowArrays([POSTFIX_HEADERS, VALID_POSTFIX_ROW], "postfix");
+    expect(result.isCollocation).toBe(false);
   });
 });

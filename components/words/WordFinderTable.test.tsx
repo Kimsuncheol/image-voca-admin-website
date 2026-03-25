@@ -6,6 +6,10 @@ import { describe, expect, it, vi } from "vitest";
 import WordFinderTable from "./WordFinderTable";
 import type { WordFinderResult } from "@/types/wordFinder";
 
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: vi.fn() }),
+}));
+
 vi.mock("next/link", () => ({
   default: ({
     href,
@@ -37,6 +41,8 @@ vi.mock("react-i18next", () => ({
         "words.typeStandard": "Standard",
         "words.typeCollocation": "Collocation",
         "words.typeFamousQuote": "Famous Quote",
+        "words.typePrefix": "Prefix",
+        "words.typePostfix": "Postfix",
         "words.hasImage": "Has image",
         "words.missingImage": "Missing image",
         "words.hasPronunciation": "Has pronunciation",
@@ -161,5 +167,79 @@ describe("WordFinderTable", () => {
     expect(markup).toContain("https://example.com/jlpt.png");
     expect(markup).toContain("Has image");
     expect(markup).toContain("Has example");
+  });
+
+  it("renders a prefix result without errors and shows Missing image", () => {
+    const markup = renderToStaticMarkup(
+      <WordFinderTable
+        results={[
+          createResult({
+            id: "prefix-1",
+            courseId: "JLPT_PREFIX",
+            courseLabel: "Prefix",
+            coursePath: "courses/JLPT_PREFIX",
+            sourceHref: "/courses/JLPT_PREFIX/Day1",
+            dayId: "Day1",
+            schemaVariant: "prefix",
+            type: "standard",
+            primaryText: "再-",
+            secondaryText: "again / 다시",
+            meaning: "again / 다시",
+            meaningEnglish: "again",
+            meaningKorean: "다시",
+            pronunciation: "さい",
+            pronunciationRoman: "sai",
+            example: "再生する",
+            exampleRoman: "saisei suru",
+            translation: "to regenerate / 재생하다",
+            translationEnglish: "to regenerate",
+            translationKorean: "재생하다",
+            imageUrl: null,
+          }),
+        ]}
+      />,
+    );
+
+    expect(markup).toContain("再-");
+    // prefix has no imageUrl — status column should show Missing image chip
+    expect(markup).toContain("Missing image");
+    // schemaVariant prefix — still type "standard" so pronunciation chip renders
+    expect(markup).toContain("Has pronunciation");
+  });
+
+  it("renders a postfix result without errors and shows Missing image", () => {
+    const markup = renderToStaticMarkup(
+      <WordFinderTable
+        results={[
+          createResult({
+            id: "postfix-1",
+            courseId: "JLPT_POSTFIX",
+            courseLabel: "Postfix",
+            coursePath: "courses/JLPT_POSTFIX",
+            sourceHref: "/courses/JLPT_POSTFIX/Day1",
+            dayId: "Day1",
+            schemaVariant: "postfix",
+            type: "standard",
+            primaryText: "-的",
+            secondaryText: "-like / -적",
+            meaning: "-like / -적",
+            meaningEnglish: "-like",
+            meaningKorean: "-적",
+            pronunciation: "てき",
+            pronunciationRoman: "teki",
+            example: "科学的",
+            exampleRoman: "kagakuteki",
+            translation: "scientific / 과학적",
+            translationEnglish: "scientific",
+            translationKorean: "과학적",
+            imageUrl: null,
+          }),
+        ]}
+      />,
+    );
+
+    expect(markup).toContain("-的");
+    expect(markup).toContain("Missing image");
+    expect(markup).toContain("Has pronunciation");
   });
 });
