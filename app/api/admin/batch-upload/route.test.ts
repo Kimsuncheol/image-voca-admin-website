@@ -1,6 +1,16 @@
-import assert from "node:assert/strict";
-import test from "node:test";
 import { NextRequest } from "next/server";
+import { expect, test, vi } from "vitest";
+
+vi.mock("@/lib/firebase/admin", () => ({
+  adminAuth: {
+    verifySessionCookie: vi.fn(),
+  },
+  adminDb: {},
+}));
+
+vi.mock("@/lib/server/wordCache", () => ({
+  invalidateCourseCache: vi.fn(),
+}));
 
 import { createBatchUploadHandler } from "./route";
 
@@ -186,19 +196,18 @@ test("batch upload writes non-flat word docs using provided ids", async () => {
     results: Array<{ dayName: string; count: number; error?: string }>;
   };
 
-  assert.equal(response.status, 200);
-  assert.deepEqual(payload.results, [{ dayName: "Day3", count: 2 }]);
-  assert.deepEqual(
+  expect(response.status).toBe(200);
+  expect(payload.results).toEqual([{ dayName: "Day3", count: 2 }]);
+  expect(
     [...(state.dayDocs.get("courses/toeic::Day3")?.keys() ?? [])],
-    ["TOEIC_Day3_1", "TOEIC_Day3_2"],
-  );
-  assert.deepEqual(state.dayDocs.get("courses/toeic::Day3")?.get("TOEIC_Day3_1"), {
+  ).toEqual(["TOEIC_Day3_1", "TOEIC_Day3_2"]);
+  expect(state.dayDocs.get("courses/toeic::Day3")?.get("TOEIC_Day3_1")).toEqual({
     word: "abandon",
     meaning: "leave",
   });
-  assert.equal(state.courseMeta.get("courses/toeic")?.lastUploadedDayId, "Day3");
-  assert.equal(state.courseMeta.get("courses/toeic")?.totalDays, 3);
-  assert.equal(state.invalidateCalls, 1);
+  expect(state.courseMeta.get("courses/toeic")?.lastUploadedDayId).toBe("Day3");
+  expect(state.courseMeta.get("courses/toeic")?.totalDays).toBe(3);
+  expect(state.invalidateCalls).toBe(1);
 });
 
 test("batch upload rejects duplicate ids within a day payload", async () => {
@@ -222,9 +231,30 @@ test("batch upload rejects duplicate ids within a day payload", async () => {
     results: Array<{ dayName: string; count: number; error?: string }>;
   };
 
-  assert.equal(response.status, 200);
-  assert.equal(payload.results[0]?.error, "Duplicate word id: CSAT_Day1_1");
-  assert.equal(state.dayDocs.get("courses/csat::Day1")?.size ?? 0, 0);
+  expect(response.status).toBe(200);
+  expect(payload.results[0]?.error).toBe("Duplicate word id: CSAT_Day1_1");
+  expect(state.dayDocs.get("courses/csat::Day1")?.size ?? 0).toBe(0);
+});
+
+test("batch upload rejects blank course paths", async () => {
+  const { handler } = createFakeDependencies();
+
+  const response = await handler(
+    createRequest({
+      coursePath: "   ",
+      days: [
+        {
+          dayName: "Day1",
+          words: [{ id: "TOEIC_Day1_1", word: "brief", meaning: "short" }],
+        },
+      ],
+    }),
+  );
+
+  expect(response.status).toBe(400);
+  await expect(response.json()).resolves.toEqual({
+    error: "Course path is required",
+  });
 });
 
 test("batch upload keeps famous quote writes on auto-generated ids", async () => {
@@ -248,12 +278,12 @@ test("batch upload keeps famous quote writes on auto-generated ids", async () =>
     results: Array<{ dayName: string; count: number; error?: string }>;
   };
 
-  assert.equal(response.status, 200);
-  assert.deepEqual(payload.results, [{ dayName: "ignored", count: 1 }]);
+  expect(response.status).toBe(200);
+  expect(payload.results).toEqual([{ dayName: "ignored", count: 1 }]);
   const storedDocs = [...(state.flatDocs.get("quotes")?.entries() ?? [])];
-  assert.equal(storedDocs.length, 1);
-  assert.equal(storedDocs[0]?.[0].startsWith("auto-"), true);
-  assert.deepEqual(storedDocs[0]?.[1], {
+  expect(storedDocs.length).toBe(1);
+  expect(storedDocs[0]?.[0].startsWith("auto-")).toBe(true);
+  expect(storedDocs[0]?.[1]).toEqual({
     quote: "Stay hungry.",
     author: "Jobs",
     translation: "배고프게 살아라.",

@@ -80,6 +80,7 @@
     "uploading": "업로드 중...",
     "uploadSuccess": "업로드 성공!",
     "uploadError": "업로드 실패. 다시 시도해주세요.",
+    "invalidCoursePath": "이 코스는 아직 업로드 경로가 설정되지 않았습니다. 코스 경로 설정을 확인해주세요.",
     "noDayName": "업로드 전에 각 항목에 일차를 설정해주세요.",
     "validationHeaderRequired": "선택한 코스 형식에는 헤더 행이 필요합니다.",
     "validationHeaderMismatch": "CSV/시트 컬럼이 선택한 코스 형식과 일치하지 않습니다.",

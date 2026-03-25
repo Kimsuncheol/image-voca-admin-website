@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import { normalizeCoursePath } from "@/lib/coursePath";
 import { adminAuth, adminDb } from "@/lib/firebase/admin";
 import { invalidateCourseCache } from "@/lib/server/wordCache";
 
@@ -264,7 +265,16 @@ export function createBatchUploadHandler(
       return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
     }
 
-    if (!coursePath || !Array.isArray(days) || days.length === 0) {
+    const normalizedCoursePath = normalizeCoursePath(coursePath);
+
+    if (!normalizedCoursePath) {
+      return NextResponse.json(
+        { error: "Course path is required" },
+        { status: 400 },
+      );
+    }
+
+    if (!Array.isArray(days) || days.length === 0) {
       return NextResponse.json({ error: "Invalid data" }, { status: 400 });
     }
 
@@ -276,7 +286,10 @@ export function createBatchUploadHandler(
 
     if (flat) {
       try {
-        existingQuoteKeys = await getExistingQuoteKeys(coursePath, dependencies);
+        existingQuoteKeys = await getExistingQuoteKeys(
+          normalizedCoursePath,
+          dependencies,
+        );
       } catch (error) {
         console.error("[batch-upload] Failed to read existing famous quotes:", error);
         return NextResponse.json({ error: "Upload failed" }, { status: 500 });
@@ -292,14 +305,14 @@ export function createBatchUploadHandler(
       try {
         const count = flat
           ? await writeFlatQuotes(
-              coursePath,
+              normalizedCoursePath,
               words,
               existingQuoteKeys,
               dependencies,
               batchLimit,
             )
           : await writeDayWords(
-              coursePath,
+              normalizedCoursePath,
               dayName,
               words,
               dependencies,
@@ -325,7 +338,7 @@ export function createBatchUploadHandler(
 
     if (!flat && lastSuccessfulDayName) {
       try {
-        const courseRef = dependencies.adminDb.doc(coursePath);
+        const courseRef = dependencies.adminDb.doc(normalizedCoursePath);
         const courseSnap = await courseRef.get();
         const currentTotal = Number(courseSnap.data()?.totalDays ?? 0);
         await courseRef.set(

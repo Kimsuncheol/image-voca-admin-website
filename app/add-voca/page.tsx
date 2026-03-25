@@ -97,6 +97,7 @@ import {
   getStandardUploadOptionState,
   type UploadOptions,
 } from "@/lib/addVocaUploadOptions";
+import { validateUploadCourse } from "@/lib/addVocaUploadPreflight";
 
 // ── Feature components ────────────────────────────────────────────────
 import CourseSelector from "@/components/add-voca/CourseSelector";
@@ -156,6 +157,7 @@ export default function AddVocaPage() {
 
   // Shown briefly when the user switches courses while items are already queued
   const [courseSwitchNotice, setCourseSwitchNotice] = useState("");
+  const [uploadError, setUploadError] = useState("");
 
   // ── Progress modal state (FR-14) ──────────────────────────────────
   // These are mutated throughout the two-phase upload to give live feedback.
@@ -359,8 +361,20 @@ export default function AddVocaPage() {
     if (!selectedCourse || itemsToUpload.length === 0 || uploadingRef.current)
       return;
 
-    const course = getCourseById(selectedCourse);
-    if (!course) return;
+    setUploadError("");
+
+    const courseValidation = validateUploadCourse(getCourseById(selectedCourse));
+    if (!courseValidation.ok) {
+      setUploadError(
+        t(
+          "addVoca.invalidCoursePath",
+          "This course is not configured for uploads yet. Please check the course path settings.",
+        ),
+      );
+      return;
+    }
+
+    const { course } = courseValidation;
 
     uploadingRef.current = true;
 
@@ -669,7 +683,12 @@ export default function AddVocaPage() {
             flat: course.flat ?? false,
           }),
         });
-        if (!batchResp.ok) throw new Error("Batch upload failed");
+        if (!batchResp.ok) {
+          const payload = (await batchResp.json().catch(() => null)) as
+            | { error?: string }
+            | null;
+          throw new Error(payload?.error || "Batch upload failed");
+        }
 
         const { results } = (await batchResp.json()) as {
           results: { dayName: string; count: number; error?: string }[];
@@ -698,6 +717,7 @@ export default function AddVocaPage() {
         }));
       } catch (e) {
         const msg = e instanceof Error ? e.message : "Upload failed";
+        setUploadError(msg);
         for (const item of queue) {
           if (processedMap.has(item.id)) {
             updateProgressItem(item.id, { status: "failed", error: msg });
@@ -807,6 +827,19 @@ export default function AddVocaPage() {
     if (!selectedCourse || readyItems.length === 0 || uploadingRef.current)
       return;
 
+    setUploadError("");
+
+    const courseValidation = validateUploadCourse(getCourseById(selectedCourse));
+    if (!courseValidation.ok) {
+      setUploadError(
+        t(
+          "addVoca.invalidCoursePath",
+          "This course is not configured for uploads yet. Please check the course path settings.",
+        ),
+      );
+      return;
+    }
+
     const isStandardUploadFlow =
       (schemaType === "standard" || schemaType === "jlpt") &&
       (tabIndex === 0 || tabIndex === 1);
@@ -869,6 +902,7 @@ export default function AddVocaPage() {
     setCsvItems([]);
     setUrlItems([]);
     setQuoteItems([]);
+    setUploadError("");
     closeDerivativePreview();
   };
 
@@ -899,6 +933,12 @@ export default function AddVocaPage() {
           onClose={() => setCourseSwitchNotice("")}
         >
           {courseSwitchNotice}
+        </Alert>
+      )}
+
+      {uploadError && (
+        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setUploadError("")}>
+          {uploadError}
         </Alert>
       )}
 

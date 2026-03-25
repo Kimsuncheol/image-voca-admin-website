@@ -80,6 +80,7 @@
     "uploading": "Uploading...",
     "uploadSuccess": "Upload successful!",
     "uploadError": "Upload failed. Please try again.",
+    "invalidCoursePath": "This course is not configured for uploads yet. Please check the course path settings.",
     "noDayName": "Set a day name for each item before uploading.",
     "validationHeaderRequired": "A header row is required for this course format.",
     "validationHeaderMismatch": "CSV/Sheet columns do not match the selected course format.",
