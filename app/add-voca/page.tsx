@@ -63,6 +63,8 @@ import {
   getCourseById,
   isFamousQuoteCourse,
   isJlptCourse,
+  isPrefixCourse,
+  isPostfixCourse,
   type CourseId,
 } from "@/types/course";
 import type { JlptWordInput, StandardWordInput } from "@/lib/schemas/vocaSchemas";
@@ -253,6 +255,8 @@ export default function AddVocaPage() {
     getCourseById(selectedCourse)?.schema ?? "standard";
   const isFamousQuote = isFamousQuoteCourse(selectedCourse);
   const isJlpt = isJlptCourse(selectedCourse);
+  const isPrefix = isPrefixCourse(selectedCourse);
+  const isPostfix = isPostfixCourse(selectedCourse);
   const standardUploadOptionState = getStandardUploadOptionState({
     selectedCourse,
     imageGenerationEnabled: canUseImageGeneration,
@@ -928,7 +932,7 @@ export default function AddVocaPage() {
           items={csvItems}
           onItemsChange={setCsvItems}
           schemaType={schemaType}
-          hideDayInput={isFamousQuote}
+          hideDayInput={isFamousQuote || isPrefix || isPostfix}
           courseLabel={selectedCourseLabel}
           coursePath={
             isFamousQuote
@@ -942,7 +946,7 @@ export default function AddVocaPage() {
           items={urlItems}
           onItemsChange={setUrlItems}
           schemaType={schemaType}
-          hideDayInput={isFamousQuote}
+          hideDayInput={isFamousQuote || isPrefix || isPostfix}
           courseLabel={selectedCourseLabel}
         />
       )}

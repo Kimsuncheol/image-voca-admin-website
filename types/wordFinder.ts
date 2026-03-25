@@ -5,7 +5,9 @@ export type WordFinderSchemaVariant =
   | "standard"
   | "jlpt"
   | "collocation"
-  | "famousQuote";
+  | "famousQuote"
+  | "prefix"
+  | "postfix";
 
 export type WordFinderMissingField =
   | "all"
@@ -38,6 +40,8 @@ export interface WordFinderResult {
   pronunciationRoman?: string | null;
   exampleRoman?: string | null;
   imageUrl: string | null;
+  prefix?: string | null;
+  postfix?: string | null;
 }
 
 export type WordFinderResultFieldUpdates = Partial<

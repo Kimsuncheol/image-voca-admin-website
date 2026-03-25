@@ -15,6 +15,8 @@ const COURSE_CHIPS = COURSES.filter((c) => c.id !== "FAMOUS_QUOTE");
 const FAMOUS_QUOTE_COURSE = COURSES.find((c) => c.id === "FAMOUS_QUOTE")!;
 const JLPT_COURSE = COURSES.find((c) => c.id === "JLPT")!;
 const NON_JLPT_CHIPS = COURSE_CHIPS.filter((c) => c.id !== "JLPT");
+const JLPT_LEVEL_CHIPS = JLPT_LEVEL_COURSES.filter((c) => c.schema === "jlpt");
+const JLPT_AFFIX_CHIPS = JLPT_LEVEL_COURSES.filter((c) => c.schema === "prefix" || c.schema === "postfix");
 
 interface CourseSelectorProps {
   value: CourseId | "";
@@ -73,7 +75,7 @@ export default function CourseSelector({
           <Typography variant="caption" color="text.secondary">
             Level
           </Typography>
-          {JLPT_LEVEL_COURSES.map((level) => (
+          {JLPT_LEVEL_CHIPS.map((level) => (
             <Chip
               key={level.id}
               label={level.label}
@@ -84,6 +86,22 @@ export default function CourseSelector({
               sx={{
                 borderRadius: "999px",
                 fontWeight: value === level.id ? 600 : 400,
+                "& .MuiChip-label": { px: "8px", py: "6px" },
+              }}
+            />
+          ))}
+          <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
+          {JLPT_AFFIX_CHIPS.map((affix) => (
+            <Chip
+              key={affix.id}
+              label={affix.label}
+              size="small"
+              onClick={() => onChange(affix.id)}
+              color={value === affix.id ? "primary" : "default"}
+              variant={value === affix.id ? "filled" : "outlined"}
+              sx={{
+                borderRadius: "999px",
+                fontWeight: value === affix.id ? 600 : 400,
                 "& .MuiChip-label": { px: "8px", py: "6px" },
               }}
             />

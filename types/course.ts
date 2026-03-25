@@ -8,10 +8,12 @@ export type CourseId =
   | "JLPT_N3"
   | "JLPT_N4"
   | "JLPT_N5"
+  | "JLPT_PREFIX"
+  | "JLPT_POSTFIX"
   | "COLLOCATIONS"
   | "FAMOUS_QUOTE";
 
-export type CourseSchema = "standard" | "jlpt" | "collocation" | "famousQuote";
+export type CourseSchema = "standard" | "jlpt" | "collocation" | "famousQuote" | "prefix" | "postfix";
 
 export interface Course {
   id: CourseId;
@@ -61,6 +63,18 @@ export const JLPT_LEVEL_COURSES: Course[] = [
     label: "N5",
     path: "voca/pdw9crwerFb2qGFltJJY/course/BKQz1pqPyizbHzi1RxKK/JLPT/xOVnfByLiMVAv40e29db/N5/doFKMQQhpwGETmpeQY7Z",
     schema: "jlpt",
+  },
+  {
+    id: "JLPT_PREFIX",
+    label: "Prefix",
+    path: process.env.NEXT_PUBLIC_COURSE_PATH_JLPT_PREFIX || "",
+    schema: "prefix",
+  },
+  {
+    id: "JLPT_POSTFIX",
+    label: "Postfix",
+    path: process.env.NEXT_PUBLIC_COURSE_PATH_JLPT_POSTFIX || "",
+    schema: "postfix",
   },
 ];
 
@@ -118,4 +132,12 @@ export function isFamousQuoteCourse(id: string): boolean {
 
 export function isJlptCourse(id: string): boolean {
   return getCourseById(id)?.schema === "jlpt";
+}
+
+export function isPrefixCourse(id: string): boolean {
+  return getCourseById(id)?.schema === "prefix";
+}
+
+export function isPostfixCourse(id: string): boolean {
+  return getCourseById(id)?.schema === "postfix";
 }

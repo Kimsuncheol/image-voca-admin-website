@@ -41,7 +41,19 @@ export const famousQuoteWordSchema = z.object({
   language: z.enum(['English', 'Japanese']).default('English'),
 });
 
+const jlptPrefixPostfixBase = jlptWordSchema.omit({ word: true, imageUrl: true });
+
+export const prefixSchema = jlptPrefixPostfixBase.extend({
+  prefix: z.string().min(1),
+});
+
+export const postfixSchema = jlptPrefixPostfixBase.extend({
+  postfix: z.string().min(1),
+});
+
 export type StandardWordInput = z.infer<typeof standardWordSchema>;
 export type JlptWordInput = z.infer<typeof jlptWordSchema>;
 export type CollocationWordInput = z.infer<typeof collocationWordSchema>;
 export type FamousQuoteWordInput = z.infer<typeof famousQuoteWordSchema>;
+export type PrefixWordInput = z.infer<typeof prefixSchema>;
+export type PostfixWordInput = z.infer<typeof postfixSchema>;

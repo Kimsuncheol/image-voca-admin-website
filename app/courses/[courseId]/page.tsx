@@ -95,8 +95,8 @@ export default function CourseDaysPage({
   // ── Resolve course metadata from static list ──────────────────────
   const course = getCourseById(courseId);
   const isFlat = course?.flat === true;
-  const isJlptGroup = isJlptCourse(courseId);
   const isJlptLevel = JLPT_LEVEL_COURSES.some((l) => l.id === courseId);
+  const isJlptGroup = isJlptCourse(courseId) || isJlptLevel;
   // Generic /courses/JLPT page — redirect to the default level
   const isJlptGroupRoot = isJlptGroup && !isJlptLevel;
   const isRedirectingToDefaultJlptLevel = isJlptGroupRoot;

@@ -23,7 +23,9 @@ import type {
 
 const MAX_RESULTS = 200;
 
-const SEARCHABLE_COURSES = [...COURSES, ...JLPT_LEVEL_COURSES];
+const SEARCHABLE_COURSES = [...COURSES, ...JLPT_LEVEL_COURSES].filter(
+  (c) => c.schema !== "prefix" && c.schema !== "postfix",
+);
 
 // ---------------------------------------------------------------------------
 // Type-aware course selection
@@ -137,6 +139,7 @@ function createCollocationResult(
     imageUrl: normalizeNullableWordFinderText(data.imageUrl),
   };
 }
+
 
 function createFamousQuoteResult(
   course: Course,

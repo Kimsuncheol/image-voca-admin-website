@@ -312,6 +312,30 @@ export default function UploadModal({
                         "translationKorean",
                         "imageUrl",
                       ]
+                  : resolvedSchema === "prefix"
+                    ? [
+                        "prefix",
+                        "meaningEnglish",
+                        "meaningKorean",
+                        "pronunciation",
+                        "pronunciationRoman",
+                        "example",
+                        "exampleRoman",
+                        "translationEnglish",
+                        "translationKorean",
+                      ]
+                  : resolvedSchema === "postfix"
+                    ? [
+                        "postfix",
+                        "meaningEnglish",
+                        "meaningKorean",
+                        "pronunciation",
+                        "pronunciationRoman",
+                        "example",
+                        "exampleRoman",
+                        "translationEnglish",
+                        "translationKorean",
+                      ]
                   : resolvedSchema === "famousQuote"
                     ? ["quote", "author", "translation"]
                     : [

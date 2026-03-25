@@ -126,14 +126,14 @@ export function isSupportedImageGenerationCourseId(
 }
 
 export function buildStickFigurePrompt(word: string): string {
-  return `Draw a simple, intuitive stick figure illustrating the meaning of the word: ${word}. The image must be strictly in black and white, with no other colors. Use a pure white background, black outlines only, no gray, no shading, no text, no letters, no labels, and keep the drawing minimal and easy to understand.`;
+  return `Draw a simple, intuitive stick figure illustrating the meaning of the word: ${word}. Show only one clear subject or action, using only the minimum objects needed to convey the meaning. Avoid background scene details, extra characters, decorative elements, and crowded compositions. The image must be strictly in black and white, with no other colors. Use a pure white background, black outlines only, no gray, no shading, no text, no letters, no labels, and keep the drawing minimal and easy to understand.`;
 }
 
 export function buildUploadStickFigurePrompt(
   word: string,
   meaning: string,
 ): string {
-  return `Draw a simple, intuitive stick figure illustrating the meaning of the English vocabulary word "${word}". Meaning/context: "${meaning}". The image must be strictly in black and white, with no other colors. Use a pure white background, black outlines only, no gray, no shading, no text, no letters, no labels, and keep the drawing minimal and easy to understand.`;
+  return `Draw a simple, intuitive stick figure illustrating the meaning of the English vocabulary word "${word}". Meaning/context: "${meaning}". Show only one clear subject or action, using only the minimum objects needed to convey the meaning. Avoid background scene details, extra characters, decorative elements, and crowded compositions. The image must be strictly in black and white, with no other colors. Use a pure white background, black outlines only, no gray, no shading, no text, no letters, no labels, and keep the drawing minimal and easy to understand.`;
 }
 
 export function buildImageStoragePath(

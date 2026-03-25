@@ -3,10 +3,12 @@ import type {
   CollocationWord,
   FamousQuoteWord,
   JlptWord,
+  PostfixWord,
+  PrefixWord,
   StandardWord,
   Word,
 } from "../types/word.ts";
-import { isJlptWord } from "../types/word.ts";
+import { isJlptWord, isPrefixWord, isPostfixWord } from "../types/word.ts";
 import type {
   CourseDayActionableMissingField,
   CourseDayMissingField,
@@ -27,6 +29,8 @@ interface AdaptCourseWordToWordFinderResultArgs {
   isCollocation: boolean;
   isJlpt?: boolean;
   isFamousQuote?: boolean;
+  isPrefix?: boolean;
+  isPostfix?: boolean;
 }
 
 export type CourseWordResolvedUpdates = Partial<
@@ -40,6 +44,24 @@ export type CourseWordResolvedUpdates = Partial<
       | "translationEnglish"
       | "translationKorean"
       | "imageUrl"
+    > &
+    Pick<
+      PrefixWord,
+      | "pronunciation"
+      | "pronunciationRoman"
+      | "example"
+      | "exampleRoman"
+      | "translationEnglish"
+      | "translationKorean"
+    > &
+    Pick<
+      PostfixWord,
+      | "pronunciation"
+      | "pronunciationRoman"
+      | "example"
+      | "exampleRoman"
+      | "translationEnglish"
+      | "translationKorean"
     > &
     Pick<CollocationWord, "example" | "translation" | "imageUrl"> &
     Pick<FamousQuoteWord, "translation">
@@ -72,6 +94,8 @@ export function adaptCourseWordToWordFinderResult(
     isCollocation,
     isJlpt,
     isFamousQuote,
+    isPrefix,
+    isPostfix,
   } = args;
   const type = getWordFinderType({ isCollocation, isFamousQuote });
 
@@ -153,6 +177,68 @@ export function adaptCourseWordToWordFinderResult(
     };
   }
 
+  if (isPrefix || isPrefixWord(word)) {
+    const p = word as PrefixWord;
+    const meaningSummary = [p.meaningEnglish, p.meaningKorean].filter(hasTrimmedText).join(" / ");
+    const translationSummary = [p.translationEnglish, p.translationKorean].filter(hasTrimmedText).join(" / ");
+
+    return {
+      id: p.id,
+      courseId,
+      courseLabel,
+      coursePath,
+      schemaVariant: "prefix",
+      dayId: dayId ?? null,
+      sourceHref: `/courses/${courseId}/${dayId ?? ""}#${p.id}`,
+      type,
+      primaryText: p.prefix,
+      secondaryText: meaningSummary || null,
+      meaning: meaningSummary || null,
+      meaningEnglish: p.meaningEnglish || null,
+      meaningKorean: p.meaningKorean || null,
+      translation: translationSummary || null,
+      translationEnglish: p.translationEnglish || null,
+      translationKorean: p.translationKorean || null,
+      example: p.example || null,
+      exampleRoman: p.exampleRoman || null,
+      pronunciation: p.pronunciation || null,
+      pronunciationRoman: p.pronunciationRoman || null,
+      imageUrl: null,
+      prefix: p.prefix,
+    };
+  }
+
+  if (isPostfix || isPostfixWord(word)) {
+    const p = word as PostfixWord;
+    const meaningSummary = [p.meaningEnglish, p.meaningKorean].filter(hasTrimmedText).join(" / ");
+    const translationSummary = [p.translationEnglish, p.translationKorean].filter(hasTrimmedText).join(" / ");
+
+    return {
+      id: p.id,
+      courseId,
+      courseLabel,
+      coursePath,
+      schemaVariant: "postfix",
+      dayId: dayId ?? null,
+      sourceHref: `/courses/${courseId}/${dayId ?? ""}#${p.id}`,
+      type,
+      primaryText: p.postfix,
+      secondaryText: meaningSummary || null,
+      meaning: meaningSummary || null,
+      meaningEnglish: p.meaningEnglish || null,
+      meaningKorean: p.meaningKorean || null,
+      translation: translationSummary || null,
+      translationEnglish: p.translationEnglish || null,
+      translationKorean: p.translationKorean || null,
+      example: p.example || null,
+      exampleRoman: p.exampleRoman || null,
+      pronunciation: p.pronunciation || null,
+      pronunciationRoman: p.pronunciationRoman || null,
+      imageUrl: null,
+      postfix: p.postfix,
+    };
+  }
+
   const standard = word as StandardWord;
   return {
     id: standard.id,
@@ -179,6 +265,8 @@ export function getWordTableMissingActionField(
     isCollocation: boolean;
     isJlpt?: boolean;
     isFamousQuote?: boolean;
+    isPrefix?: boolean;
+    isPostfix?: boolean;
     showImageUrl?: boolean;
   },
 ): WordFinderActionField[] {
@@ -203,6 +291,8 @@ export function isCourseWordFieldMissing(
     isCollocation: boolean;
     isJlpt?: boolean;
     isFamousQuote?: boolean;
+    isPrefix?: boolean;
+    isPostfix?: boolean;
     showImageUrl?: boolean;
   },
   field: Exclude<CourseDayMissingField, "all">,
@@ -258,6 +348,32 @@ export function isCourseWordFieldMissing(
     }
   }
 
+  if (args.isPrefix || isPrefixWord(word)) {
+    const p = word as PrefixWord;
+    switch (field) {
+      case "primaryText": return !hasTrimmedText(p.prefix);
+      case "meaning": return !hasTrimmedText(p.meaningEnglish) || !hasTrimmedText(p.meaningKorean);
+      case "pronunciation": return !hasTrimmedText(p.pronunciation) || !hasTrimmedText(p.pronunciationRoman);
+      case "example": return !hasTrimmedText(p.example);
+      case "translation": return !hasTrimmedText(p.translationEnglish) || !hasTrimmedText(p.translationKorean);
+      case "image": return false;
+      default: return false;
+    }
+  }
+
+  if (args.isPostfix || isPostfixWord(word)) {
+    const p = word as PostfixWord;
+    switch (field) {
+      case "primaryText": return !hasTrimmedText(p.postfix);
+      case "meaning": return !hasTrimmedText(p.meaningEnglish) || !hasTrimmedText(p.meaningKorean);
+      case "pronunciation": return !hasTrimmedText(p.pronunciation) || !hasTrimmedText(p.pronunciationRoman);
+      case "example": return !hasTrimmedText(p.example);
+      case "translation": return !hasTrimmedText(p.translationEnglish) || !hasTrimmedText(p.translationKorean);
+      case "image": return false;
+      default: return false;
+    }
+  }
+
   const standard = word as StandardWord;
 
   switch (field) {
@@ -284,6 +400,8 @@ export function getCourseWordMissingFields(
     isCollocation: boolean;
     isJlpt?: boolean;
     isFamousQuote?: boolean;
+    isPrefix?: boolean;
+    isPostfix?: boolean;
     showImageUrl?: boolean;
   },
 ): Exclude<CourseDayMissingField, "all">[] {
@@ -309,25 +427,25 @@ export function applyCourseWordResolvedUpdates(
   if (typeof updates.pronunciation === "string") {
     next.pronunciation = updates.pronunciation;
   }
-  if (typeof updates.pronunciationRoman === "string" && isJlptWord(word)) {
+  if (typeof updates.pronunciationRoman === "string" && (isJlptWord(word) || isPrefixWord(word) || isPostfixWord(word))) {
     next.pronunciationRoman = updates.pronunciationRoman;
   }
   if (typeof updates.example === "string") {
     next.example = updates.example;
   }
-  if (typeof updates.exampleRoman === "string" && isJlptWord(word)) {
+  if (typeof updates.exampleRoman === "string" && (isJlptWord(word) || isPrefixWord(word) || isPostfixWord(word))) {
     next.exampleRoman = updates.exampleRoman;
   }
   if (typeof updates.translation === "string") {
     next.translation = updates.translation;
   }
-  if (typeof updates.translationEnglish === "string" && isJlptWord(word)) {
+  if (typeof updates.translationEnglish === "string" && (isJlptWord(word) || isPrefixWord(word) || isPostfixWord(word))) {
     next.translationEnglish = updates.translationEnglish;
   }
-  if (typeof updates.translationKorean === "string" && isJlptWord(word)) {
+  if (typeof updates.translationKorean === "string" && (isJlptWord(word) || isPrefixWord(word) || isPostfixWord(word))) {
     next.translationKorean = updates.translationKorean;
   }
-  if (typeof updates.imageUrl === "string" && !("quote" in word)) {
+  if (typeof updates.imageUrl === "string" && !("quote" in word) && !isPrefixWord(word) && !isPostfixWord(word)) {
     next.imageUrl = updates.imageUrl;
   }
   return next;

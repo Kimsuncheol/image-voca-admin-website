@@ -4,15 +4,19 @@ import {
   jlptWordSchema,
   collocationWordSchema,
   famousQuoteWordSchema,
+  prefixSchema,
+  postfixSchema,
   type StandardWordInput,
   type JlptWordInput,
   type CollocationWordInput,
   type FamousQuoteWordInput,
+  type PrefixWordInput,
+  type PostfixWordInput,
 } from '@/lib/schemas/vocaSchemas';
 import { textMatchesLanguage, quoteMatchesLanguage } from '@/lib/utils/quoteLanguage';
 import type { FamousQuoteLanguage } from '@/types/famousQuote';
 
-export type SchemaType = 'standard' | 'jlpt' | 'collocation' | 'famousQuote';
+export type SchemaType = 'standard' | 'jlpt' | 'collocation' | 'famousQuote' | 'prefix' | 'postfix';
 
 export interface ParseResult {
   words: (
@@ -20,6 +24,8 @@ export interface ParseResult {
     | JlptWordInput
     | CollocationWordInput
     | FamousQuoteWordInput
+    | PrefixWordInput
+    | PostfixWordInput
   )[];
   schemaType: SchemaType;
   /** @deprecated use schemaType === 'collocation' */
@@ -45,6 +51,18 @@ const JLPT_OPTIONAL_HEADERS = ['imageurl', 'example(roman)'] as const;
 const COLLOCATION_HEADERS = ['collocation', 'meaning', 'explanation', 'example', 'translation'] as const;
 const FAMOUS_QUOTE_HEADERS = ['quote', 'author', 'translation'] as const;
 const FAMOUS_QUOTE_OPTIONAL_HEADERS = ['language'] as const;
+const PREFIX_POSTFIX_HEADERS = [
+  'meaning(english)',
+  'meaning(korean)',
+  'pronunciation',
+  'pronunciation(roman)',
+  'example',
+  'translation(english)',
+  'translation(korean)',
+] as const;
+const PREFIX_HEADERS = ['prefix', ...PREFIX_POSTFIX_HEADERS] as const;
+const POSTFIX_HEADERS = ['postfix', ...PREFIX_POSTFIX_HEADERS] as const;
+const PREFIX_POSTFIX_OPTIONAL_HEADERS = ['example(roman)'] as const;
 const STANDARD_THIRD_HEADER_SET = new Set(['pronunciation', 'pronounciation']);
 const STANDARD_FOURTH_HEADER_SET = new Set(['example', 'example sentence']);
 
@@ -80,6 +98,46 @@ function normalizeRow(row: Record<string, unknown>, schemaType: SchemaType): Rec
     normalized['author'] = normalized['author'] ?? '';
     normalized['translation'] = normalized['translation'] ?? '';
     // language defaults to 'English' via Zod schema if absent
+    return normalized;
+  }
+
+  if (schemaType === 'prefix' || schemaType === 'postfix') {
+    const primaryKey = schemaType === 'prefix' ? 'prefix' : 'postfix';
+    const primaryAliases = [primaryKey, '_1'];
+    const meaningEnglishAliases = ['meaning(english)', 'meaning english', 'meaning_en', '_2'];
+    const meaningKoreanAliases = ['meaning(korean)', 'meaning korean', 'meaning_ko', '_3'];
+    const pronunciationAliases = ['pronunciation', 'pronounciation', '_4'];
+    const pronunciationRomanAliases = ['pronunciation(roman)', 'pronunciation roman', 'pronunciation_roman', 'roman', '_5'];
+    const exampleAliases = ['example', 'example sentence', '_6'];
+    const exampleRomanAliases = ['example(roman)', 'example roman', 'example_roman', '_7'];
+    const translationEnglishAliases = ['translation(english)', 'translation english', 'translation_en', '_8'];
+    const translationKoreanAliases = ['translation(korean)', 'translation korean', 'translation_ko', '_9'];
+
+    for (const [key, value] of Object.entries(row)) {
+      const cleanKey = key.trim().toLowerCase();
+      const cleanValue = typeof value === 'string' ? value.trim() : value;
+
+      if (primaryAliases.includes(cleanKey)) normalized[primaryKey] = cleanValue;
+      else if (meaningEnglishAliases.includes(cleanKey)) normalized['meaningEnglish'] = cleanValue;
+      else if (meaningKoreanAliases.includes(cleanKey)) normalized['meaningKorean'] = cleanValue;
+      else if (pronunciationAliases.includes(cleanKey)) normalized['pronunciation'] = cleanValue;
+      else if (pronunciationRomanAliases.includes(cleanKey)) normalized['pronunciationRoman'] = cleanValue;
+      else if (exampleAliases.includes(cleanKey)) normalized['example'] = cleanValue;
+      else if (exampleRomanAliases.includes(cleanKey)) normalized['exampleRoman'] = cleanValue;
+      else if (translationEnglishAliases.includes(cleanKey)) normalized['translationEnglish'] = cleanValue;
+      else if (translationKoreanAliases.includes(cleanKey)) normalized['translationKorean'] = cleanValue;
+      else normalized[cleanKey] = cleanValue;
+    }
+
+    normalized[primaryKey] = normalized[primaryKey] ?? '';
+    normalized['meaningEnglish'] = normalized['meaningEnglish'] ?? '';
+    normalized['meaningKorean'] = normalized['meaningKorean'] ?? '';
+    normalized['pronunciation'] = normalized['pronunciation'] ?? '';
+    normalized['pronunciationRoman'] = normalized['pronunciationRoman'] ?? '';
+    normalized['example'] = normalized['example'] ?? '';
+    normalized['exampleRoman'] = normalized['exampleRoman'] ?? '';
+    normalized['translationEnglish'] = normalized['translationEnglish'] ?? '';
+    normalized['translationKorean'] = normalized['translationKorean'] ?? '';
     return normalized;
   }
 
@@ -214,6 +272,8 @@ function detectAndParse(
     schemaType === 'collocation' ? collocationWordSchema
     : schemaType === 'jlpt' ? jlptWordSchema
     : schemaType === 'famousQuote' ? famousQuoteWordSchema
+    : schemaType === 'prefix' ? prefixSchema
+    : schemaType === 'postfix' ? postfixSchema
     : standardWordSchema;
 
   const words: (
@@ -233,14 +293,14 @@ function detectAndParse(
     if (currentSchemaType === 'collocation') {
       return 'English';
     }
-    if (currentSchemaType === 'jlpt') {
+    if (currentSchemaType === 'jlpt' || currentSchemaType === 'prefix' || currentSchemaType === 'postfix') {
       return 'Japanese';
     }
     return null;
   }
 
   function validateUploadRowLanguage(
-    parsedWord: StandardWordInput | JlptWordInput | CollocationWordInput,
+    parsedWord: StandardWordInput | JlptWordInput | CollocationWordInput | PrefixWordInput | PostfixWordInput,
     currentSchemaType: Exclude<SchemaType, 'famousQuote'>,
   ): string | null {
     const language = getUploadValidationLanguage(currentSchemaType);
@@ -253,6 +313,24 @@ function detectAndParse(
 
       if (!textMatchesLanguage(collocationWord.collocation.trim(), language)) {
         failedFields.push('collocation');
+      }
+      if (exampleValue && !textMatchesLanguage(exampleValue, language)) {
+        failedFields.push('example');
+      }
+    } else if (currentSchemaType === 'prefix') {
+      const prefixWord = parsedWord as PrefixWordInput;
+      const exampleValue = prefixWord.example.trim();
+      if (!textMatchesLanguage(prefixWord.prefix.trim(), language)) {
+        failedFields.push('prefix');
+      }
+      if (exampleValue && !textMatchesLanguage(exampleValue, language)) {
+        failedFields.push('example');
+      }
+    } else if (currentSchemaType === 'postfix') {
+      const postfixWord = parsedWord as PostfixWordInput;
+      const exampleValue = postfixWord.example.trim();
+      if (!textMatchesLanguage(postfixWord.postfix.trim(), language)) {
+        failedFields.push('postfix');
       }
       if (exampleValue && !textMatchesLanguage(exampleValue, language)) {
         failedFields.push('example');
@@ -291,6 +369,14 @@ function detectAndParse(
       const wordVal = String(normalized['word'] ?? '').toLowerCase();
       const meaningEnglishVal = String(normalized['meaningEnglish'] ?? '').toLowerCase();
       if (wordVal === 'word' && meaningEnglishVal === 'meaning(english)') return;
+    } else if (schemaType === 'prefix') {
+      const prefixVal = String(normalized['prefix'] ?? '').toLowerCase();
+      const meaningEnglishVal = String(normalized['meaningEnglish'] ?? '').toLowerCase();
+      if (prefixVal === 'prefix' && meaningEnglishVal === 'meaning(english)') return;
+    } else if (schemaType === 'postfix') {
+      const postfixVal = String(normalized['postfix'] ?? '').toLowerCase();
+      const meaningEnglishVal = String(normalized['meaningEnglish'] ?? '').toLowerCase();
+      if (postfixVal === 'postfix' && meaningEnglishVal === 'meaning(english)') return;
     } else {
       const primaryKey = schemaType === 'collocation' ? 'collocation' : 'word';
       const primaryVal = String(normalized[primaryKey] ?? '').toLowerCase();
@@ -310,7 +396,7 @@ function detectAndParse(
         }
       } else {
         const languageWarning = validateUploadRowLanguage(
-          parsed.data as StandardWordInput | JlptWordInput | CollocationWordInput,
+          parsed.data as StandardWordInput | JlptWordInput | CollocationWordInput | PrefixWordInput | PostfixWordInput,
           schemaType,
         );
         if (languageWarning) {
@@ -329,10 +415,15 @@ function detectAndParse(
   return { words, schemaType, isCollocation: schemaType === 'collocation', errors, detectedHeaders: rawHeaders };
 }
 
+// Re-export types for consumers that import from csvParser
+export type { PrefixWordInput, PostfixWordInput };
+
 function getExpectedHeaders(schemaType: SchemaType): string[] {
   if (schemaType === 'collocation') return [...COLLOCATION_HEADERS];
   if (schemaType === 'famousQuote') return [...FAMOUS_QUOTE_HEADERS];
   if (schemaType === 'jlpt') return [...JLPT_HEADERS];
+  if (schemaType === 'prefix') return [...PREFIX_HEADERS];
+  if (schemaType === 'postfix') return [...POSTFIX_HEADERS];
   return [...STANDARD_HEADERS];
 }
 
@@ -343,6 +434,14 @@ function isExactHeaderSet(
 ): boolean {
   if (schemaType === 'jlpt') {
     const allowedHeaders = new Set([...expectedHeaders, ...JLPT_OPTIONAL_HEADERS]);
+    const headerSet = new Set(headers);
+    if (headers.length < expectedHeaders.length) return false;
+    if (!expectedHeaders.every((h) => headerSet.has(h))) return false;
+    return headers.every((header) => allowedHeaders.has(header));
+  }
+
+  if (schemaType === 'prefix' || schemaType === 'postfix') {
+    const allowedHeaders = new Set([...expectedHeaders, ...PREFIX_POSTFIX_OPTIONAL_HEADERS]);
     const headerSet = new Set(headers);
     if (headers.length < expectedHeaders.length) return false;
     if (!expectedHeaders.every((h) => headerSet.has(h))) return false;
@@ -417,7 +516,7 @@ function isCrossHeaderFirstRow(
 // Schema field names only — NOT positional aliases.
 // A row qualifies as a header row when ≥2 of its cells match known field names.
 const KNOWN_FIELDS = new Set([
-  'word', 'collocation', 'meaning',
+  'word', 'collocation', 'prefix', 'postfix', 'meaning',
   'meaning(english)', 'meaning english', 'meaning(korean)', 'meaning korean',
   'pronunciation', 'pronounciation',
   'pronunciation(roman)', 'pronunciation roman', 'roman',

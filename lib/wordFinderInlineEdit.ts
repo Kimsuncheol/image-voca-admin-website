@@ -2,10 +2,12 @@ import type { WordFinderResult } from "../types/wordFinder.ts";
 import type {
   CollocationWord,
   JlptWord,
+  PostfixWord,
+  PrefixWord,
   StandardWord,
   Word,
 } from "../types/word.ts";
-import { isCollocationWord, isFamousQuoteWord, isJlptWord } from "../types/word.ts";
+import { isCollocationWord, isFamousQuoteWord, isJlptWord, isPrefixWord, isPostfixWord } from "../types/word.ts";
 
 export type InlineEditableWordFinderField = "primaryText" | "meaning";
 export type CourseInlineEditableField =
@@ -18,6 +20,8 @@ export type CourseInlineEditableField =
   | "translationKorean";
 export type EditableWordTextField =
   | "word"
+  | "prefix"
+  | "postfix"
   | "meaning"
   | "collocation"
   | "meaningEnglish"
@@ -38,6 +42,8 @@ interface ResolveCourseInlineEditArgs {
   isCollocation: boolean;
   isJlpt?: boolean;
   isFamousQuote?: boolean;
+  isPrefix?: boolean;
+  isPostfix?: boolean;
   field: CourseInlineEditableField;
 }
 
@@ -68,6 +74,34 @@ export function resolveCourseInlineEditField(
   const { word, isCollocation, isFamousQuote, field } = args;
   if (isFamousQuote || isFamousQuoteWord(word)) {
     return null;
+  }
+
+  if (args.isPrefix || isPrefixWord(word)) {
+    const p = word as PrefixWord;
+    switch (field) {
+      case "primaryText": return { sourceField: "prefix", value: p.prefix };
+      case "meaningEnglish": return { sourceField: "meaningEnglish", value: p.meaningEnglish };
+      case "meaningKorean": return { sourceField: "meaningKorean", value: p.meaningKorean };
+      case "example": return { sourceField: "example", value: p.example };
+      case "exampleRoman": return { sourceField: "exampleRoman", value: p.exampleRoman };
+      case "translationEnglish": return { sourceField: "translationEnglish", value: p.translationEnglish };
+      case "translationKorean": return { sourceField: "translationKorean", value: p.translationKorean };
+      default: return null;
+    }
+  }
+
+  if (args.isPostfix || isPostfixWord(word)) {
+    const p = word as PostfixWord;
+    switch (field) {
+      case "primaryText": return { sourceField: "postfix", value: p.postfix };
+      case "meaningEnglish": return { sourceField: "meaningEnglish", value: p.meaningEnglish };
+      case "meaningKorean": return { sourceField: "meaningKorean", value: p.meaningKorean };
+      case "example": return { sourceField: "example", value: p.example };
+      case "exampleRoman": return { sourceField: "exampleRoman", value: p.exampleRoman };
+      case "translationEnglish": return { sourceField: "translationEnglish", value: p.translationEnglish };
+      case "translationKorean": return { sourceField: "translationKorean", value: p.translationKorean };
+      default: return null;
+    }
   }
 
   if (args.isJlpt || isJlptWord(word)) {
@@ -161,9 +195,35 @@ export function applyCourseInlineEdit(
   word: Word,
   field: CourseInlineEditableField,
   value: string,
-): Partial<StandardWord> | Partial<JlptWord> | Partial<CollocationWord> | null {
+): Partial<StandardWord> | Partial<JlptWord> | Partial<CollocationWord> | Partial<PrefixWord> | Partial<PostfixWord> | null {
   if (isFamousQuoteWord(word)) {
     return null;
+  }
+
+  if (isPrefixWord(word)) {
+    switch (field) {
+      case "primaryText": return { prefix: value };
+      case "meaningEnglish": return { meaningEnglish: value };
+      case "meaningKorean": return { meaningKorean: value };
+      case "example": return { example: value };
+      case "exampleRoman": return { exampleRoman: value };
+      case "translationEnglish": return { translationEnglish: value };
+      case "translationKorean": return { translationKorean: value };
+      default: return null;
+    }
+  }
+
+  if (isPostfixWord(word)) {
+    switch (field) {
+      case "primaryText": return { postfix: value };
+      case "meaningEnglish": return { meaningEnglish: value };
+      case "meaningKorean": return { meaningKorean: value };
+      case "example": return { example: value };
+      case "exampleRoman": return { exampleRoman: value };
+      case "translationEnglish": return { translationEnglish: value };
+      case "translationKorean": return { translationKorean: value };
+      default: return null;
+    }
   }
 
   if (isJlptWord(word)) {

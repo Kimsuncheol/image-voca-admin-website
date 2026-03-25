@@ -29,6 +29,32 @@ export interface JlptWord {
   imageUrl?: string;
 }
 
+export interface PrefixWord {
+  id: string;
+  prefix: string;
+  meaningEnglish: string;
+  meaningKorean: string;
+  pronunciation: string;
+  pronunciationRoman: string;
+  example: string;
+  exampleRoman: string;
+  translationEnglish: string;
+  translationKorean: string;
+}
+
+export interface PostfixWord {
+  id: string;
+  postfix: string;
+  meaningEnglish: string;
+  meaningKorean: string;
+  pronunciation: string;
+  pronunciationRoman: string;
+  example: string;
+  exampleRoman: string;
+  translationEnglish: string;
+  translationKorean: string;
+}
+
 export interface CollocationWord {
   id: string;
   collocation: string;
@@ -47,10 +73,18 @@ export interface FamousQuoteWord {
   language?: 'English' | 'Japanese';
 }
 
-export type Word = StandardWord | JlptWord | CollocationWord | FamousQuoteWord;
+export type Word = StandardWord | JlptWord | CollocationWord | FamousQuoteWord | PrefixWord | PostfixWord;
 
 export function isJlptWord(w: Word): w is JlptWord {
-  return "meaningEnglish" in w && "meaningKorean" in w;
+  return "word" in w && "meaningEnglish" in w;
+}
+
+export function isPrefixWord(w: Word): w is PrefixWord {
+  return "prefix" in w;
+}
+
+export function isPostfixWord(w: Word): w is PostfixWord {
+  return "postfix" in w;
 }
 
 export function isCollocationWord(w: Word): w is CollocationWord {

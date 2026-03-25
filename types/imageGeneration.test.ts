@@ -31,16 +31,13 @@ test("validateGenerateImageRequestBody rejects empty words", () => {
   assert.equal(result.error.code, "INVALID_WORD");
 });
 
-test("validateGenerateImageRequestBody rejects unsupported courses", () => {
+test("validateGenerateImageRequestBody accepts supported courses", () => {
   const result = validateGenerateImageRequestBody({
     word: "portable",
     courseId: "COLLOCATIONS",
   });
 
-  assert.equal(result.ok, false);
-  if (result.ok) return;
-
-  assert.equal(result.error.code, "UNSUPPORTED_COURSE");
+  assert.equal(result.ok, true);
 });
 
 test("createGenerateImageError supports FEATURE_DISABLED", () => {
@@ -76,6 +73,15 @@ test("buildStickFigurePrompt preserves the required wording", () => {
     prompt,
     /The image must be strictly in black and white, with no other colors\./,
   );
+  assert.match(prompt, /Show only one clear subject or action/);
+  assert.match(
+    prompt,
+    /using only the minimum objects needed to convey the meaning\./,
+  );
+  assert.match(
+    prompt,
+    /Avoid background scene details, extra characters, decorative elements, and crowded compositions\./,
+  );
 });
 
 test("buildUploadStickFigurePrompt includes word and meaning context", () => {
@@ -83,6 +89,15 @@ test("buildUploadStickFigurePrompt includes word and meaning context", () => {
 
   assert.match(prompt, /English vocabulary word "portable"/);
   assert.match(prompt, /Meaning\/context: "easy to carry"/);
+  assert.match(prompt, /Show only one clear subject or action/);
+  assert.match(
+    prompt,
+    /using only the minimum objects needed to convey the meaning\./,
+  );
+  assert.match(
+    prompt,
+    /Avoid background scene details, extra characters, decorative elements, and crowded compositions\./,
+  );
 });
 
 test("extractInlineImagePart returns NO_IMAGE_RETURNED when no image exists", () => {
