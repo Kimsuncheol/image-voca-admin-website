@@ -16,6 +16,7 @@ import DashboardIcon from "@mui/icons-material/Dashboard";
 import PostAddIcon from "@mui/icons-material/PostAdd";
 import MenuBookIcon from "@mui/icons-material/MenuBook";
 import SearchIcon from "@mui/icons-material/Search";
+import ApiIcon from "@mui/icons-material/Api";
 import PeopleIcon from "@mui/icons-material/People";
 import OndemandVideoIcon from "@mui/icons-material/OndemandVideo";
 import LocalOfferIcon from "@mui/icons-material/LocalOffer";
@@ -62,6 +63,11 @@ export function useNavItems(): NavItem[] {
       title: t("dashboard.wordFinder", "Word Finder"),
       icon: <SearchIcon />,
       href: "/words",
+    },
+    {
+      title: t("dashboard.naverDictApi", "Naver Dict API"),
+      icon: <ApiIcon />,
+      href: "/naver-dict",
     },
     {
       title: t("dashboard.userManagement", "Users"),
