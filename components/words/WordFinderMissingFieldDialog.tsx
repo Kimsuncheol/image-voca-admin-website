@@ -17,7 +17,13 @@ import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import { useTranslation } from "react-i18next";
 
 import {
+  getCourseById,
+  getSingleListSubcollectionByCourseId,
+} from "@/types/course";
+import {
   updateFlatCourseField,
+  updateSingleListWordField,
+  updateSingleListWordImageUrl,
   updateWordField,
   updateWordImageUrl,
 } from "@/lib/firebase/firestore";
@@ -229,6 +235,7 @@ export default function WordFinderMissingFieldDialog({
   const persistUpdates = useCallback(
     async (updates: WordFinderResultFieldUpdates) => {
       if (!result) return;
+      const storageMode = getCourseById(result.courseId)?.storageMode ?? "day";
 
       const tasks = Object.entries(updates)
         .filter(
@@ -258,16 +265,37 @@ export default function WordFinderMissingFieldDialog({
         )
         .map(([updateField, value]) => {
           if (updateField === "imageUrl") {
-            if (!result.dayId) {
-              throw new Error(t("words.imageUploadUnavailable"));
+            if (storageMode === "day") {
+              if (!result.dayId) {
+                throw new Error(t("words.imageUploadUnavailable"));
+              }
+              return updateWordImageUrl(result.coursePath, result.dayId, result.id, value);
             }
-            return updateWordImageUrl(result.coursePath, result.dayId, result.id, value);
+            if (storageMode === "singleList") {
+              return updateSingleListWordImageUrl(
+                result.courseId,
+                result.coursePath,
+                result.id,
+                value,
+              );
+            }
+            throw new Error(t("words.imageUploadUnavailable"));
           }
 
-          if (result.dayId) {
+          if (storageMode === "day" && result.dayId) {
             return updateWordField(
               result.coursePath,
               result.dayId,
+              result.id,
+              updateField,
+              value,
+            );
+          }
+
+          if (storageMode === "singleList") {
+            return updateSingleListWordField(
+              result.courseId,
+              result.coursePath,
               result.id,
               updateField,
               value,
@@ -490,7 +518,15 @@ export default function WordFinderMissingFieldDialog({
   }, [field, handleResolved, result, t, textValue]);
 
   const handleUpload = useCallback(async () => {
-    if (!result || !droppedFile || !result.dayId) return;
+    if (!result || !droppedFile) return;
+    const storageMode = getCourseById(result.courseId)?.storageMode ?? "day";
+    const singleListSubcollection = getSingleListSubcollectionByCourseId(
+      result.courseId,
+    );
+    const imageTarget = storageMode === "singleList"
+      ? singleListSubcollection
+      : result.dayId;
+    if (!imageTarget) return;
 
     setActionLoading("upload");
     setError("");
@@ -499,7 +535,7 @@ export default function WordFinderMissingFieldDialog({
       const imageUrl = await uploadWordImage(
         droppedFile,
         result.courseId,
-        result.dayId,
+        imageTarget,
         result.id,
       );
       await handleResolved({ imageUrl });

@@ -23,7 +23,14 @@ import { useTranslation } from "react-i18next";
 import CellContextMenu from "@/components/shared/CellContextMenu";
 import InlineEditableText from "@/components/shared/InlineEditableText";
 import WordFinderMissingFieldDialog from "@/components/words/WordFinderMissingFieldDialog";
-import { updateWordTextField, updateWordImageUrl, updateWordDerivatives } from "@/lib/firebase/firestore";
+import {
+  updateSingleListWordDerivatives,
+  updateSingleListWordImageUrl,
+  updateSingleListWordTextField,
+  updateWordDerivatives,
+  updateWordImageUrl,
+  updateWordTextField,
+} from "@/lib/firebase/firestore";
 import {
   isDerivativeGenerationEligibleResult,
 } from "@/lib/derivativeGeneration";
@@ -412,6 +419,10 @@ export default function WordTable({
     if (!courseId) return "";
     return getCourseById(courseId)?.label ?? courseId;
   }, [courseId]);
+  const storageMode = useMemo(() => {
+    if (!courseId) return null;
+    return getCourseById(courseId)?.storageMode ?? "day";
+  }, [courseId]);
   const supportsDerivatives = Boolean(
     courseId &&
       !isCollocation &&
@@ -420,6 +431,73 @@ export default function WordTable({
       !isPrefix &&
       !isPostfix &&
       supportsDerivativeCourse(courseId),
+  );
+
+  const persistTextField = useCallback(
+    async (
+      wordId: string,
+      field:
+        | "word"
+        | "prefix"
+        | "postfix"
+        | "meaning"
+        | "collocation"
+        | "meaningEnglish"
+        | "meaningKorean"
+        | "example"
+        | "exampleRoman"
+        | "translation"
+        | "translationEnglish"
+        | "translationKorean",
+      value: string,
+    ) => {
+      if (!coursePath || !storageMode) return;
+
+      if (storageMode === "singleList") {
+        if (!courseId) return;
+        await updateSingleListWordTextField(courseId, coursePath, wordId, field, value);
+        return;
+      }
+
+      if (storageMode === "day" && dayId) {
+        await updateWordTextField(coursePath, dayId, wordId, field, value);
+      }
+    },
+    [courseId, coursePath, dayId, storageMode],
+  );
+
+  const persistImageField = useCallback(
+    async (wordId: string, imageUrl: string) => {
+      if (!coursePath || !storageMode) return;
+
+      if (storageMode === "singleList") {
+        if (!courseId) return;
+        await updateSingleListWordImageUrl(courseId, coursePath, wordId, imageUrl);
+        return;
+      }
+
+      if (storageMode === "day" && dayId) {
+        await updateWordImageUrl(coursePath, dayId, wordId, imageUrl);
+      }
+    },
+    [courseId, coursePath, dayId, storageMode],
+  );
+
+  const persistDerivatives = useCallback(
+    async (wordId: string, items: Array<{ word: string; meaning: string }>) => {
+      if (!coursePath || !storageMode) return;
+
+      if (storageMode === "singleList") {
+        if (!courseId) return;
+        await updateSingleListWordDerivatives(courseId, coursePath, wordId, items);
+        return;
+      }
+
+      if (storageMode === "day" && dayId) {
+        await updateWordDerivatives(coursePath, dayId, wordId, items);
+      }
+    },
+    [courseId, coursePath, dayId, storageMode],
   );
 
   const activeWord = useMemo(
@@ -457,14 +535,14 @@ export default function WordTable({
     localWordUpdates,
   ]);
 
-  const openFieldModal = (wordId: string, field: WordFinderActionField) => {
+  const openFieldModal = useCallback((wordId: string, field: WordFinderActionField) => {
     if (field === "derivative") {
       setDerivativeDialogWordId(wordId);
       return;
     }
     setActiveWordId(wordId);
     setActiveField(field);
-  };
+  }, []);
 
   const closeFieldModal = () => {
     setActiveWordId("");
@@ -537,9 +615,7 @@ export default function WordTable({
       [wordId]: { ...prev[wordId], imageUrl: "" },
     }));
     onWordImageUpdated?.(wordId, "");
-    if (coursePath && dayId) {
-      updateWordImageUrl(coursePath, dayId, wordId, "").catch(() => {});
-    }
+    void persistImageField(wordId, "").catch(() => {});
   };
 
   const activateInlineEdit = useCallback(
@@ -616,7 +692,7 @@ export default function WordTable({
         field: editingCell.field,
       });
 
-      if (!editable || !coursePath || !dayId) {
+      if (!editable || !coursePath || !storageMode) {
         setEditingCell(null);
         return;
       }
@@ -630,13 +706,7 @@ export default function WordTable({
       setEditingCell((prev) => (prev ? { ...prev, saving: true, error: "" } : prev));
 
       try {
-        await updateWordTextField(
-          coursePath,
-          dayId,
-          word.id,
-          editable.sourceField,
-          nextValue,
-        );
+        await persistTextField(word.id, editable.sourceField, nextValue);
 
         const localUpdate = applyCourseInlineEdit(word, editingCell.field, nextValue);
         if (localUpdate) {
@@ -657,7 +727,7 @@ export default function WordTable({
         );
       }
     },
-    [coursePath, dayId, editingCell, isCollocation, isJlpt, isFamousQuote, isPrefix, isPostfix, t],
+    [coursePath, editingCell, isCollocation, isJlpt, isFamousQuote, onWordFieldsUpdated, persistTextField, storageMode, t],
   );
 
   const renderEditableTextCell = useCallback(
@@ -964,7 +1034,7 @@ export default function WordTable({
   }, [contextMenu, words, localWordUpdates, activateInlineEdit]);
 
   const handleContextMenuTranslate = useCallback(async () => {
-    if (!contextMenu || !coursePath || !dayId) return;
+    if (!contextMenu || !coursePath || !storageMode) return;
 
     const { row, col } = contextMenu;
     const word = words[row];
@@ -1004,13 +1074,7 @@ export default function WordTable({
         throw new Error(payload.error || t("words.generateActionError"));
       }
 
-      await updateWordTextField(
-        coursePath,
-        dayId,
-        mergedWord.id,
-        "example",
-        payload.example,
-      );
+      await persistTextField(mergedWord.id, "example", payload.example);
 
       setLocalWordUpdates((prev) => ({
         ...prev,
@@ -1028,9 +1092,10 @@ export default function WordTable({
   }, [
     contextMenu,
     coursePath,
-    dayId,
     localWordUpdates,
     onWordFieldsUpdated,
+    persistTextField,
+    storageMode,
     t,
     words,
   ]);
@@ -1816,8 +1881,8 @@ export default function WordTable({
             initial={initial}
             onClose={() => setDerivativeDialogWordId(null)}
             onSave={async (items) => {
-              if (coursePath && dayId) {
-                await updateWordDerivatives(coursePath, dayId, derivativeDialogWordId, items);
+              if (derivativeDialogWordId) {
+                await persistDerivatives(derivativeDialogWordId, items);
               }
               setLocalWordUpdates((prev) => ({
                 ...prev,

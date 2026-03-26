@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import { requireSingleListSubcollectionByCoursePath } from "@/lib/courseStorage";
 import { normalizeCoursePath } from "@/lib/coursePath";
 import { adminAuth, adminDb } from "@/lib/firebase/admin";
 import { invalidateCourseCache } from "@/lib/server/wordCache";
@@ -10,12 +11,17 @@ import { invalidateCourseCache } from "@/lib/server/wordCache";
  * Accepts multiple days in one request and writes them all to Firestore,
  * reducing N individual /api/admin/upload round-trips to a single call.
  *
- * Body:  { coursePath: string; days: { dayName: string; words: unknown[] }[]; flat?: boolean }
+ * Body:  {
+ *   coursePath: string;
+ *   days: { dayName: string; words: unknown[] }[];
+ *   storageMode?: "day" | "flat" | "singleList";
+ * }
  * Response: { results: { dayName: string; count: number; error?: string }[] }
  *
- * When `flat` is true (e.g. FAMOUS_QUOTE), words are written directly into the
- * Firestore collection at `coursePath` rather than into a `DayN` subcollection.
- * In that case `dayName` is a UUID used only for idempotency tracking.
+ * When `storageMode` is:
+ *  - "day": words are written into DayN subcollections
+ *  - "flat": words are written directly into the collection root
+ *  - "singleList": words are written into the course's fixed named subcollection
  */
 
 interface DayPayload {
@@ -38,7 +44,7 @@ interface NamedWordPayload {
 interface BatchUploadRequestBody {
   coursePath: string;
   days: DayPayload[];
-  flat?: boolean;
+  storageMode?: "day" | "flat" | "singleList";
 }
 
 interface BatchUploadCollectionSnapshot {
@@ -205,7 +211,7 @@ async function writeFlatQuotes(
 
 async function writeDayWords(
   coursePath: string,
-  dayName: string,
+  subcollectionName: string,
   words: unknown[],
   dependencies: BatchUploadDependencies,
   batchLimit: number,
@@ -224,7 +230,7 @@ async function writeDayWords(
     seenIds.add(word.id);
   }
 
-  const dayCollection = dependencies.adminDb.doc(coursePath).collection(dayName);
+  const dayCollection = dependencies.adminDb.doc(coursePath).collection(subcollectionName);
 
   const existingSnap = await dayCollection.get();
   if (!existingSnap.empty) {
@@ -257,15 +263,16 @@ export function createBatchUploadHandler(
 
     let coursePath: string;
     let days: DayPayload[];
-    let flat: boolean;
+    let storageMode: "day" | "flat" | "singleList";
     try {
-      ({ coursePath, days, flat = false } =
+      ({ coursePath, days, storageMode = "day" } =
         (await request.json()) as BatchUploadRequestBody);
     } catch {
       return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
     }
 
     const normalizedCoursePath = normalizeCoursePath(coursePath);
+    let singleListSubcollectionName: string | null = null;
 
     if (!normalizedCoursePath) {
       return NextResponse.json(
@@ -278,13 +285,25 @@ export function createBatchUploadHandler(
       return NextResponse.json({ error: "Invalid data" }, { status: 400 });
     }
 
+    if (storageMode === "singleList") {
+      try {
+        singleListSubcollectionName =
+          requireSingleListSubcollectionByCoursePath(normalizedCoursePath);
+      } catch {
+        return NextResponse.json(
+          { error: "Invalid single-list course path" },
+          { status: 400 },
+        );
+      }
+    }
+
     const batchLimit = 499;
     const results: { dayName: string; count: number; error?: string }[] = [];
     let maxDayNumber = 0;
     let lastSuccessfulDayName = "";
     let existingQuoteKeys = new Set<string>();
 
-    if (flat) {
+    if (storageMode === "flat") {
       try {
         existingQuoteKeys = await getExistingQuoteKeys(
           normalizedCoursePath,
@@ -303,7 +322,7 @@ export function createBatchUploadHandler(
       }
 
       try {
-        const count = flat
+        const count = storageMode === "flat"
           ? await writeFlatQuotes(
               normalizedCoursePath,
               words,
@@ -313,13 +332,15 @@ export function createBatchUploadHandler(
             )
           : await writeDayWords(
               normalizedCoursePath,
-              dayName,
+              storageMode === "singleList"
+                ? (singleListSubcollectionName ?? dayName)
+                : dayName,
               words,
               dependencies,
               batchLimit,
             );
 
-        if (!flat) {
+        if (storageMode === "day") {
           const dayNumber = parseInt(dayName.replace("Day", ""), 10) || 0;
           maxDayNumber = Math.max(maxDayNumber, dayNumber);
           lastSuccessfulDayName = dayName;
@@ -336,7 +357,7 @@ export function createBatchUploadHandler(
       }
     }
 
-    if (!flat && lastSuccessfulDayName) {
+    if (storageMode === "day" && lastSuccessfulDayName) {
       try {
         const courseRef = dependencies.adminDb.doc(normalizedCoursePath);
         const courseSnap = await courseRef.get();

@@ -6,11 +6,11 @@
  * For most courses this page lists all "day" subcollections available for the
  * given course.  Each day card links to courses/[courseId]/[dayId]/page.tsx.
  *
- * ── FAMOUS_QUOTE exception ────────────────────────────────────────────
- *  The famous_quote Firestore collection stores quotes **flat** — documents
- *  live directly in the collection root, not inside DayN subcollections.
- *  When `course.flat === true` we skip the day grid entirely and render a
- *  WordTable of quotes inline, using the admin filtered-quote API.
+ * ── Direct-list course exceptions ─────────────────────────────────────
+ *  Some courses do not use DayN subcollections:
+ *   - FAMOUS_QUOTE uses a flat collection root
+ *   - JLPT prefix/postfix use a fixed single-list subcollection
+ *  These courses skip the day grid and render a WordTable inline.
  *
  * ── Data flow (standard courses) ─────────────────────────────────────
  *  1. `courseId` is extracted from Next.js params (Promise-based API).
@@ -23,7 +23,7 @@
  *  loading  → CourseDaysLoadingSkeleton (responsive day-grid placeholders)
  *  error    → MUI Alert with translated error message
  *  empty    → translated "no data" text
- *  success  → responsive grid of DayCard components  (or WordTable for flat)
+ *  success  → responsive grid of DayCard components (or inline WordTable)
  *
  * ── Shared components used ───────────────────────────────────────────
  *  CourseDaysLoadingSkeleton — responsive day-grid skeleton inside PageLayout
@@ -53,8 +53,8 @@ import {
   FAMOUS_QUOTE_FILTER_LANGUAGES,
   type FamousQuoteFilterLanguage,
 } from "@/types/famousQuote";
-import type { FamousQuoteWord } from "@/types/word";
-import { getCourseDays } from "@/lib/firebase/firestore";
+import type { FamousQuoteWord, Word } from "@/types/word";
+import { getCourseDays, getSingleListWords } from "@/lib/firebase/firestore";
 import {
   fetchFilteredFamousQuotes,
   fillFamousQuotesEnglish,
@@ -68,6 +68,7 @@ import CourseBreadcrumbs from "@/components/courses/CourseBreadcrumbs";
 import { dayGridTemplateColumns } from "@/components/courses/dayGridConfig";
 import WordTable from "@/components/courses/WordTable";
 import FamousQuoteLoadingSkeleton from "@/components/courses/FamousQuoteLoadingSkeleton";
+import CourseLoadingView from "@/components/courses/CourseLoadingView";
 
 export default function CourseDaysPage({
   params,
@@ -85,6 +86,7 @@ export default function CourseDaysPage({
   // ── Local state ───────────────────────────────────────────────────
   const [days, setDays] = useState<Day[]>([]);
   const [quotes, setQuotes] = useState<FamousQuoteWord[]>([]);
+  const [singleListWords, setSingleListWords] = useState<Word[]>([]);
   const [languageFilter, setLanguageFilter] =
     useState<FamousQuoteFilterLanguage>("All");
   const [refreshKey, setRefreshKey] = useState(0);
@@ -94,7 +96,10 @@ export default function CourseDaysPage({
 
   // ── Resolve course metadata from static list ──────────────────────
   const course = getCourseById(courseId);
-  const isFlat = course?.flat === true;
+  const storageMode = course?.storageMode ?? "day";
+  const isFlat = storageMode === "flat";
+  const isSingleList = storageMode === "singleList";
+  const isDirectList = isFlat || isSingleList;
   const isJlptLevel = JLPT_LEVEL_COURSES.some((l) => l.id === courseId);
   const isJlptGroup = isJlptCourse(courseId) || isJlptLevel;
   // Generic /courses/JLPT page — redirect to the default level
@@ -169,7 +174,7 @@ export default function CourseDaysPage({
 
   // ── Standard course data fetch ────────────────────────────────────
   useEffect(() => {
-    if (!course || isJlptGroupRoot || isFlat) return;
+    if (!course || isJlptGroupRoot || isDirectList) return;
 
     getCourseDays(course.path)
       .then((data) => {
@@ -179,7 +184,7 @@ export default function CourseDaysPage({
       })
       .catch(() => setError(t("courses.fetchError")))
       .finally(() => setLoading(false));
-  }, [course, isFlat, isJlptGroupRoot, t]);
+  }, [course, isDirectList, isJlptGroupRoot, t]);
 
   // ── Famous Quote filtered fetch ───────────────────────────────────
   useEffect(() => {
@@ -209,10 +214,38 @@ export default function CourseDaysPage({
     };
   }, [course, isFlat, isJlptGroupRoot, languageFilter, refreshKey, t]);
 
+  useEffect(() => {
+    if (!course || isJlptGroupRoot || !isSingleList) return;
+
+    let isCancelled = false;
+
+    getSingleListWords(course.id, course.path)
+      .then((data) => {
+        if (isCancelled) return;
+        setSingleListWords(data);
+        setError("");
+      })
+      .catch(() => {
+        if (isCancelled) return;
+        setError(t("courses.fetchError"));
+        setSingleListWords([]);
+      })
+      .finally(() => {
+        if (isCancelled) return;
+        setLoading(false);
+      });
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [course, isJlptGroupRoot, isSingleList, t]);
+
   // ── Loading state ─────────────────────────────────────────────────
   if (isLoading) {
     return isFlat ? (
       <FamousQuoteLoadingSkeleton />
+    ) : isSingleList ? (
+      <CourseLoadingView />
     ) : (
       <CourseDaysLoadingSkeleton />
     );
@@ -233,7 +266,7 @@ export default function CourseDaysPage({
       {/* ── Page heading ─────────────────────────────────────────────── */}
       <Typography variant="h4" gutterBottom fontWeight={600}>
         {isJlptLevel ? "JLPT" : (course?.label || courseId)}
-        {!isFlat && !isJlptGroupRoot && ` — ${t("courses.days")}`}
+        {!isDirectList && !isJlptGroupRoot && ` — ${t("courses.days")}`}
       </Typography>
 
       {/* ── JLPT level chips ─────────────────────────────────────────── */}
@@ -309,7 +342,7 @@ export default function CourseDaysPage({
 
       {/* ── JLPT group root: level chips only, no day grid ───────────── */}
       {isJlptGroupRoot ? null : /* ── Flat course (FAMOUS_QUOTE): inline quote table ───────────── */
-      isFlat ? (
+      isFlat && course ? (
         quotes.length === 0 && !resolvedError ? (
           <Stack
             alignItems="center"
@@ -341,6 +374,41 @@ export default function CourseDaysPage({
             isFamousQuote={true}
             courseId={course.id}
             coursePath={course?.path}
+          />
+        )
+      ) : isSingleList && course ? (
+        singleListWords.length === 0 && !resolvedError ? (
+          <Stack
+            alignItems="center"
+            justifyContent="center"
+            spacing={1.5}
+            sx={{
+              py: 8,
+              px: 3,
+              borderRadius: 3,
+              border: "1px dashed",
+              borderColor: "divider",
+              backgroundColor: "action.hover",
+            }}
+          >
+            <InboxIcon sx={{ fontSize: 56, color: "text.disabled", opacity: 0.6 }} />
+            <Stack alignItems="center" spacing={0.5}>
+              <Typography variant="h6" color="text.secondary" fontWeight={600}>
+                {t("courses.noData")}
+              </Typography>
+              <Typography variant="body2" color="text.disabled">
+                {t("courses.noDataHint")}
+              </Typography>
+            </Stack>
+          </Stack>
+        ) : (
+          <WordTable
+            words={singleListWords}
+            isCollocation={false}
+            isPrefix={course?.schema === "prefix"}
+            isPostfix={course?.schema === "postfix"}
+            courseId={course.id}
+            coursePath={course.path}
           />
         )
       ) : /* ── Standard course: day-card grid ────────────────────────── */

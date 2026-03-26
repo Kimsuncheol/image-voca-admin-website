@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { adminDb } from "@/lib/firebase/admin";
+import { requireSingleListSubcollectionByCourseId } from "@/lib/courseStorage";
 import {
   getCachedCourseResults,
   setCachedCourseResults,
@@ -22,10 +23,7 @@ import type {
 } from "@/types/wordFinder";
 
 const MAX_RESULTS = 200;
-
-const SEARCHABLE_COURSES = [...COURSES, ...JLPT_LEVEL_COURSES].filter(
-  (c) => c.schema !== "prefix" && c.schema !== "postfix",
-);
+const SEARCHABLE_COURSES = [...COURSES, ...JLPT_LEVEL_COURSES];
 
 // ---------------------------------------------------------------------------
 // Type-aware course selection
@@ -33,16 +31,24 @@ const SEARCHABLE_COURSES = [...COURSES, ...JLPT_LEVEL_COURSES].filter(
 
 function filterCoursesByType(courses: Course[], type: string): Course[] {
   if (type === "all") return courses;
-  if (type === "famousQuote") return courses.filter((c) => c.flat);
+  if (type === "famousQuote") return courses.filter((c) => c.storageMode === "flat");
   if (type === "collocation")
     return courses.filter((c) => c.id === "COLLOCATIONS");
   // "standard" — everything except flat courses and COLLOCATIONS
-  return courses.filter((c) => !c.flat && c.id !== "COLLOCATIONS");
+  return courses.filter((c) => c.storageMode !== "flat" && c.id !== "COLLOCATIONS");
 }
 
 // ---------------------------------------------------------------------------
 // Result builders
 // ---------------------------------------------------------------------------
+
+function buildCourseSourceHref(
+  courseId: Course["id"],
+  id: string,
+  dayId?: string | null,
+): string {
+  return dayId ? `/courses/${courseId}/${dayId}#${id}` : `/courses/${courseId}#${id}`;
+}
 
 function createStandardResult(
   course: Course,
@@ -61,7 +67,7 @@ function createStandardResult(
     coursePath: course.path,
     schemaVariant: "standard",
     dayId,
-    sourceHref: `/courses/${course.id}/${dayId}#${id}`,
+    sourceHref: buildCourseSourceHref(course.id, id, dayId),
     type: "standard",
     primaryText: word,
     secondaryText: meaning,
@@ -117,7 +123,7 @@ function createJlptResult(
     coursePath: course.path,
     schemaVariant: "jlpt",
     dayId,
-    sourceHref: `/courses/${course.id}/${dayId}#${id}`,
+    sourceHref: buildCourseSourceHref(course.id, id, dayId),
     type: "standard",
     primaryText: word,
     secondaryText: [meaningEnglish, meaningKorean].filter(Boolean).join(" / ") || null,
@@ -151,7 +157,7 @@ function createCollocationResult(
     coursePath: course.path,
     schemaVariant: "collocation",
     dayId,
-    sourceHref: `/courses/${course.id}/${dayId}#${id}`,
+    sourceHref: buildCourseSourceHref(course.id, id, dayId),
     type: "collocation",
     primaryText: collocation,
     secondaryText: normalizeNullableWordFinderText(data.explanation),
@@ -179,7 +185,7 @@ function createFamousQuoteResult(
     coursePath: course.path,
     schemaVariant: "famousQuote",
     dayId: null,
-    sourceHref: `/courses/${course.id}#${id}`,
+    sourceHref: buildCourseSourceHref(course.id, id),
     type: "famousQuote",
     primaryText: quote,
     secondaryText: normalizeNullableWordFinderText(data.author),
@@ -191,6 +197,84 @@ function createFamousQuoteResult(
   };
 }
 
+function createPrefixResult(
+  course: Course,
+  id: string,
+  data: Record<string, unknown>,
+): WordFinderResult | null {
+  const prefix = normalizeWordFinderText(data.prefix);
+  if (!prefix) return null;
+
+  const meaningEnglish = normalizeNullableWordFinderText(data.meaningEnglish);
+  const meaningKorean = normalizeNullableWordFinderText(data.meaningKorean);
+  const translationEnglish = normalizeNullableWordFinderText(data.translationEnglish);
+  const translationKorean = normalizeNullableWordFinderText(data.translationKorean);
+
+  return {
+    id,
+    courseId: course.id,
+    courseLabel: course.label,
+    coursePath: course.path,
+    schemaVariant: "prefix",
+    dayId: null,
+    sourceHref: buildCourseSourceHref(course.id, id),
+    type: "standard",
+    primaryText: prefix,
+    secondaryText: [meaningEnglish, meaningKorean].filter(Boolean).join(" / ") || null,
+    meaning: [meaningEnglish, meaningKorean].filter(Boolean).join(" / ") || null,
+    meaningEnglish,
+    meaningKorean,
+    translation: [translationEnglish, translationKorean].filter(Boolean).join(" / ") || null,
+    translationEnglish,
+    translationKorean,
+    example: normalizeNullableWordFinderText(data.example),
+    exampleRoman: normalizeNullableWordFinderText(data.exampleRoman),
+    pronunciation: normalizeNullableWordFinderText(data.pronunciation),
+    pronunciationRoman: normalizeNullableWordFinderText(data.pronunciationRoman),
+    imageUrl: null,
+    prefix,
+  };
+}
+
+function createPostfixResult(
+  course: Course,
+  id: string,
+  data: Record<string, unknown>,
+): WordFinderResult | null {
+  const postfix = normalizeWordFinderText(data.postfix);
+  if (!postfix) return null;
+
+  const meaningEnglish = normalizeNullableWordFinderText(data.meaningEnglish);
+  const meaningKorean = normalizeNullableWordFinderText(data.meaningKorean);
+  const translationEnglish = normalizeNullableWordFinderText(data.translationEnglish);
+  const translationKorean = normalizeNullableWordFinderText(data.translationKorean);
+
+  return {
+    id,
+    courseId: course.id,
+    courseLabel: course.label,
+    coursePath: course.path,
+    schemaVariant: "postfix",
+    dayId: null,
+    sourceHref: buildCourseSourceHref(course.id, id),
+    type: "standard",
+    primaryText: postfix,
+    secondaryText: [meaningEnglish, meaningKorean].filter(Boolean).join(" / ") || null,
+    meaning: [meaningEnglish, meaningKorean].filter(Boolean).join(" / ") || null,
+    meaningEnglish,
+    meaningKorean,
+    translation: [translationEnglish, translationKorean].filter(Boolean).join(" / ") || null,
+    translationEnglish,
+    translationKorean,
+    example: normalizeNullableWordFinderText(data.example),
+    exampleRoman: normalizeNullableWordFinderText(data.exampleRoman),
+    pronunciation: normalizeNullableWordFinderText(data.pronunciation),
+    pronunciationRoman: normalizeNullableWordFinderText(data.pronunciationRoman),
+    imageUrl: null,
+    postfix,
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Firestore fetching (parallel day reads)
 // ---------------------------------------------------------------------------
@@ -198,7 +282,7 @@ function createFamousQuoteResult(
 async function getCourseResults(course: Course): Promise<WordFinderResult[]> {
   if (!course.path) return [];
 
-  if (course.flat) {
+  if (course.storageMode === "flat") {
     const snapshot = await adminDb.collection(course.path).get();
     return snapshot.docs
       .map((doc) =>
@@ -208,6 +292,27 @@ async function getCourseResults(course: Course): Promise<WordFinderResult[]> {
           doc.data() as Record<string, unknown>,
         ),
       )
+      .filter((result): result is WordFinderResult => Boolean(result));
+  }
+
+  if (course.storageMode === "singleList") {
+    const subcollectionName = requireSingleListSubcollectionByCourseId(course.id);
+    const snapshot = await adminDb
+      .doc(course.path)
+      .collection(subcollectionName)
+      .get();
+
+    return snapshot.docs
+      .map((doc) => {
+        const data = doc.data() as Record<string, unknown>;
+        if (course.schema === "prefix") {
+          return createPrefixResult(course, doc.id, data);
+        }
+        if (course.schema === "postfix") {
+          return createPostfixResult(course, doc.id, data);
+        }
+        return null;
+      })
       .filter((result): result is WordFinderResult => Boolean(result));
   }
 

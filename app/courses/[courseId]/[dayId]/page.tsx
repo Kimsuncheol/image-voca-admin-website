@@ -38,6 +38,7 @@ import Button from "@mui/material/Button";
 import Chip from "@mui/material/Chip";
 import CircularProgress from "@mui/material/CircularProgress";
 import Stack from "@mui/material/Stack";
+import { useRouter } from "next/navigation";
 import { useTranslation } from "react-i18next";
 
 import DerivativeGenerationDialog from "@/components/derivatives/DerivativeGenerationDialog";
@@ -295,6 +296,7 @@ export default function DayWordsPage({
   const { courseId, dayId } = use(params);
 
   const { t } = useTranslation();
+  const router = useRouter();
   const {
     loading: aiAccessLoading,
     settings,
@@ -328,6 +330,7 @@ export default function DayWordsPage({
   // This is a synchronous lookup — no effect needed to detect a missing course.
   const course = getCourseById(courseId);
   const isJlptLevel = courseId.startsWith("JLPT_N");
+  const shouldRedirectToCourseRoot = course?.storageMode === "singleList";
 
   // ── Course type detection ─────────────────────────────────────────
   // WordTable switches its column layout based on these flags.
@@ -893,6 +896,7 @@ export default function DayWordsPage({
     bulkAction,
     bulkDisabledReason,
     bulkLoadingField,
+    course?.id,
     course?.label,
     courseId,
     dayId,
@@ -983,6 +987,11 @@ export default function DayWordsPage({
     t,
   ]);
 
+  useEffect(() => {
+    if (!shouldRedirectToCourseRoot) return;
+    router.replace(`/courses/${courseId}`);
+  }, [courseId, router, shouldRedirectToCourseRoot]);
+
   // ── Firestore data fetch ──────────────────────────────────────────
   // The effect only runs when `course` is resolved; the missing-course case
   // is handled synchronously in the render path below, avoiding cascading
@@ -1015,6 +1024,10 @@ export default function DayWordsPage({
         <Alert severity="error">{"Course not found"}</Alert>
       </PageLayout>
     );
+  }
+
+  if (shouldRedirectToCourseRoot) {
+    return <CourseLoadingView />;
   }
 
   // ── Loading state ─────────────────────────────────────────────────

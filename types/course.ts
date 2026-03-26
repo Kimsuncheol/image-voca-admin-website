@@ -16,17 +16,16 @@ export type CourseId =
   | "FAMOUS_QUOTE";
 
 export type CourseSchema = "standard" | "jlpt" | "collocation" | "famousQuote" | "prefix" | "postfix";
+export type CourseStorageMode = "day" | "flat" | "singleList";
+export type SingleListSubcollectionName = "prefix" | "postfix";
 
 export interface Course {
   id: CourseId;
   label: string;
   path: string;
   schema: CourseSchema;
-  /**
-   * When true the course has no DayN subcollections.
-   * Words / quotes live directly inside the collection root.
-   */
-  flat?: true;
+  storageMode: CourseStorageMode;
+  singleListSubcollection?: SingleListSubcollectionName;
 }
 
 export interface Day {
@@ -48,6 +47,7 @@ export const JLPT_LEVEL_COURSES: Course[] = [
       "voca/pdw9crwerFb2qGFltJJY/course/BKQz1pqPyizbHzi1RxKK/JLPT/xOVnfByLiMVAv40e29db/N1/xRl65Wx4UdpGJ8ZgHk4L",
     ),
     schema: "jlpt",
+    storageMode: "day",
   },
   {
     id: "JLPT_N2",
@@ -56,6 +56,7 @@ export const JLPT_LEVEL_COURSES: Course[] = [
       "voca/pdw9crwerFb2qGFltJJY/course/BKQz1pqPyizbHzi1RxKK/JLPT/xOVnfByLiMVAv40e29db/N2/ik93XYkp9DsdJ4t5T8sG",
     ),
     schema: "jlpt",
+    storageMode: "day",
   },
   {
     id: "JLPT_N3",
@@ -64,6 +65,7 @@ export const JLPT_LEVEL_COURSES: Course[] = [
       "voca/pdw9crwerFb2qGFltJJY/course/BKQz1pqPyizbHzi1RxKK/JLPT/xOVnfByLiMVAv40e29db/N3/8SMrbBhBe6QY6i12GI9Y",
     ),
     schema: "jlpt",
+    storageMode: "day",
   },
   {
     id: "JLPT_N4",
@@ -72,6 +74,7 @@ export const JLPT_LEVEL_COURSES: Course[] = [
       "voca/pdw9crwerFb2qGFltJJY/course/BKQz1pqPyizbHzi1RxKK/JLPT/xOVnfByLiMVAv40e29db/N4/LTlcb3WaGyMByGCesZDu",
     ),
     schema: "jlpt",
+    storageMode: "day",
   },
   {
     id: "JLPT_N5",
@@ -80,18 +83,23 @@ export const JLPT_LEVEL_COURSES: Course[] = [
       "voca/pdw9crwerFb2qGFltJJY/course/BKQz1pqPyizbHzi1RxKK/JLPT/xOVnfByLiMVAv40e29db/N5/doFKMQQhpwGETmpeQY7Z",
     ),
     schema: "jlpt",
+    storageMode: "day",
   },
   {
     id: "JLPT_PREFIX",
     label: "Prefix",
     path: normalizeCoursePath(JLPT_PREFIX_PATH),
     schema: "prefix",
+    storageMode: "singleList",
+    singleListSubcollection: "prefix",
   },
   {
     id: "JLPT_POSTFIX",
     label: "Postfix",
     path: normalizeCoursePath(JLPT_POSTFIX_PATH),
     schema: "postfix",
+    storageMode: "singleList",
+    singleListSubcollection: "postfix",
   },
 ];
 
@@ -101,37 +109,42 @@ export const COURSES: Course[] = [
     label: "CSAT",
     path: normalizeCoursePath(process.env.NEXT_PUBLIC_COURSE_PATH_CSAT),
     schema: "standard",
+    storageMode: "day",
   },
   {
     id: "TOEFL_IELTS",
     label: "TOEFL / IELTS",
     path: normalizeCoursePath(process.env.NEXT_PUBLIC_COURSE_PATH_TOEFL_IELTS),
     schema: "standard",
+    storageMode: "day",
   },
   {
     id: "TOEIC",
     label: "TOEIC",
     path: normalizeCoursePath(process.env.NEXT_PUBLIC_COURSE_PATH_TOEIC),
     schema: "standard",
+    storageMode: "day",
   },
   {
     id: "JLPT",
     label: "JLPT",
     path: normalizeCoursePath(process.env.NEXT_PUBLIC_COURSE_PATH_JLPT),
     schema: "jlpt",
+    storageMode: "day",
   },
   {
     id: "COLLOCATIONS",
     label: "Collocations",
     path: normalizeCoursePath(process.env.NEXT_PUBLIC_COURSE_PATH_COLLOCATION),
     schema: "collocation",
+    storageMode: "day",
   },
   {
     id: "FAMOUS_QUOTE",
     label: "Famous Quote",
     path: normalizeCoursePath(process.env.NEXT_PUBLIC_COURSE_PATH_FAMOUS_QUOTE),
     schema: "famousQuote",
-    flat: true,
+    storageMode: "flat",
   },
 ];
 
@@ -145,6 +158,36 @@ export function isCollocationCourse(id: string): boolean {
 
 export function isFamousQuoteCourse(id: string): boolean {
   return getCourseById(id)?.schema === "famousQuote";
+}
+
+export function isFlatCourse(id: string): boolean {
+  return getCourseById(id)?.storageMode === "flat";
+}
+
+export function isSingleListCourse(id: string): boolean {
+  return getCourseById(id)?.storageMode === "singleList";
+}
+
+export function getSingleListSubcollectionByCourseId(
+  id: string,
+): SingleListSubcollectionName | null {
+  const course = getCourseById(id);
+  if (course?.storageMode !== "singleList") return null;
+  return course.singleListSubcollection ?? null;
+}
+
+export function getSingleListSubcollectionByCoursePath(
+  coursePath: string,
+): SingleListSubcollectionName | null {
+  const normalizedPath = normalizeCoursePath(coursePath);
+  if (!normalizedPath) return null;
+
+  const course =
+    COURSES.find((candidate) => candidate.path === normalizedPath) ??
+    JLPT_LEVEL_COURSES.find((candidate) => candidate.path === normalizedPath);
+
+  if (course?.storageMode !== "singleList") return null;
+  return course.singleListSubcollection ?? null;
 }
 
 export function isJlptCourse(id: string): boolean {

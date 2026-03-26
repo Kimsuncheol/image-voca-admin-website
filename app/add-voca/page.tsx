@@ -61,10 +61,12 @@ import PageLayout from "@/components/layout/PageLayout";
 // ── Types ─────────────────────────────────────────────────────────────
 import {
   getCourseById,
+  getSingleListSubcollectionByCourseId,
   isFamousQuoteCourse,
   isJlptCourse,
   isPrefixCourse,
   isPostfixCourse,
+  isSingleListCourse,
   type CourseId,
 } from "@/types/course";
 import type { JlptWordInput, StandardWordInput } from "@/lib/schemas/vocaSchemas";
@@ -82,7 +84,10 @@ import {
 } from "@/lib/navigationGuard";
 
 // ── Firebase / data helpers ───────────────────────────────────────────
-import { checkDayExists } from "@/lib/firebase/firestore";
+import {
+  checkDayExists,
+  checkSingleListExists,
+} from "@/lib/firebase/firestore";
 import { uploadCsvBackup } from "@/lib/firebase/storage";
 import { getIpaUSUKBatch } from "@/lib/utils/ipaLookup";
 import { supportsDerivativeCourse } from "@/constants/supportedDerivativeCourses";
@@ -259,6 +264,10 @@ export default function AddVocaPage() {
   const isJlpt = isJlptCourse(selectedCourse);
   const isPrefix = isPrefixCourse(selectedCourse);
   const isPostfix = isPostfixCourse(selectedCourse);
+  const isSingleList = isSingleListCourse(selectedCourse);
+  const singleListSubcollection = isSingleList
+    ? getSingleListSubcollectionByCourseId(selectedCourse)
+    : null;
   const standardUploadOptionState = getStandardUploadOptionState({
     selectedCourse,
     imageGenerationEnabled: canUseImageGeneration,
@@ -378,13 +387,18 @@ export default function AddVocaPage() {
 
     uploadingRef.current = true;
 
-    const existsFlags = course.flat
-      ? itemsToUpload.map(() => false)
-      : await Promise.all(
-          itemsToUpload.map((item) =>
-            checkDayExists(course.path, item.dayName),
-          ),
-        );
+    const existsFlags =
+      course.storageMode === "flat"
+        ? itemsToUpload.map(() => false)
+        : course.storageMode === "singleList"
+          ? await Promise.all(
+              itemsToUpload.map(() => checkSingleListExists(course.id, course.path)),
+            )
+          : await Promise.all(
+              itemsToUpload.map((item) =>
+                checkDayExists(course.path, item.dayName),
+              ),
+            );
     const existingDays: string[] = itemsToUpload
       .filter((_, i) => existsFlags[i])
       .map((item) => item.dayName);
@@ -680,7 +694,7 @@ export default function AddVocaPage() {
           body: JSON.stringify({
             coursePath: course.path,
             days: daysToUpload,
-            flat: course.flat ?? false,
+            storageMode: course.storageMode,
           }),
         });
         if (!batchResp.ok) {
@@ -975,6 +989,7 @@ export default function AddVocaPage() {
           onItemsChange={setCsvItems}
           schemaType={schemaType}
           hideDayInput={isFamousQuote || isPrefix || isPostfix}
+          hiddenDayName={singleListSubcollection ?? undefined}
           courseLabel={selectedCourseLabel}
           coursePath={
             isFamousQuote
@@ -989,6 +1004,7 @@ export default function AddVocaPage() {
           onItemsChange={setUrlItems}
           schemaType={schemaType}
           hideDayInput={isFamousQuote || isPrefix || isPostfix}
+          hiddenDayName={singleListSubcollection ?? undefined}
           courseLabel={selectedCourseLabel}
         />
       )}

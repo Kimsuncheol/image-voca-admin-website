@@ -10,7 +10,8 @@ import {
   writeBatch,
 } from 'firebase/firestore';
 import { db } from './config';
-import type { Day } from '@/types/course';
+import { requireSingleListSubcollectionByCourseId } from '@/lib/courseStorage';
+import type { CourseId, Day } from '@/types/course';
 import type { Word } from '@/types/word';
 import type { FamousQuoteWord } from '@/types/word';
 
@@ -79,6 +80,27 @@ export async function getDayWords(coursePath: string, dayId: string): Promise<Wo
   })) as Word[];
 }
 
+function getSingleListCollection(courseId: CourseId, coursePath: string) {
+  const subcollection = requireSingleListSubcollectionByCourseId(courseId);
+  return collection(doc(db, coursePath), subcollection);
+}
+
+export async function getSingleListWords(
+  courseId: CourseId,
+  coursePath: string,
+): Promise<Word[]> {
+  console.log('[Firestore] getSingleListWords path:', coursePath);
+
+  const wordsCollection = getSingleListCollection(courseId, coursePath);
+  const snapshot = await getDocs(wordsCollection);
+
+  console.log('[Firestore] getSingleListWords snapshot size:', snapshot.size);
+  return snapshot.docs.map((d) => ({
+    id: d.id,
+    ...d.data(),
+  })) as Word[];
+}
+
 export async function updateWordImageUrl(
   coursePath: string,
   dayId: string,
@@ -86,6 +108,19 @@ export async function updateWordImageUrl(
   imageUrl: string,
 ): Promise<void> {
   const wordRef = doc(collection(doc(db, coursePath), dayId), wordId);
+  await updateDoc(wordRef, { imageUrl });
+}
+
+export async function updateSingleListWordImageUrl(
+  courseId: CourseId,
+  coursePath: string,
+  wordId: string,
+  imageUrl: string,
+): Promise<void> {
+  const wordRef = doc(
+    getSingleListCollection(courseId, coursePath),
+    wordId,
+  );
   await updateDoc(wordRef, { imageUrl });
 }
 
@@ -107,6 +142,27 @@ export async function updateWordField(
   await updateDoc(wordRef, { [field]: value });
 }
 
+export async function updateSingleListWordField(
+  courseId: CourseId,
+  coursePath: string,
+  wordId: string,
+  field:
+    | 'pronunciation'
+    | 'pronunciationRoman'
+    | 'example'
+    | 'exampleRoman'
+    | 'translation'
+    | 'translationEnglish'
+    | 'translationKorean',
+  value: string,
+): Promise<void> {
+  const wordRef = doc(
+    getSingleListCollection(courseId, coursePath),
+    wordId,
+  );
+  await updateDoc(wordRef, { [field]: value });
+}
+
 export async function updateWordDerivatives(
   coursePath: string,
   dayId: string,
@@ -114,6 +170,19 @@ export async function updateWordDerivatives(
   derivative: { word: string; meaning: string }[],
 ): Promise<void> {
   const wordRef = doc(collection(doc(db, coursePath), dayId), wordId);
+  await updateDoc(wordRef, { derivative });
+}
+
+export async function updateSingleListWordDerivatives(
+  courseId: CourseId,
+  coursePath: string,
+  wordId: string,
+  derivative: { word: string; meaning: string }[],
+): Promise<void> {
+  const wordRef = doc(
+    getSingleListCollection(courseId, coursePath),
+    wordId,
+  );
   await updateDoc(wordRef, { derivative });
 }
 
@@ -140,6 +209,32 @@ export async function updateWordTextField(
   await updateDoc(wordRef, { [field]: value });
 }
 
+export async function updateSingleListWordTextField(
+  courseId: CourseId,
+  coursePath: string,
+  wordId: string,
+  field:
+    | 'word'
+    | 'prefix'
+    | 'postfix'
+    | 'meaning'
+    | 'collocation'
+    | 'meaningEnglish'
+    | 'meaningKorean'
+    | 'example'
+    | 'exampleRoman'
+    | 'translation'
+    | 'translationEnglish'
+    | 'translationKorean',
+  value: string,
+): Promise<void> {
+  const wordRef = doc(
+    getSingleListCollection(courseId, coursePath),
+    wordId,
+  );
+  await updateDoc(wordRef, { [field]: value });
+}
+
 export async function updateFlatCourseField(
   coursePath: string,
   wordId: string,
@@ -158,6 +253,15 @@ export async function checkDayExists(coursePath: string, dayId: string): Promise
   const courseRef = doc(db, coursePath);
   const dayCollection = collection(courseRef, dayId);
   const snap = await getDocs(query(dayCollection, limit(1)));
+  return !snap.empty;
+}
+
+export async function checkSingleListExists(
+  courseId: CourseId,
+  coursePath: string,
+): Promise<boolean> {
+  const wordsCollection = getSingleListCollection(courseId, coursePath);
+  const snap = await getDocs(query(wordsCollection, limit(1)));
   return !snap.empty;
 }
 

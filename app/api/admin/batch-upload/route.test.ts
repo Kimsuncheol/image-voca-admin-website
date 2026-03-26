@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { expect, test, vi } from "vitest";
+import { getCourseById } from "@/types/course";
 
 vi.mock("@/lib/firebase/admin", () => ({
   adminAuth: {
@@ -180,7 +181,7 @@ test("batch upload writes non-flat word docs using provided ids", async () => {
   const response = await handler(
     createRequest({
       coursePath: "courses/toeic",
-      flat: false,
+      storageMode: "day",
       days: [
         {
           dayName: "Day3",
@@ -263,7 +264,7 @@ test("batch upload keeps famous quote writes on auto-generated ids", async () =>
   const response = await handler(
     createRequest({
       coursePath: "quotes",
-      flat: true,
+      storageMode: "flat",
       days: [
         {
           dayName: "ignored",
@@ -288,4 +289,39 @@ test("batch upload keeps famous quote writes on auto-generated ids", async () =>
     author: "Jobs",
     translation: "배고프게 살아라.",
   });
+});
+
+test("batch upload writes prefix docs into the fixed prefix subcollection", async () => {
+  const { handler, state } = createFakeDependencies();
+  const prefixPath = getCourseById("JLPT_PREFIX")?.path;
+  expect(prefixPath).toBeTruthy();
+
+  const response = await handler(
+    createRequest({
+      coursePath: prefixPath,
+      storageMode: "singleList",
+      days: [
+        {
+          dayName: "prefix",
+          words: [
+            {
+              id: "JLPT_PREFIX_prefix_1",
+              prefix: "再-",
+              meaningEnglish: "again",
+            },
+          ],
+        },
+      ],
+    }),
+  );
+  const payload = (await response.json()) as {
+    results: Array<{ dayName: string; count: number; error?: string }>;
+  };
+
+  expect(response.status).toBe(200);
+  expect(payload.results).toEqual([{ dayName: "prefix", count: 1 }]);
+  expect(
+    [...(state.dayDocs.get(`${prefixPath}::prefix`)?.keys() ?? [])],
+  ).toEqual(["JLPT_PREFIX_prefix_1"]);
+  expect(state.courseMeta.get(prefixPath ?? "")).toBeUndefined();
 });

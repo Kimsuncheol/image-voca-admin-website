@@ -86,6 +86,16 @@ function getWordFinderType(
   return "standard";
 }
 
+function buildCourseWordSourceHref(
+  courseId: CourseId,
+  wordId: string,
+  dayId?: string,
+): string {
+  return dayId
+    ? `/courses/${courseId}/${dayId}#${wordId}`
+    : `/courses/${courseId}#${wordId}`;
+}
+
 export function adaptCourseWordToWordFinderResult(
   args: AdaptCourseWordToWordFinderResultArgs,
 ): WordFinderResult {
@@ -135,7 +145,7 @@ export function adaptCourseWordToWordFinderResult(
       coursePath,
       schemaVariant: "collocation",
       dayId: dayId ?? null,
-      sourceHref: `/courses/${courseId}/${dayId ?? ""}#${collocation.id}`,
+      sourceHref: buildCourseWordSourceHref(courseId, collocation.id, dayId),
       type,
       primaryText: collocation.collocation,
       secondaryText: collocation.explanation || null,
@@ -163,7 +173,7 @@ export function adaptCourseWordToWordFinderResult(
       coursePath,
       schemaVariant: "jlpt",
       dayId: dayId ?? null,
-      sourceHref: `/courses/${courseId}/${dayId ?? ""}#${jlpt.id}`,
+      sourceHref: buildCourseWordSourceHref(courseId, jlpt.id, dayId),
       type,
       primaryText: jlpt.word,
       secondaryText: meaningSummary || null,
@@ -193,7 +203,7 @@ export function adaptCourseWordToWordFinderResult(
       coursePath,
       schemaVariant: "prefix",
       dayId: dayId ?? null,
-      sourceHref: `/courses/${courseId}/${dayId ?? ""}#${p.id}`,
+      sourceHref: buildCourseWordSourceHref(courseId, p.id, dayId),
       type,
       primaryText: p.prefix,
       secondaryText: meaningSummary || null,
@@ -224,7 +234,7 @@ export function adaptCourseWordToWordFinderResult(
       coursePath,
       schemaVariant: "postfix",
       dayId: dayId ?? null,
-      sourceHref: `/courses/${courseId}/${dayId ?? ""}#${p.id}`,
+      sourceHref: buildCourseWordSourceHref(courseId, p.id, dayId),
       type,
       primaryText: p.postfix,
       secondaryText: meaningSummary || null,
@@ -251,7 +261,7 @@ export function adaptCourseWordToWordFinderResult(
     coursePath,
     schemaVariant: "standard",
     dayId: dayId ?? null,
-    sourceHref: `/courses/${courseId}/${dayId ?? ""}#${standard.id}`,
+    sourceHref: buildCourseWordSourceHref(courseId, standard.id, dayId),
     type,
     primaryText: standard.word,
     secondaryText: standard.meaning || null,

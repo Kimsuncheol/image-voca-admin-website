@@ -62,6 +62,7 @@ interface UrlUploadTabProps {
   schemaType?: SchemaType;
   /** Day 입력 필드를 숨기고 UUID를 자동 할당합니다 (Famous Quote용) */
   hideDayInput?: boolean;
+  hiddenDayName?: string;
   courseLabel?: string;
 }
 
@@ -71,6 +72,7 @@ export default function UrlUploadTab({
   onItemsChange,
   schemaType,
   hideDayInput,
+  hiddenDayName,
 }: UrlUploadTabProps) {
   // Google Sheets OAuth 훅
   const {
@@ -120,7 +122,9 @@ export default function UrlUploadTab({
    */
   const handleAddUrl = async () => {
     if (!urlInput.trim() || !token || (!hideDayInput && !dayInput)) return;
-    const effectiveDayName = hideDayInput ? crypto.randomUUID() : dayInput;
+    const effectiveDayName = hideDayInput
+      ? hiddenDayName || crypto.randomUUID()
+      : dayInput;
     setUrlFetchError("");
     setUrlValidationError(null);
     setFetchingUrl(true);
@@ -252,6 +256,7 @@ export default function UrlUploadTab({
         initialData={activeIndex >= 0 ? items[activeIndex]?.data : null}
         schemaType={schemaType}
         hideDayInput={hideDayInput}
+        hiddenDayName={hiddenDayName}
         existingDayNames={items
           .filter((_, i) => i !== activeIndex)
           .map((i) => i.dayName)

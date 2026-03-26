@@ -47,6 +47,8 @@ interface UploadModalProps {
    * Used for Famous Quote uploads which have no day concept.
    */
   hideDayInput?: boolean;
+  /** Optional fixed target used when the day input is hidden. */
+  hiddenDayName?: string;
   /** Selected course label used to validate the uploaded filename. */
   courseLabel?: string;
 }
@@ -80,11 +82,16 @@ export default function UploadModal({
   schemaType,
   existingDayNames = [],
   hideDayInput = false,
+  hiddenDayName,
   courseLabel,
 }: UploadModalProps) {
   const { t } = useTranslation();
+  const getHiddenDayName = useCallback(
+    () => hiddenDayName || initialDayName || crypto.randomUUID(),
+    [hiddenDayName, initialDayName],
+  );
   const [dayName, setDayName] = useState(
-    hideDayInput ? initialDayName || crypto.randomUUID() : initialDayName,
+    hideDayInput ? getHiddenDayName() : initialDayName,
   );
   const [parseResult, setParseResult] = useState<ParseResult | null>(
     initialData,
@@ -115,10 +122,10 @@ export default function UploadModal({
   });
 
   const handleConfirm = () => {
-    // When day input is hidden (Famous Quote), fall back to a UUID if dayName
-    // was never set (e.g. component mounted before hideDayInput became true).
+    // When the day input is hidden, either use the fixed hidden target
+    // (single-list uploads) or fall back to a UUID (flat uploads).
     const effectiveDayName = hideDayInput
-      ? dayName || initialDayName || crypto.randomUUID()
+      ? dayName || getHiddenDayName()
       : dayName;
 
     if (
@@ -162,7 +169,7 @@ export default function UploadModal({
 
   const handleReset = () => {
     setDayName(
-      hideDayInput ? initialDayName || crypto.randomUUID() : initialDayName,
+      hideDayInput ? getHiddenDayName() : initialDayName,
     );
     setParseResult(initialData ?? null);
     setSelectedFile(null);

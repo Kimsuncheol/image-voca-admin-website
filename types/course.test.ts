@@ -28,4 +28,11 @@ describe("JLPT affix course paths", () => {
       "voca/pdw9crwerFb2qGFltJJY/course/BKQz1pqPyizbHzi1RxKK/JLPT/xOVnfByLiMVAv40e29db/postfix/nxvs4uhsrxb3myl4OwVi",
     );
   });
+
+  it("marks affix courses as single-list storage", () => {
+    expect(getCourseById("JLPT_PREFIX")?.storageMode).toBe("singleList");
+    expect(getCourseById("JLPT_POSTFIX")?.storageMode).toBe("singleList");
+    expect(getCourseById("JLPT_PREFIX")?.singleListSubcollection).toBe("prefix");
+    expect(getCourseById("JLPT_POSTFIX")?.singleListSubcollection).toBe("postfix");
+  });
 });

@@ -40,6 +40,7 @@ interface CsvUploadTabProps {
   onItemsChange: (items: CsvItem[]) => void;
   schemaType?: SchemaType;
   hideDayInput?: boolean;
+  hiddenDayName?: string;
   coursePath?: string;
   courseLabel?: string;
 }
@@ -62,6 +63,7 @@ export default function CsvUploadTab({
   onItemsChange,
   schemaType,
   hideDayInput,
+  hiddenDayName,
   coursePath,
   courseLabel,
 }: CsvUploadTabProps) {
@@ -269,6 +271,7 @@ export default function CsvUploadTab({
         initialData={activeIndex >= 0 ? items[activeIndex]?.data : null}
         schemaType={schemaType}
         hideDayInput={hideDayInput}
+        hiddenDayName={hiddenDayName}
         courseLabel={courseLabel}
         existingDayNames={items
           .filter((_, i) => i !== activeIndex)

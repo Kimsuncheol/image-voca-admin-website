@@ -21,6 +21,7 @@ describe("validateUploadCourse", () => {
       label: "TOEIC",
       path: "   ",
       schema: "standard",
+      storageMode: "day",
     };
 
     expect(validateUploadCourse(blankCourse)).toEqual({
