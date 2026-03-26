@@ -7,6 +7,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import DerivativeEditDialog from "./DerivativeEditDialog";
 import { requestDerivativePreview } from "@/lib/derivativeGeneration";
 
+const fetchMock = vi.fn<typeof fetch>();
+
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({
     t: (key: string, fallback?: string, options?: { count?: number }) => {
@@ -17,6 +19,7 @@ vi.mock("react-i18next", () => ({
       const labels: Record<string, string> = {
         "words.editDerivativesTitle": "Edit derivatives",
         "words.generateDerivatives": "Generate derivatives",
+        "words.generateMeanings": "Generate meanings",
         "words.addDerivative": "Add derivative",
         "words.applySelectedDerivatives": "Apply selected",
         "words.derivativePreviewLoading": "Detecting adjective derivatives...",
@@ -86,6 +89,22 @@ function findButtonByText(text: string): HTMLButtonElement | null {
   );
 }
 
+function findButtonByAriaLabel(label: string): HTMLButtonElement | null {
+  return (
+    (Array.from(document.querySelectorAll("button")).find(
+      (button) => button.getAttribute("aria-label") === label,
+    ) as HTMLButtonElement | undefined) ?? null
+  );
+}
+
+function findButtonsByAriaLabelPrefix(prefix: string): HTMLButtonElement[] {
+  return Array.from(document.querySelectorAll("button")).filter(
+    (button): button is HTMLButtonElement =>
+      button instanceof HTMLButtonElement &&
+      (button.getAttribute("aria-label") ?? "").startsWith(prefix),
+  );
+}
+
 function getTextInputs(): HTMLInputElement[] {
   return Array.from(document.querySelectorAll("input")).filter(
     (input): input is HTMLInputElement => input instanceof HTMLInputElement && input.type !== "checkbox",
@@ -129,6 +148,7 @@ describe("DerivativeEditDialog", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.stubGlobal("fetch", fetchMock);
     (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT =
       true;
   });
@@ -154,6 +174,7 @@ describe("DerivativeEditDialog", () => {
     );
 
     expect(findButtonByText("Generate derivatives")).toBeNull();
+    expect(findButtonsByAriaLabelPrefix("Generate meanings:")).toHaveLength(0);
 
     root.rerender(
       <DerivativeEditDialog
@@ -169,6 +190,24 @@ describe("DerivativeEditDialog", () => {
     );
 
     expect(findButtonByText("Generate derivatives")).not.toBeNull();
+  });
+
+  it("renders inline meaning actions for rows that already have meanings", () => {
+    root = renderDialog(
+      <DerivativeEditDialog
+        open
+        courseId="TOEIC"
+        baseWord="care"
+        baseMeaning="attention"
+        initial={[{ word: "careful", meaning: "showing caution" }]}
+        canGenerate
+        onClose={() => {}}
+        onSave={() => {}}
+      />,
+    );
+
+    expect(findButtonByAriaLabel("Generate meanings: careful")).not.toBeNull();
+    expect(findButtonsByAriaLabelPrefix("Generate meanings:")).toHaveLength(1);
   });
 
   it("renders loading state while preview generation is in flight", async () => {
@@ -350,6 +389,371 @@ describe("DerivativeEditDialog", () => {
       { word: "useful", meaning: "helpful or practical" },
       { word: "usable", meaning: "fit to be used" },
     ]);
+  });
+
+  it("fills only the targeted row and does not overwrite other rows", async () => {
+    const onSave = vi.fn().mockResolvedValue(undefined);
+    fetchMock.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          word: "careful",
+          meaning: "giving close attention",
+        }),
+        {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        },
+      ),
+    );
+
+    root = renderDialog(
+      <DerivativeEditDialog
+        open
+        courseId="TOEIC"
+        baseWord="care"
+        baseMeaning="attention"
+        initial={[
+          { word: "careful", meaning: "" },
+          { word: "usable", meaning: "" },
+          { word: "useful", meaning: "already there" },
+        ]}
+        canGenerate
+        onClose={() => {}}
+        onSave={onSave}
+      />,
+    );
+
+    await act(async () => {
+      findButtonByAriaLabel("Generate meanings: careful")?.click();
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith("/api/admin/naver-dict/meaning", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ word: "careful" }),
+    });
+
+    const values = getTextInputs().map((input) => input.value);
+    expect(values).toContain("giving close attention");
+    expect(values).toContain("");
+    expect(values).toContain("already there");
+
+    await act(async () => {
+      findButtonByText("Save")?.click();
+    });
+
+    expect(onSave).toHaveBeenCalledWith([
+      { word: "careful", meaning: "giving close attention" },
+      { word: "usable", meaning: "" },
+      { word: "useful", meaning: "already there" },
+    ]);
+  });
+
+  it("shows a success message for the targeted row", async () => {
+    fetchMock.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          word: "careful",
+          meaning: "giving close attention",
+        }),
+        {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        },
+      ),
+    );
+
+    root = renderDialog(
+      <DerivativeEditDialog
+        open
+        courseId="TOEIC"
+        baseWord="care"
+        baseMeaning="attention"
+        initial={[
+          { word: "careful", meaning: "" },
+          { word: "usable", meaning: "" },
+        ]}
+        canGenerate
+        onClose={() => {}}
+        onSave={() => {}}
+      />,
+    );
+
+    await act(async () => {
+      findButtonByAriaLabel("Generate meanings: careful")?.click();
+    });
+
+    expect(document.body.textContent).toContain(
+      'Filled the meaning for "careful".',
+    );
+  });
+
+  it("shows an error when no exact dictionary meaning is found for the row", async () => {
+    fetchMock.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          word: "careful",
+          meaning: null,
+        }),
+        {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        },
+      ),
+    );
+
+    root = renderDialog(
+      <DerivativeEditDialog
+        open
+        courseId="TOEIC"
+        baseWord="care"
+        baseMeaning="attention"
+        initial={[{ word: "careful", meaning: "" }]}
+        canGenerate
+        onClose={() => {}}
+        onSave={() => {}}
+      />,
+    );
+
+    await act(async () => {
+      findButtonByAriaLabel("Generate meanings: careful")?.click();
+    });
+
+    expect(document.body.textContent).toContain(
+      'No exact dictionary meaning was found for "careful".',
+    );
+  });
+
+  it("shows an API error message when the single lookup returns an error", async () => {
+    fetchMock.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          word: "careful",
+          meaning: null,
+          error: "Lookup failed.",
+        }),
+        {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        },
+      ),
+    );
+
+    root = renderDialog(
+      <DerivativeEditDialog
+        open
+        courseId="TOEIC"
+        baseWord="care"
+        baseMeaning="attention"
+        initial={[{ word: "careful", meaning: "" }]}
+        canGenerate
+        onClose={() => {}}
+        onSave={() => {}}
+      />,
+    );
+
+    await act(async () => {
+      findButtonByAriaLabel("Generate meanings: careful")?.click();
+    });
+
+    expect(document.body.textContent).toContain("Lookup failed.");
+  });
+
+  it("keeps the inline meaning action mounted for rows with existing meanings", () => {
+    root = renderDialog(
+      <DerivativeEditDialog
+        open
+        courseId="TOEIC"
+        baseWord="care"
+        baseMeaning="attention"
+        initial={[
+          { word: "careful", meaning: "" },
+          { word: "usable", meaning: "fit to be used" },
+          { word: "", meaning: "ignored" },
+        ]}
+        canGenerate
+        onClose={() => {}}
+        onSave={() => {}}
+      />,
+    );
+
+    expect(findButtonByAriaLabel("Generate meanings: careful")).not.toBeNull();
+    expect(findButtonByAriaLabel("Generate meanings: usable")).not.toBeNull();
+    expect(findButtonsByAriaLabelPrefix("Generate meanings:")).toHaveLength(2);
+  });
+
+  it("overwrites an existing meaning when the inline action succeeds", async () => {
+    fetchMock.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          word: "usable",
+          meaning: "suitable for use",
+        }),
+        {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        },
+      ),
+    );
+
+    root = renderDialog(
+      <DerivativeEditDialog
+        open
+        courseId="TOEIC"
+        baseWord="use"
+        baseMeaning="purpose"
+        initial={[{ word: "usable", meaning: "fit to be used" }]}
+        canGenerate
+        onClose={() => {}}
+        onSave={() => {}}
+      />,
+    );
+
+    await act(async () => {
+      findButtonByAriaLabel("Generate meanings: usable")?.click();
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith("/api/admin/naver-dict/meaning", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ word: "usable" }),
+    });
+    expect(getTextInputs().map((input) => input.value)).toContain("suitable for use");
+    expect(document.body.textContent).toContain('Filled the meaning for "usable".');
+  });
+
+  it("does not clear an existing meaning when the lookup returns null", async () => {
+    fetchMock.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          word: "usable",
+          meaning: null,
+        }),
+        {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        },
+      ),
+    );
+
+    root = renderDialog(
+      <DerivativeEditDialog
+        open
+        courseId="TOEIC"
+        baseWord="use"
+        baseMeaning="purpose"
+        initial={[{ word: "usable", meaning: "fit to be used" }]}
+        canGenerate
+        onClose={() => {}}
+        onSave={() => {}}
+      />,
+    );
+
+    await act(async () => {
+      findButtonByAriaLabel("Generate meanings: usable")?.click();
+    });
+
+    expect(getTextInputs().map((input) => input.value)).toContain("fit to be used");
+    expect(document.body.textContent).toContain(
+      'No exact dictionary meaning was found for "usable".',
+    );
+  });
+
+  it("does not overwrite an existing meaning when the lookup returns an error", async () => {
+    fetchMock.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          word: "usable",
+          meaning: null,
+          error: "Lookup failed.",
+        }),
+        {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        },
+      ),
+    );
+
+    root = renderDialog(
+      <DerivativeEditDialog
+        open
+        courseId="TOEIC"
+        baseWord="use"
+        baseMeaning="purpose"
+        initial={[{ word: "usable", meaning: "fit to be used" }]}
+        canGenerate
+        onClose={() => {}}
+        onSave={() => {}}
+      />,
+    );
+
+    await act(async () => {
+      findButtonByAriaLabel("Generate meanings: usable")?.click();
+    });
+
+    expect(getTextInputs().map((input) => input.value)).toContain("fit to be used");
+    expect(document.body.textContent).toContain("Lookup failed.");
+  });
+
+  it("renders inline meaning actions only for rows with words", () => {
+    root = renderDialog(
+      <DerivativeEditDialog
+        open
+        courseId="TOEIC"
+        baseWord="care"
+        baseMeaning="attention"
+        initial={[
+          { word: "careful", meaning: "" },
+          { word: "usable", meaning: "fit to be used" },
+          { word: "", meaning: "" },
+        ]}
+        canGenerate
+        onClose={() => {}}
+        onSave={() => {}}
+      />,
+    );
+
+    expect(findButtonByAriaLabel("Generate meanings: careful")).not.toBeNull();
+    expect(findButtonByAriaLabel("Generate meanings: usable")).not.toBeNull();
+    expect(findButtonsByAriaLabelPrefix("Generate meanings:")).toHaveLength(2);
+  });
+
+  it("keeps unrelated rows editable while one inline meaning request is loading", async () => {
+    const deferred = createDeferred<Response>();
+    fetchMock.mockReturnValueOnce(deferred.promise);
+
+    root = renderDialog(
+      <DerivativeEditDialog
+        open
+        courseId="TOEIC"
+        baseWord="care"
+        baseMeaning="attention"
+        initial={[
+          { word: "careful", meaning: "" },
+          { word: "usable", meaning: "" },
+        ]}
+        canGenerate
+        onClose={() => {}}
+        onSave={() => {}}
+      />,
+    );
+
+    await act(async () => {
+      findButtonByAriaLabel("Generate meanings: careful")?.click();
+    });
+
+    expect(findButtonByAriaLabel("Generate meanings: careful")?.disabled).toBe(true);
+    expect(findButtonByAriaLabel("Generate meanings: usable")?.disabled).toBe(false);
+
+    await act(async () => {
+      deferred.resolve(
+        new Response(JSON.stringify({ word: "careful", meaning: null }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
+      );
+      await deferred.promise;
+    });
   });
 
   it("resets edited rows and preview state when reopened", async () => {

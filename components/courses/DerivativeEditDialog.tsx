@@ -9,6 +9,7 @@ import DialogActions from "@mui/material/DialogActions";
 import Button from "@mui/material/Button";
 import TextField from "@mui/material/TextField";
 import IconButton from "@mui/material/IconButton";
+import InputAdornment from "@mui/material/InputAdornment";
 import Box from "@mui/material/Box";
 import Checkbox from "@mui/material/Checkbox";
 import Chip from "@mui/material/Chip";
@@ -35,6 +36,12 @@ export interface DerivativeItem {
   meaning: string;
 }
 
+interface MeaningLookupResponse {
+  word: string;
+  meaning: string | null;
+  error?: string;
+}
+
 type DerivativeSelectionMap = Record<string, Record<string, Record<string, boolean>>>;
 
 interface DerivativeEditDialogProps {
@@ -53,6 +60,14 @@ const PREVIEW_ITEM_ID = "derivative-edit-dialog";
 
 function cloneDerivativeItems(items: DerivativeItem[]): DerivativeItem[] {
   return items.map((item) => ({ ...item }));
+}
+
+function hasTrimmedText(value: string | null | undefined): value is string {
+  return typeof value === "string" && value.trim().length > 0;
+}
+
+function buildMeaningLookupKey(word: string): string {
+  return normalizeVocabularyWord(word);
 }
 
 function buildInitialSelectionMap(
@@ -129,6 +144,13 @@ export default function DerivativeEditDialog({
   const [previewItems, setPreviewItems] = useState<DerivativePreviewItemResult[]>([]);
   const [previewError, setPreviewError] = useState("");
   const [selectionMap, setSelectionMap] = useState<DerivativeSelectionMap>({});
+  const [meaningGenerationRowIndex, setMeaningGenerationRowIndex] = useState<number | null>(
+    null,
+  );
+  const [meaningGenerationMessage, setMeaningGenerationMessage] = useState<{
+    type: "info" | "warning" | "error";
+    text: string;
+  } | null>(null);
   const [saveError, setSaveError] = useState("");
   const [saving, setSaving] = useState(false);
 
@@ -139,6 +161,8 @@ export default function DerivativeEditDialog({
     setPreviewItems([]);
     setPreviewError("");
     setSelectionMap({});
+    setMeaningGenerationRowIndex(null);
+    setMeaningGenerationMessage(null);
     setSaveError("");
     setSaving(false);
   }, [initial, open]);
@@ -251,6 +275,74 @@ export default function DerivativeEditDialog({
     );
   };
 
+  const handleGenerateMeaning = async (index: number) => {
+    const currentItem = items[index];
+    if (!currentItem || !hasTrimmedText(currentItem.word)) {
+      return;
+    }
+
+    const word = currentItem.word.trim();
+    setMeaningGenerationRowIndex(index);
+    setMeaningGenerationMessage(null);
+
+    try {
+      const response = await fetch("/api/admin/naver-dict/meaning", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ word }),
+      });
+      const payload = (await response.json()) as MeaningLookupResponse | { error?: string } | undefined;
+
+      if (
+        !response.ok ||
+        !payload ||
+        typeof payload !== "object" ||
+        !("word" in payload) ||
+        typeof payload.word !== "string" ||
+        !("meaning" in payload)
+      ) {
+        throw new Error(
+          payload && typeof payload === "object" && "error" in payload
+            ? (payload.error as string | undefined) || t("words.generateActionError")
+            : t("words.generateActionError"),
+        );
+      }
+
+      const lookup = payload;
+
+      if (lookup && hasTrimmedText(lookup.meaning)) {
+        const resolvedMeaning = lookup.meaning;
+        setItems((prev) =>
+          prev.map((item, itemIndex) =>
+            itemIndex === index
+              ? { ...item, meaning: resolvedMeaning }
+              : item,
+          ),
+        );
+        setMeaningGenerationMessage({
+          type: "info",
+          text: `Filled the meaning for "${word}".`,
+        });
+        return;
+      }
+
+      setMeaningGenerationMessage({
+        type: lookup.error ? "error" : "warning",
+        text: lookup.error || `No exact dictionary meaning was found for "${word}".`,
+      });
+    } catch (error) {
+      setMeaningGenerationMessage({
+        type: "error",
+        text:
+          error instanceof Error
+            ? error.message
+            : t("words.generateActionError"),
+      });
+    } finally {
+      setMeaningGenerationRowIndex(null);
+    }
+  };
+
   const handleSave = async () => {
     setSaveError("");
     setSaving(true);
@@ -299,7 +391,7 @@ export default function DerivativeEditDialog({
               onClick={() => {
                 void handleGenerate();
               }}
-              disabled={previewLoading || saving}
+              disabled={previewLoading || saving || meaningGenerationRowIndex !== null}
             >
               {t("words.generateDerivatives")}
             </Button>
@@ -308,6 +400,11 @@ export default function DerivativeEditDialog({
       </DialogTitle>
       <DialogContent>
         <Stack spacing={2} sx={{ mt: 1 }}>
+          {meaningGenerationMessage ? (
+            <Alert severity={meaningGenerationMessage.type}>
+              {meaningGenerationMessage.text}
+            </Alert>
+          ) : null}
           {saveError ? <Alert severity="error">{saveError}</Alert> : null}
 
           <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
@@ -326,6 +423,30 @@ export default function DerivativeEditDialog({
                   value={item.meaning}
                   onChange={(event) => handleChange(index, "meaning", event.target.value)}
                   sx={{ flex: 1 }}
+                  slotProps={{
+                    input: {
+                      endAdornment:
+                        hasTrimmedText(item.word) ? (
+                          <InputAdornment position="end">
+                            <IconButton
+                              size="small"
+                              edge="end"
+                              aria-label={`${t("words.generateMeanings", "Generate meanings")}: ${item.word.trim()}`}
+                              onClick={() => {
+                                void handleGenerateMeaning(index);
+                              }}
+                              disabled={saving || meaningGenerationRowIndex === index}
+                            >
+                              {meaningGenerationRowIndex === index ? (
+                                <CircularProgress size={16} color="inherit" />
+                              ) : (
+                                <AutoFixHighIcon fontSize="small" />
+                              )}
+                            </IconButton>
+                          </InputAdornment>
+                        ) : undefined,
+                    },
+                  }}
                 />
                 <IconButton
                   size="small"
@@ -341,6 +462,7 @@ export default function DerivativeEditDialog({
               onClick={handleAdd}
               size="small"
               sx={{ alignSelf: "flex-start" }}
+              disabled={saving || meaningGenerationRowIndex !== null}
             >
               {t("words.addDerivative", "Add derivative")}
             </Button>
@@ -474,7 +596,11 @@ export default function DerivativeEditDialog({
                     <Button
                       variant="contained"
                       onClick={handleApplySelected}
-                      disabled={selectedCandidateCount === 0 || saving}
+                      disabled={
+                        selectedCandidateCount === 0 ||
+                        saving ||
+                        meaningGenerationRowIndex !== null
+                      }
                     >
                       {t("words.applySelectedDerivatives", "Apply selected")}
                     </Button>
@@ -486,10 +612,14 @@ export default function DerivativeEditDialog({
         </Stack>
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose} disabled={saving}>
+        <Button onClick={onClose} disabled={saving || meaningGenerationRowIndex !== null}>
           {t("common.cancel")}
         </Button>
-        <Button onClick={() => void handleSave()} variant="contained" disabled={saving}>
+        <Button
+          onClick={() => void handleSave()}
+          variant="contained"
+          disabled={saving || meaningGenerationRowIndex !== null}
+        >
           {saving ? <CircularProgress size={16} color="inherit" /> : t("common.save")}
         </Button>
       </DialogActions>
