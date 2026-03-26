@@ -457,44 +457,47 @@ export default function AddVocaPage() {
             .map((w) => w.word);
 
           if (wordsNeedingPronunciation.length > 0) {
-            const response = await fetch("/api/admin/jlpt-pronunciation", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ words: wordsNeedingPronunciation }),
-            });
-            const payload = (await response.json()) as {
-              error?: string;
-              items?: Array<{
-                word: string;
-                pronunciation: string;
-                pronunciationRoman: string;
-              }>;
-            };
-
-            if (!response.ok) {
-              throw new Error(payload.error || "JLPT pronunciation lookup failed");
-            }
-
-            const pronunciationMap = new Map(
-              (payload.items ?? []).map((item) => [
-                item.word,
-                {
-                  pronunciation: item.pronunciation,
-                  pronunciationRoman: item.pronunciationRoman,
-                },
-              ]),
-            );
-
-            words = (words as JlptWordInput[]).map((w) => {
-              const resolved = pronunciationMap.get(w.word);
-              if (!resolved) return w;
-
-              return {
-                ...w,
-                pronunciation: resolved.pronunciation,
-                pronunciationRoman: resolved.pronunciationRoman,
+            try {
+              const response = await fetch("/api/admin/jlpt-pronunciation", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ words: wordsNeedingPronunciation }),
+              });
+              const payload = (await response.json()) as {
+                error?: string;
+                items?: Array<{
+                  word: string;
+                  pronunciation: string;
+                  pronunciationRoman: string;
+                }>;
               };
-            });
+
+              if (response.ok && Array.isArray(payload.items)) {
+                const pronunciationMap = new Map(
+                  payload.items.map((item) => [
+                    item.word,
+                    {
+                      pronunciation: item.pronunciation,
+                      pronunciationRoman: item.pronunciationRoman,
+                    },
+                  ]),
+                );
+
+                words = (words as JlptWordInput[]).map((w) => {
+                  const resolved = pronunciationMap.get(w.word);
+                  if (!resolved) return w;
+                  return {
+                    ...w,
+                    pronunciation: resolved.pronunciation,
+                    pronunciationRoman: resolved.pronunciationRoman,
+                  };
+                });
+              } else {
+                console.warn("[JLPT] Pronunciation lookup failed:", payload.error ?? response.status);
+              }
+            } catch (err) {
+              console.warn("[JLPT] Pronunciation lookup error:", err);
+            }
           }
 
           if (options.images && isImageGenerationEnabled) {
