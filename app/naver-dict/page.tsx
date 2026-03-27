@@ -321,6 +321,7 @@ export default function NaverDictPage() {
           </Typography>
         </Box>
 
+        {/*
         <Card>
           <CardContent>
             <Stack spacing={3}>
@@ -353,6 +354,7 @@ export default function NaverDictPage() {
             </Stack>
           </CardContent>
         </Card>
+        */}
 
         <Card>
           <CardContent>
