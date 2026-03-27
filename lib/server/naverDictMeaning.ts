@@ -1,10 +1,22 @@
 import { fetchNaverDictPayload } from "@/lib/server/naverDict";
+import {
+  countBatches,
+  runBatches,
+} from "@/lib/word-derivation/batching";
 
 export interface MeaningLookupItem {
   word: string;
   meaning: string | null;
   error?: string;
 }
+
+interface LookupMeaningsOptions {
+  batchSize?: number;
+  batchConcurrency?: number;
+}
+
+export const DEFAULT_MEANING_LOOKUP_BATCH_SIZE = 24;
+const DEFAULT_MEANING_LOOKUP_BATCH_CONCURRENCY = 2;
 
 function normalizeLookupWord(word: string): string {
   return word.trim().toLowerCase();
@@ -109,7 +121,10 @@ export async function lookupMeaning(word: string): Promise<MeaningLookupItem> {
   }
 }
 
-export async function lookupMeanings(words: readonly string[]): Promise<MeaningLookupItem[]> {
+export async function lookupMeanings(
+  words: readonly string[],
+  options: LookupMeaningsOptions = {},
+): Promise<MeaningLookupItem[]> {
   const uniqueWords = Array.from(
     new Set(
       words
@@ -122,5 +137,30 @@ export async function lookupMeanings(words: readonly string[]): Promise<MeaningL
     return [];
   }
 
-  return Promise.all(uniqueWords.map((word) => lookupMeaning(word)));
+  const batchSize = options.batchSize ?? DEFAULT_MEANING_LOOKUP_BATCH_SIZE;
+  const batchConcurrency =
+    options.batchConcurrency ?? DEFAULT_MEANING_LOOKUP_BATCH_CONCURRENCY;
+
+  const batches = await runBatches(uniqueWords, {
+    batchSize,
+    batchConcurrency,
+    worker: async (batch) => Promise.all(batch.map((word) => lookupMeaning(word))),
+  });
+
+  return batches.flat();
+}
+
+export function getMeaningLookupBatchCount(
+  words: readonly string[],
+  batchSize = DEFAULT_MEANING_LOOKUP_BATCH_SIZE,
+): number {
+  const uniqueWords = Array.from(
+    new Set(
+      words
+        .map((word) => word.trim())
+        .filter((word) => word.length > 0),
+    ),
+  );
+
+  return countBatches(uniqueWords.length, batchSize);
 }

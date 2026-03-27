@@ -315,6 +315,55 @@ test("getAdjectiveDerivativesPreview dedupes repeated candidate validations", as
   assert.equal(meaningLookupCount, 1);
 });
 
+test("getAdjectiveDerivativesPreview batches large discovery and definition workloads", async () => {
+  const discoveryBatchSizes: number[] = [];
+  const definitionBatchSizes: number[] = [];
+
+  await getAdjectiveDerivativesPreview(
+    [
+      {
+        itemId: "item-1",
+        dayName: "Day1",
+        words: Array.from({ length: 55 }, (_, index) => ({
+          word: `word${index}`,
+          meaning: `meaning ${index}`,
+          pronunciation: "",
+          example: "",
+          translation: "",
+        })),
+      },
+    ],
+    "word-sense",
+    {
+      resolveProvider: () =>
+        ({
+          source: "word-sense",
+          discoverCandidatesBatch: async (inputs) => {
+            discoveryBatchSizes.push(inputs.length);
+            return {
+              candidatesByWord: new Map(
+                inputs.map((input) => [input.baseWord, [`${input.baseWord}ful`]]),
+              ),
+              errorsByWord: new Map(),
+            };
+          },
+          getDefinitionsBatch: async (words) => {
+            definitionBatchSizes.push(words.length);
+            return {
+              definitionsByWord: new Map(
+                words.map((word) => [word, { meaning: `${word} meaning` }]),
+              ),
+              errorsByWord: new Map(),
+            };
+          },
+        }) satisfies AdjectiveDerivativeProvider,
+    },
+  );
+
+  assert.deepEqual(discoveryBatchSizes, [24, 24, 7]);
+  assert.deepEqual(definitionBatchSizes, [48, 7]);
+});
+
 test("getAdjectiveDerivativesPreview preserves item, word, and candidate ordering", async () => {
   const result = await getAdjectiveDerivativesPreview(
     [

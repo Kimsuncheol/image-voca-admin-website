@@ -1,6 +1,7 @@
 import "server-only";
 
 import type { AISettings } from "@/lib/aiSettings";
+import { mapWithConcurrencyLimit } from "@/lib/word-derivation/batching";
 import { normalizeVocabularyWord } from "@/lib/word-derivation/shared";
 import type { DerivativeSource } from "@/types/vocabulary";
 
@@ -162,34 +163,6 @@ function appendError(
 ): void {
   const existing = target.get(key) ?? [];
   target.set(key, [...existing, message]);
-}
-
-export async function mapWithConcurrencyLimit<T, R>(
-  items: readonly T[],
-  concurrency: number,
-  worker: (item: T, index: number) => Promise<R>,
-): Promise<R[]> {
-  if (items.length === 0) return [];
-
-  const limit = Math.max(1, Math.floor(concurrency));
-  const results = new Array<R>(items.length);
-  let nextIndex = 0;
-
-  async function runWorker(): Promise<void> {
-    while (true) {
-      const currentIndex = nextIndex;
-      nextIndex += 1;
-      if (currentIndex >= items.length) return;
-
-      results[currentIndex] = await worker(items[currentIndex], currentIndex);
-    }
-  }
-
-  await Promise.all(
-    Array.from({ length: Math.min(limit, items.length) }, () => runWorker()),
-  );
-
-  return results;
 }
 
 async function runDiscoveryBatch(
@@ -613,3 +586,5 @@ export function createDerivativeProvider(
 
   return createWordSenseDerivativeProvider();
 }
+
+export { mapWithConcurrencyLimit };

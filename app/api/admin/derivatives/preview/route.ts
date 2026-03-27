@@ -84,6 +84,8 @@ export async function POST(request: NextRequest) {
   let previewMetrics = {
     uniqueBaseWordCount: 0,
     uniqueCandidateCount: 0,
+    discoveryBatchCount: 0,
+    definitionBatchCount: 0,
   };
   const items = await getAdjectiveDerivativesPreview(
     body.items,
@@ -99,6 +101,8 @@ export async function POST(request: NextRequest) {
     itemCount: body.items.length,
     uniqueBaseWordCount: previewMetrics.uniqueBaseWordCount,
     uniqueCandidateCount: previewMetrics.uniqueCandidateCount,
+    discoveryBatchCount: previewMetrics.discoveryBatchCount,
+    definitionBatchCount: previewMetrics.definitionBatchCount,
     durationMs: Date.now() - startedAt,
   });
   return NextResponse.json({ items } satisfies DerivativePreviewResponse);

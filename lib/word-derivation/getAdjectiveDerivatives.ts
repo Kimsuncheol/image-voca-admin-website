@@ -1,12 +1,23 @@
 import "server-only";
 
 import type { AISettings } from "@/lib/aiSettings";
-import { lookupMeanings } from "@/lib/server/naverDictMeaning";
+import {
+  DEFAULT_MEANING_LOOKUP_BATCH_SIZE,
+  getMeaningLookupBatchCount,
+  lookupMeanings,
+} from "@/lib/server/naverDictMeaning";
+import {
+  countBatches,
+  runBatches,
+} from "@/lib/word-derivation/batching";
 import { filterAdjectiveCandidates } from "@/lib/word-derivation/filterAdjectiveCandidates";
 import {
   createDerivativeProvider,
+  type AdjectiveDefinitionResult,
   type AdjectiveDerivativeProvider,
   type AdjectiveDerivativeDiscoveryInput,
+  type BatchedDefinitionResult,
+  type BatchedDiscoveryResult,
 } from "@/lib/word-derivation/providerAdapters";
 import { isSingleTokenWord, normalizeVocabularyWord } from "@/lib/word-derivation/shared";
 import type {
@@ -31,10 +42,16 @@ interface PreviewDependencies {
 export interface DerivativePreviewMetrics {
   uniqueBaseWordCount: number;
   uniqueCandidateCount: number;
+  discoveryBatchCount: number;
+  definitionBatchCount: number;
 }
 
 const BASE_DISCOVERY_CONCURRENCY = 6;
 const CANDIDATE_DEFINITION_CONCURRENCY = 12;
+const DISCOVERY_BATCH_SIZE = 24;
+const DISCOVERY_BATCH_CONCURRENCY = 2;
+const DEFINITION_BATCH_SIZE = 48;
+const DEFINITION_BATCH_CONCURRENCY = 2;
 
 function usesNaverMeanings(providerApi: AdjectiveDerivativeApi): boolean {
   return providerApi === "datamuse" || providerApi === "free-dictionary";
@@ -152,9 +169,16 @@ async function resolveDefinitionsByProvider(
   provider: AdjectiveDerivativeProvider,
   uniqueCandidateWords: string[],
 ) {
-  return provider.getDefinitionsBatch(uniqueCandidateWords, {
-    concurrency: CANDIDATE_DEFINITION_CONCURRENCY,
+  const results = await runBatches(uniqueCandidateWords, {
+    batchSize: DEFINITION_BATCH_SIZE,
+    batchConcurrency: DEFINITION_BATCH_CONCURRENCY,
+    worker: (batch) =>
+      provider.getDefinitionsBatch(batch, {
+        concurrency: CANDIDATE_DEFINITION_CONCURRENCY,
+      }),
   });
+
+  return mergeDefinitionResults(results);
 }
 
 async function resolveDefinitionsWithNaver(
@@ -198,6 +222,70 @@ async function resolveDefinitionsWithNaver(
   };
 }
 
+function mergeErrors(
+  target: Map<string, string[]>,
+  source: Map<string, string[]>,
+) {
+  source.forEach((errors, key) => {
+    const existing = target.get(key) ?? [];
+    target.set(key, [...existing, ...errors]);
+  });
+}
+
+function mergeDiscoveryResults(
+  results: BatchedDiscoveryResult[],
+): BatchedDiscoveryResult {
+  const candidatesByWord = new Map<string, string[]>();
+  const errorsByWord = new Map<string, string[]>();
+
+  results.forEach((result) => {
+    result.candidatesByWord.forEach((candidates, key) => {
+      candidatesByWord.set(key, candidates);
+    });
+    mergeErrors(errorsByWord, result.errorsByWord);
+  });
+
+  return {
+    candidatesByWord,
+    errorsByWord,
+  };
+}
+
+function mergeDefinitionResults(
+  results: BatchedDefinitionResult[],
+): BatchedDefinitionResult {
+  const definitionsByWord = new Map<string, AdjectiveDefinitionResult | null>();
+  const errorsByWord = new Map<string, string[]>();
+
+  results.forEach((result) => {
+    result.definitionsByWord.forEach((definition, key) => {
+      definitionsByWord.set(key, definition);
+    });
+    mergeErrors(errorsByWord, result.errorsByWord);
+  });
+
+  return {
+    definitionsByWord,
+    errorsByWord,
+  };
+}
+
+async function discoverCandidatesInBatches(
+  provider: AdjectiveDerivativeProvider,
+  inputs: readonly AdjectiveDerivativeDiscoveryInput[],
+) {
+  const results = await runBatches(inputs, {
+    batchSize: DISCOVERY_BATCH_SIZE,
+    batchConcurrency: DISCOVERY_BATCH_CONCURRENCY,
+    worker: (batch) =>
+      provider.discoverCandidatesBatch(batch, {
+        concurrency: BASE_DISCOVERY_CONCURRENCY,
+      }),
+  });
+
+  return mergeDiscoveryResults(results);
+}
+
 export async function getAdjectiveDerivativesPreview(
   items: DerivativePreviewRequestItem[],
   providerApi: AdjectiveDerivativeApi,
@@ -207,9 +295,10 @@ export async function getAdjectiveDerivativesPreview(
     dependencies.resolveProvider?.(providerApi) ??
     createDerivativeProvider(providerApi);
   const discoveryInputs = toDiscoveryInputMap(items);
-  const discoveryResult = await provider.discoverCandidatesBatch(
-    [...discoveryInputs.values()],
-    { concurrency: BASE_DISCOVERY_CONCURRENCY },
+  const discoveryInputList = [...discoveryInputs.values()];
+  const discoveryResult = await discoverCandidatesInBatches(
+    provider,
+    discoveryInputList,
   );
   const filteredCandidatesByBaseWord = buildFilteredCandidateMap(
     discoveryInputs,
@@ -226,6 +315,16 @@ export async function getAdjectiveDerivativesPreview(
   dependencies.onMetrics?.({
     uniqueBaseWordCount: discoveryInputs.size,
     uniqueCandidateCount: uniqueCandidateWords.length,
+    discoveryBatchCount: countBatches(
+      discoveryInputList.length,
+      DISCOVERY_BATCH_SIZE,
+    ),
+    definitionBatchCount: usesNaverMeanings(providerApi)
+      ? getMeaningLookupBatchCount(
+          uniqueCandidateWords,
+          DEFAULT_MEANING_LOOKUP_BATCH_SIZE,
+        )
+      : countBatches(uniqueCandidateWords.length, DEFINITION_BATCH_SIZE),
   });
 
   return items.map((item) => ({
