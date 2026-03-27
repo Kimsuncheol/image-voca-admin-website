@@ -152,7 +152,7 @@ export default function NaverDictPage() {
   const { t } = useTranslation();
   const { user, authLoading } = useAdminGuard();
 
-  const [typesState, setTypesState] = useState<ResponseState>(initialResponseState);
+  // const [typesState, setTypesState] = useState<ResponseState>(initialResponseState);
   const [query, setQuery] = useState("");
   const [dictType, setDictType] = useState(fallbackDictType);
   const [dictTypeOptions, setDictTypeOptions] = useState<string[]>([
@@ -206,11 +206,13 @@ export default function NaverDictPage() {
 
   async function fetchDictTypes(preferDefault: boolean) {
     setDictTypeOptionsLoading(true);
+    /*
     setTypesState((current) => ({
       ...current,
       loading: true,
       error: "",
     }));
+    */
 
     try {
       const response = await fetch("/api/admin/naver-dict/types", {
@@ -220,12 +222,14 @@ export default function NaverDictPage() {
 
       applyDictTypeOptions(payload, preferDefault);
 
+      /*
       setTypesState({
         loading: false,
         status: response.status,
         payload,
         error: "",
       });
+      */
     } catch {
       setDictTypeOptions([...defaultDictTypeOptions]);
       setDictType(fallbackDictType);
@@ -235,12 +239,14 @@ export default function NaverDictPage() {
           "Couldn't load dictionary types. Using the built-in list.",
         ),
       );
+      /*
       setTypesState({
         loading: false,
         status: null,
         payload: null,
         error: t("naverDict.networkError"),
       });
+      */
     } finally {
       setDictTypeOptionsLoading(false);
     }
