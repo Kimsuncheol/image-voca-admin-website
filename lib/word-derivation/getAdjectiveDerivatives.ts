@@ -1,6 +1,7 @@
 import "server-only";
 
 import type { AISettings } from "@/lib/aiSettings";
+import { lookupMeanings } from "@/lib/server/naverDictMeaning";
 import { filterAdjectiveCandidates } from "@/lib/word-derivation/filterAdjectiveCandidates";
 import {
   createDerivativeProvider,
@@ -21,6 +22,9 @@ interface PreviewDependencies {
   resolveProvider?: (
     providerApi: AdjectiveDerivativeApi,
   ) => AdjectiveDerivativeProvider;
+  lookupMeaningsBatch?: (
+    words: readonly string[],
+  ) => Promise<Array<{ word: string; meaning: string | null; error?: string }>>;
   onMetrics?: (metrics: DerivativePreviewMetrics) => void;
 }
 
@@ -31,6 +35,10 @@ export interface DerivativePreviewMetrics {
 
 const BASE_DISCOVERY_CONCURRENCY = 6;
 const CANDIDATE_DEFINITION_CONCURRENCY = 12;
+
+function usesNaverMeanings(providerApi: AdjectiveDerivativeApi): boolean {
+  return providerApi === "datamuse" || providerApi === "free-dictionary";
+}
 
 function toDiscoveryInputMap(
   items: DerivativePreviewRequestItem[],
@@ -140,6 +148,56 @@ function buildWordPreview(
   };
 }
 
+async function resolveDefinitionsByProvider(
+  provider: AdjectiveDerivativeProvider,
+  uniqueCandidateWords: string[],
+) {
+  return provider.getDefinitionsBatch(uniqueCandidateWords, {
+    concurrency: CANDIDATE_DEFINITION_CONCURRENCY,
+  });
+}
+
+async function resolveDefinitionsWithNaver(
+  words: readonly string[],
+  lookupMeaningsBatch: NonNullable<PreviewDependencies["lookupMeaningsBatch"]>,
+) {
+  const items = await lookupMeaningsBatch(words);
+  const definitionsByWord = new Map<
+    string,
+    { meaning: string; attribution?: string } | null
+  >();
+  const errorsByWord = new Map<string, string[]>();
+
+  items.forEach((item) => {
+    const normalizedWord = normalizeVocabularyWord(item.word);
+    if (!normalizedWord) return;
+
+    if (item.meaning) {
+      definitionsByWord.set(normalizedWord, {
+        meaning: item.meaning,
+        attribution: "Naver Dict API",
+      });
+      return;
+    }
+
+    definitionsByWord.set(normalizedWord, null);
+    if (item.error) {
+      errorsByWord.set(normalizedWord, [item.error]);
+    }
+  });
+
+  words.forEach((word) => {
+    const normalizedWord = normalizeVocabularyWord(word);
+    if (!normalizedWord || definitionsByWord.has(normalizedWord)) return;
+    definitionsByWord.set(normalizedWord, null);
+  });
+
+  return {
+    definitionsByWord,
+    errorsByWord,
+  };
+}
+
 export async function getAdjectiveDerivativesPreview(
   items: DerivativePreviewRequestItem[],
   providerApi: AdjectiveDerivativeApi,
@@ -158,10 +216,12 @@ export async function getAdjectiveDerivativesPreview(
     discoveryResult.candidatesByWord,
   );
   const uniqueCandidateWords = buildCandidateWordSet(filteredCandidatesByBaseWord);
-  const definitionResult = await provider.getDefinitionsBatch(
-    uniqueCandidateWords,
-    { concurrency: CANDIDATE_DEFINITION_CONCURRENCY },
-  );
+  const definitionResult = usesNaverMeanings(providerApi)
+    ? await resolveDefinitionsWithNaver(
+        uniqueCandidateWords,
+        dependencies.lookupMeaningsBatch ?? lookupMeanings,
+      )
+    : await resolveDefinitionsByProvider(provider, uniqueCandidateWords);
 
   dependencies.onMetrics?.({
     uniqueBaseWordCount: discoveryInputs.size,

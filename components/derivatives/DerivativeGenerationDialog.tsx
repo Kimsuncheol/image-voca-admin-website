@@ -17,6 +17,8 @@ import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import { useTranslation } from "react-i18next";
 
+import { derivativeDialogContentScrollbarSx } from "@/components/derivatives/dialogContentScrollbarSx";
+import { useTransientScrollbarVisibility } from "@/components/derivatives/useTransientScrollbarVisibility";
 import { normalizeVocabularyWord } from "@/lib/word-derivation/shared";
 import type { DerivativeSelectionMap } from "@/services/vocaSaveService";
 import type { DerivativePreviewItemResult } from "@/types/vocabulary";
@@ -64,6 +66,8 @@ export default function DerivativeGenerationDialog({
 }: DerivativeGenerationDialogProps) {
   const { t } = useTranslation();
   const [selectionMap, setSelectionMap] = useState<DerivativeSelectionMap>({});
+  const { isScrollbarVisible, handleScroll } =
+    useTransientScrollbarVisibility(open && !loading);
 
   useEffect(() => {
     if (!open) return;
@@ -129,7 +133,15 @@ export default function DerivativeGenerationDialog({
       <DialogTitle sx={{ pb: 1, fontWeight: 600 }}>
         {t("words.derivativePreviewTitle", "Confirm adjective derivatives")}
       </DialogTitle>
-      <DialogContent sx={{ pt: "12px !important" }}>
+      <DialogContent
+        data-testid="derivative-generation-dialog-content"
+        data-scrollbar-active={isScrollbarVisible ? "true" : "false"}
+        onScroll={handleScroll}
+        sx={[
+          derivativeDialogContentScrollbarSx,
+          { pt: "12px !important" },
+        ]}
+      >
         <Stack spacing={2}>
           {loading ? (
             <Stack

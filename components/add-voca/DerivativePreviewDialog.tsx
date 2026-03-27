@@ -17,6 +17,8 @@ import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import { useTranslation } from "react-i18next";
 
+import { derivativeDialogContentScrollbarSx } from "@/components/derivatives/dialogContentScrollbarSx";
+import { useTransientScrollbarVisibility } from "@/components/derivatives/useTransientScrollbarVisibility";
 import { normalizeVocabularyWord } from "@/lib/word-derivation/shared";
 import type { DerivativePreviewItemResult } from "@/types/vocabulary";
 import type { DerivativeSelectionMap } from "@/services/vocaSaveService";
@@ -64,6 +66,8 @@ export default function DerivativePreviewDialog({
   const [selectionMap, setSelectionMap] = useState<DerivativeSelectionMap>(() =>
     buildInitialSelectionMap(items),
   );
+  const { isScrollbarVisible, handleScroll } =
+    useTransientScrollbarVisibility(open && !loading);
 
   const totalCandidateCount = useMemo(
     () =>
@@ -120,7 +124,15 @@ export default function DerivativePreviewDialog({
           "Confirm adjective derivatives",
         )}
       </DialogTitle>
-      <DialogContent sx={{ pt: "12px !important" }}>
+      <DialogContent
+        data-testid="add-voca-derivative-preview-dialog-content"
+        data-scrollbar-active={isScrollbarVisible ? "true" : "false"}
+        onScroll={handleScroll}
+        sx={[
+          derivativeDialogContentScrollbarSx,
+          { pt: "12px !important" },
+        ]}
+      >
         <Stack spacing={2}>
           {loading ? (
             <Stack

@@ -108,3 +108,19 @@ export async function lookupMeaning(word: string): Promise<MeaningLookupItem> {
     };
   }
 }
+
+export async function lookupMeanings(words: readonly string[]): Promise<MeaningLookupItem[]> {
+  const uniqueWords = Array.from(
+    new Set(
+      words
+        .map((word) => word.trim())
+        .filter((word) => word.length > 0),
+    ),
+  );
+
+  if (uniqueWords.length === 0) {
+    return [];
+  }
+
+  return Promise.all(uniqueWords.map((word) => lookupMeaning(word)));
+}

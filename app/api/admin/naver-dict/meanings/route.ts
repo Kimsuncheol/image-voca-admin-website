@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { lookupMeaning } from "@/lib/server/naverDictMeaning";
+import { lookupMeanings } from "@/lib/server/naverDictMeaning";
 import { verifySessionUser } from "@/lib/server/sessionUser";
 
 interface MeaningLookupRequestBody {
@@ -39,19 +39,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Invalid data" }, { status: 400 });
   }
 
-  const words = Array.from(
-    new Set(
-      body.words
-        .filter(hasTrimmedText)
-        .map((word) => word.trim())
-        .filter((word) => word.length > 0),
-    ),
-  );
-
+  const words = body.words.filter(hasTrimmedText);
   if (words.length === 0) {
     return NextResponse.json({ items: [] });
   }
 
-  const items = await Promise.all(words.map((word) => lookupMeaning(word)));
+  const items = await lookupMeanings(words);
   return NextResponse.json({ items });
 }

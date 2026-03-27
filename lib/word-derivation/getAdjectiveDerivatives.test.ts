@@ -10,8 +10,9 @@ import {
   type AdjectiveDerivativeProvider,
 } from "./providerAdapters";
 
-test("getAdjectiveDerivativesPreview uses the selected provider only", async () => {
-  const calls: string[] = [];
+test("getAdjectiveDerivativesPreview uses Naver meanings for datamuse candidates", async () => {
+  const providerCalls: string[] = [];
+  const meaningLookupCalls: string[][] = [];
   const result = await getAdjectiveDerivativesPreview(
     [
       {
@@ -31,9 +32,131 @@ test("getAdjectiveDerivativesPreview uses the selected provider only", async () 
     "datamuse",
     {
       resolveProvider: (providerApi) => {
-        calls.push(providerApi);
+        providerCalls.push(providerApi);
         return {
           source: "datamuse",
+          discoverCandidatesBatch: async (inputs) => ({
+            candidatesByWord: new Map(
+              inputs.map((input) => [input.baseWord, ["careful"]]),
+            ),
+            errorsByWord: new Map(),
+          }),
+          getDefinitionsBatch: async () => ({
+            definitionsByWord: new Map(),
+            errorsByWord: new Map(),
+          }),
+        } satisfies AdjectiveDerivativeProvider;
+      },
+      lookupMeaningsBatch: async (words) => {
+        meaningLookupCalls.push([...words]);
+        return words.map((word) => ({
+          word,
+          meaning: `naver:${word}`,
+        }));
+      },
+    },
+  );
+
+  assert.deepEqual(providerCalls, ["datamuse"]);
+  assert.deepEqual(meaningLookupCalls, [["careful"]]);
+  assert.deepEqual(result[0]?.words[0]?.candidates, [
+    {
+      word: "careful",
+      meaning: "naver:careful",
+      source: "datamuse",
+      selectedByDefault: true,
+      attribution: "Naver Dict API",
+    },
+  ]);
+});
+
+test("getAdjectiveDerivativesPreview uses Naver meanings for free dictionary candidates", async () => {
+  const meaningLookupCalls: string[][] = [];
+  const result = await getAdjectiveDerivativesPreview(
+    [
+      {
+        itemId: "item-1",
+        dayName: "Day1",
+        words: [
+          {
+            word: "care",
+            meaning: "attention",
+            pronunciation: "",
+            example: "",
+            translation: "",
+          },
+        ],
+      },
+    ],
+    "free-dictionary",
+    {
+      resolveProvider: () =>
+        ({
+          source: "free-dictionary",
+          discoverCandidatesBatch: async (inputs) => ({
+            candidatesByWord: new Map(
+              inputs.map((input) => [input.baseWord, ["careful"]]),
+            ),
+            errorsByWord: new Map(),
+          }),
+          getDefinitionsBatch: async () => ({
+            definitionsByWord: new Map([
+              [
+                "careful",
+                {
+                  meaning: "provider meaning should not be used",
+                  attribution: "Free Dictionary API",
+                },
+              ],
+            ]),
+            errorsByWord: new Map(),
+          }),
+        }) satisfies AdjectiveDerivativeProvider,
+      lookupMeaningsBatch: async (words) => {
+        meaningLookupCalls.push([...words]);
+        return words.map((word) => ({
+          word,
+          meaning: `naver:${word}`,
+        }));
+      },
+    },
+  );
+
+  assert.deepEqual(meaningLookupCalls, [["careful"]]);
+  assert.deepEqual(result[0]?.words[0]?.candidates, [
+    {
+      word: "careful",
+      meaning: "naver:careful",
+      source: "free-dictionary",
+      selectedByDefault: true,
+      attribution: "Naver Dict API",
+    },
+  ]);
+});
+
+test("getAdjectiveDerivativesPreview keeps provider definitions for word-sense", async () => {
+  let lookupMeaningsCalled = false;
+  const result = await getAdjectiveDerivativesPreview(
+    [
+      {
+        itemId: "item-1",
+        dayName: "Day1",
+        words: [
+          {
+            word: "care",
+            meaning: "attention",
+            pronunciation: "",
+            example: "",
+            translation: "",
+          },
+        ],
+      },
+    ],
+    "word-sense",
+    {
+      resolveProvider: () =>
+        ({
+          source: "word-sense",
           discoverCandidatesBatch: async (inputs) => ({
             candidatesByWord: new Map(
               inputs.map((input) => [input.baseWord, ["careful"]]),
@@ -45,26 +168,29 @@ test("getAdjectiveDerivativesPreview uses the selected provider only", async () 
               words.map((word) => [
                 word,
                 {
-                  meaning: "showing care",
-                  attribution: "Datamuse",
+                  meaning: `provider:${word}`,
+                  attribution: "Word Sense API",
                 },
               ]),
             ),
             errorsByWord: new Map(),
           }),
-        } satisfies AdjectiveDerivativeProvider;
+        }) satisfies AdjectiveDerivativeProvider,
+      lookupMeaningsBatch: async () => {
+        lookupMeaningsCalled = true;
+        return [];
       },
     },
   );
 
-  assert.deepEqual(calls, ["datamuse"]);
+  assert.equal(lookupMeaningsCalled, false);
   assert.deepEqual(result[0]?.words[0]?.candidates, [
     {
       word: "careful",
-      meaning: "showing care",
-      source: "datamuse",
+      meaning: "provider:careful",
+      source: "word-sense",
       selectedByDefault: true,
-      attribution: "Datamuse",
+      attribution: "Word Sense API",
     },
   ]);
 });
@@ -134,7 +260,7 @@ test("getAdjectiveDerivativesPreview dedupes repeated base words across items", 
 });
 
 test("getAdjectiveDerivativesPreview dedupes repeated candidate validations", async () => {
-  let definitionBatchCount = 0;
+  let meaningLookupCount = 0;
 
   await getAdjectiveDerivativesPreview(
     [
@@ -171,20 +297,22 @@ test("getAdjectiveDerivativesPreview dedupes repeated candidate validations", as
             ]),
             errorsByWord: new Map(),
           }),
-          getDefinitionsBatch: async (words) => {
-            definitionBatchCount += 1;
-            return {
-              definitionsByWord: new Map(
-                words.map((word) => [word, { meaning: `${word} meaning` }]),
-              ),
-              errorsByWord: new Map(),
-            };
-          },
+          getDefinitionsBatch: async () => ({
+            definitionsByWord: new Map(),
+            errorsByWord: new Map(),
+          }),
         }) satisfies AdjectiveDerivativeProvider,
+      lookupMeaningsBatch: async (words) => {
+        meaningLookupCount += 1;
+        return words.map((word) => ({
+          word,
+          meaning: `${word} meaning`,
+        }));
+      },
     },
   );
 
-  assert.equal(definitionBatchCount, 1);
+  assert.equal(meaningLookupCount, 1);
 });
 
 test("getAdjectiveDerivativesPreview preserves item, word, and candidate ordering", async () => {
@@ -314,6 +442,58 @@ test("getAdjectiveDerivativesPreview keeps partial results when one base lookup 
   assert.deepEqual(result[0]?.words[1]?.candidates, []);
   assert.deepEqual(result[0]?.words[1]?.errors, [
     "Word Sense request failed with 503",
+  ]);
+});
+
+test("getAdjectiveDerivativesPreview drops datamuse candidates missing an exact Naver meaning", async () => {
+  const result = await getAdjectiveDerivativesPreview(
+    [
+      {
+        itemId: "item-1",
+        dayName: "Day1",
+        words: [
+          {
+            word: "care",
+            meaning: "attention",
+            pronunciation: "",
+            example: "",
+            translation: "",
+          },
+        ],
+      },
+    ],
+    "datamuse",
+    {
+      resolveProvider: () =>
+        ({
+          source: "datamuse",
+          discoverCandidatesBatch: async () => ({
+            candidatesByWord: new Map([["care", ["careful", "caring"]]]),
+            errorsByWord: new Map(),
+          }),
+          getDefinitionsBatch: async () => ({
+            definitionsByWord: new Map([
+              ["careful", { meaning: "provider careful meaning" }],
+              ["caring", { meaning: "provider caring meaning" }],
+            ]),
+            errorsByWord: new Map(),
+          }),
+        }) satisfies AdjectiveDerivativeProvider,
+      lookupMeaningsBatch: async () => [
+        { word: "careful", meaning: "naver careful meaning" },
+        { word: "caring", meaning: null },
+      ],
+    },
+  );
+
+  assert.deepEqual(result[0]?.words[0]?.candidates, [
+    {
+      word: "careful",
+      meaning: "naver careful meaning",
+      source: "datamuse",
+      selectedByDefault: true,
+      attribution: "Naver Dict API",
+    },
   ]);
 });
 
