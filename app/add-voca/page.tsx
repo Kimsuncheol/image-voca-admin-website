@@ -452,7 +452,7 @@ export default function AddVocaPage() {
             .filter(
               (w) =>
                 w.word.trim().length > 0 &&
-                (!w.pronunciation.trim() || !w.pronunciationRoman.trim()),
+                !w.pronunciation.trim(),
             )
             .map((w) => w.word);
 

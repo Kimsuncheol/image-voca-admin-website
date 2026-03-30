@@ -39,11 +39,7 @@ export function getWordFinderFieldValue(
     case "image":
       return result.imageUrl;
     case "pronunciation":
-      return result.schemaVariant === "jlpt"
-        ? [result.pronunciation, result.pronunciationRoman]
-            .filter((value): value is string => Boolean(value))
-            .join(" / ") || null
-        : result.pronunciation;
+      return result.pronunciation;
     case "example":
       return result.example;
     case "derivative":
@@ -71,11 +67,7 @@ export function isWordFinderFieldMissing(
     case "image":
       return result.type !== "famousQuote" && !result.imageUrl;
     case "pronunciation":
-      return result.type === "standard" && (
-        result.schemaVariant === "jlpt"
-          ? !result.pronunciation || !result.pronunciationRoman
-          : !result.pronunciation
-      );
+      return result.type === "standard" && !result.pronunciation;
     case "example":
       return result.type !== "famousQuote" && !result.example;
     case "derivative":

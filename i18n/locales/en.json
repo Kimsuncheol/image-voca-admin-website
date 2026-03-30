@@ -35,6 +35,8 @@
     "adsDesc": "Manage video advertisements",
     "promotionCodes": "Promotion Codes",
     "promotionCodesDesc": "Generate and manage promotion codes",
+    "removeParentheses": "Remove Parentheses",
+    "removeParenthesesDesc": "Strip parentheses and their contents from text",
     "settings": "Settings",
     "settingsDesc": "Configure AI models for generation"
   },
@@ -500,6 +502,17 @@
     "discardMessage": "You have unsaved changes. Are you sure you want to leave?",
     "keep": "Keep editing",
     "leave": "Leave"
+  },
+  "removeParentheses": {
+    "title": "Remove Parentheses",
+    "description": "Strip parentheses and their contents from text using the text processing API.",
+    "inputLabel": "Input Text",
+    "outputLabel": "Output Text",
+    "submitAction": "Remove Parentheses",
+    "resetAction": "Reset",
+    "loading": "Processing…",
+    "inputRequired": "Input text is required.",
+    "networkError": "Network error. Please try again."
   },
   "notFound": {
     "title": "404",

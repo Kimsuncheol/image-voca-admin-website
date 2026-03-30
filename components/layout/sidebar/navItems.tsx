@@ -20,6 +20,7 @@ import ApiIcon from "@mui/icons-material/Api";
 import PeopleIcon from "@mui/icons-material/People";
 import OndemandVideoIcon from "@mui/icons-material/OndemandVideo";
 import LocalOfferIcon from "@mui/icons-material/LocalOffer";
+import AutoFixHighIcon from "@mui/icons-material/AutoFixHigh";
 import SettingsIcon from "@mui/icons-material/Settings";
 import { useTranslation } from "react-i18next";
 
@@ -83,6 +84,11 @@ export function useNavItems(): NavItem[] {
       title: t("dashboard.promotionCodes", "Promotion Codes"),
       icon: <LocalOfferIcon />,
       href: "/promotion-codes",
+    },
+    {
+      title: t("dashboard.removeParentheses", "Remove Parentheses"),
+      icon: <AutoFixHighIcon />,
+      href: "/remove-parentheses",
     },
     {
       title: t("settings.title", "Settings"),

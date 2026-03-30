@@ -66,16 +66,16 @@ function getWordTableColField(
   supportsDerivatives?: boolean,
 ): WordFinderActionField | null {
   if (isPrefixWord(word) || isPostfixWord(word)) {
-    if (col === 3 || col === 4) return "pronunciation";
-    if (col === 5 || col === 6) return "example";
-    if (col === 7 || col === 8) return "translation";
+    if (col === 3) return "pronunciation";
+    if (col === 4) return "example";
+    if (col === 5 || col === 6) return "translation";
     return null;
   }
   if (isJlptWord(word)) {
-    if (col === 3 || col === 4) return "pronunciation";
-    if (col === 5 || col === 6) return "example";
-    if (col === 7 || col === 8) return "translation";
-    if (col === 9) return "image";
+    if (col === 3) return "pronunciation";
+    if (col === 4) return "example";
+    if (col === 5 || col === 6) return "translation";
+    if (col === 7) return "image";
     return null;
   }
   if (isCollocationWord(word)) {
@@ -106,20 +106,18 @@ function getWordTableColEditField(col: number, word: Word): CourseInlineEditable
     if (col === 0) return "primaryText";
     if (col === 1) return "meaningEnglish";
     if (col === 2) return "meaningKorean";
-    if (col === 5) return "example";
-    if (col === 6) return "exampleRoman";
-    if (col === 7) return "translationEnglish";
-    if (col === 8) return "translationKorean";
+    if (col === 4) return "example";
+    if (col === 5) return "translationEnglish";
+    if (col === 6) return "translationKorean";
     return null;
   }
   if (isJlptWord(word)) {
     if (col === 0) return "primaryText";
     if (col === 1) return "meaningEnglish";
     if (col === 2) return "meaningKorean";
-    if (col === 5) return "example";
-    if (col === 6) return "exampleRoman";
-    if (col === 7) return "translationEnglish";
-    if (col === 8) return "translationKorean";
+    if (col === 4) return "example";
+    if (col === 5) return "translationEnglish";
+    if (col === 6) return "translationKorean";
     return null;
   }
   if (isCollocationWord(word) || (!isFamousQuoteWord(word))) {
@@ -132,7 +130,7 @@ function getWordTableColEditField(col: number, word: Word): CourseInlineEditable
 function canTranslateWordTableExample(col: number, word: Word): boolean {
   return (
     isJlptWord(word) &&
-    col === 5 &&
+    col === 4 &&
     (hasTrimmedText(word.translationKorean) || hasTrimmedText(word.translationEnglish))
   );
 }
@@ -677,18 +675,6 @@ export default function WordTable({
     [updateInlineDraft],
   );
 
-  const handleJlptExampleRomanPaste = useCallback(
-    (event: ClipboardEvent<HTMLInputElement>) => {
-      event.preventDefault();
-      const raw = event.clipboardData.getData("text");
-      const filtered = extractRomanInBrackets(raw);
-      if (filtered) {
-        updateInlineDraft(filtered);
-      }
-    },
-    [updateInlineDraft],
-  );
-
   const cancelInlineEdit = useCallback(() => {
     setEditingCell(null);
   }, []);
@@ -795,9 +781,7 @@ export default function WordTable({
           onPaste={
             (isJlpt || isPrefix || isPostfix) && field === "example"
               ? handleJlptExamplePaste
-              : (isJlpt || isPrefix || isPostfix) && field === "exampleRoman"
-                ? handleJlptExampleRomanPaste
-                : undefined
+              : undefined
           }
         />
       );
@@ -808,7 +792,6 @@ export default function WordTable({
       commitInlineEdit,
       editingCell,
       handleJlptExamplePaste,
-      handleJlptExampleRomanPaste,
       isCollocation,
       isJlpt,
       isFamousQuote,
@@ -877,8 +860,8 @@ export default function WordTable({
       if (isJlpt && isJlptWord(m)) {
         return [
           m.word, m.meaningEnglish, m.meaningKorean,
-          m.pronunciation, m.pronunciationRoman,
-          m.example, m.exampleRoman,
+          m.pronunciation,
+          m.example,
           m.translationEnglish, m.translationKorean,
           "", // image
         ];
@@ -886,16 +869,16 @@ export default function WordTable({
       if (isPrefix && isPrefixWord(m)) {
         return [
           m.prefix, m.meaningEnglish, m.meaningKorean,
-          m.pronunciation, m.pronunciationRoman,
-          m.example, m.exampleRoman,
+          m.pronunciation,
+          m.example,
           m.translationEnglish, m.translationKorean,
         ];
       }
       if (isPostfix && isPostfixWord(m)) {
         return [
           m.postfix, m.meaningEnglish, m.meaningKorean,
-          m.pronunciation, m.pronunciationRoman,
-          m.example, m.exampleRoman,
+          m.pronunciation,
+          m.example,
           m.translationEnglish, m.translationKorean,
         ];
       }
@@ -1188,9 +1171,7 @@ export default function WordTable({
                   <TableCell>Meaning (English)</TableCell>
                   <TableCell>Meaning (Korean)</TableCell>
                   <TableCell>{t("courses.pronunciation")}</TableCell>
-                  <TableCell>Pronunciation (Roman)</TableCell>
                   <TableCell>{t("courses.example")}</TableCell>
-                  <TableCell>Example (Roman)</TableCell>
                   <TableCell>Translation (English)</TableCell>
                   <TableCell>Translation (Korean)</TableCell>
                   {showImageUrl && <TableCell>{t("courses.image", "Image")}</TableCell>}
@@ -1201,9 +1182,7 @@ export default function WordTable({
                   <TableCell>Meaning (English)</TableCell>
                   <TableCell>Meaning (Korean)</TableCell>
                   <TableCell>{t("courses.pronunciation")}</TableCell>
-                  <TableCell>Pronunciation (Roman)</TableCell>
                   <TableCell>{t("courses.example")}</TableCell>
-                  <TableCell>Example (Roman)</TableCell>
                   <TableCell>Translation (English)</TableCell>
                   <TableCell>Translation (Korean)</TableCell>
                 </>
@@ -1213,9 +1192,7 @@ export default function WordTable({
                   <TableCell>Meaning (English)</TableCell>
                   <TableCell>Meaning (Korean)</TableCell>
                   <TableCell>{t("courses.pronunciation")}</TableCell>
-                  <TableCell>Pronunciation (Roman)</TableCell>
                   <TableCell>{t("courses.example")}</TableCell>
-                  <TableCell>Example (Roman)</TableCell>
                   <TableCell>Translation (English)</TableCell>
                   <TableCell>Translation (Korean)</TableCell>
                 </>
@@ -1413,24 +1390,10 @@ export default function WordTable({
                     </TableCell>
                     <TableCell
                       aria-selected={isCellSelected(rowIdx, 4)}
-                      onClick={() => openFieldModal(word.id, "pronunciation")}
+                      onClick={(e) => handleCellClick(e, rowIdx, 4)}
                       onContextMenu={(e) => handleCellContextMenu(e, rowIdx, 4)}
-                      sx={selectableCellSx(rowIdx, 4)}
-                    >
-                      {!isMissingField(mergedWord, "pronunciation") ? (
-                        mergedWord.pronunciationRoman
-                      ) : (
-                        <Tooltip title={t("courses.generatePronunciation")}>
-                          <AutoFixHighIcon fontSize="small" color="action" />
-                        </Tooltip>
-                      )}
-                    </TableCell>
-                    <TableCell
-                      aria-selected={isCellSelected(rowIdx, 5)}
-                      onClick={(e) => handleCellClick(e, rowIdx, 5)}
-                      onContextMenu={(e) => handleCellContextMenu(e, rowIdx, 5)}
                       sx={{
-                        ...selectableCellSx(rowIdx, 5),
+                        ...selectableCellSx(rowIdx, 4),
                         ...(containsKorean(mergedWord.example) && {
                           outline: "2px solid",
                           outlineColor: "warning.main",
@@ -1442,13 +1405,7 @@ export default function WordTable({
                         textVariant: "body2",
                       })}
                     </TableCell>
-                    <TableCell {...selectableCellProps(rowIdx, 6)}>
-                      {renderEditableTextCell(mergedWord, "exampleRoman", mergedWord.exampleRoman, {
-                        emptyLabel: t("words.none"),
-                        textVariant: "body2",
-                      })}
-                    </TableCell>
-                    <TableCell {...selectableCellProps(rowIdx, 7)}>
+                    <TableCell {...selectableCellProps(rowIdx, 5)}>
                       {renderEditableTextCell(
                         mergedWord,
                         "translationEnglish",
@@ -1459,7 +1416,7 @@ export default function WordTable({
                         },
                       )}
                     </TableCell>
-                    <TableCell {...selectableCellProps(rowIdx, 8)}>
+                    <TableCell {...selectableCellProps(rowIdx, 6)}>
                       {renderEditableTextCell(
                         mergedWord,
                         "translationKorean",
@@ -1544,19 +1501,13 @@ export default function WordTable({
                     <TableCell aria-selected={isCellSelected(rowIdx, 3)} onClick={() => openFieldModal(word.id, "pronunciation")} onContextMenu={(e) => handleCellContextMenu(e, rowIdx, 3)} sx={selectableCellSx(rowIdx, 3)}>
                       {!isMissingField(mergedWord, "pronunciation") ? mergedWord.pronunciation : <Tooltip title={t("courses.generatePronunciation")}><AutoFixHighIcon fontSize="small" color="action" /></Tooltip>}
                     </TableCell>
-                    <TableCell aria-selected={isCellSelected(rowIdx, 4)} onClick={() => openFieldModal(word.id, "pronunciation")} onContextMenu={(e) => handleCellContextMenu(e, rowIdx, 4)} sx={selectableCellSx(rowIdx, 4)}>
-                      {!isMissingField(mergedWord, "pronunciation") ? mergedWord.pronunciationRoman : <Tooltip title={t("courses.generatePronunciation")}><AutoFixHighIcon fontSize="small" color="action" /></Tooltip>}
-                    </TableCell>
-                    <TableCell {...selectableCellProps(rowIdx, 5)}>
+                    <TableCell {...selectableCellProps(rowIdx, 4)}>
                       {renderEditableTextCell(mergedWord, "example", mergedWord.example, { emptyLabel: t("words.none"), textVariant: "body2" })}
                     </TableCell>
-                    <TableCell {...selectableCellProps(rowIdx, 6)}>
-                      {renderEditableTextCell(mergedWord, "exampleRoman", mergedWord.exampleRoman, { emptyLabel: t("words.none"), textVariant: "body2" })}
-                    </TableCell>
-                    <TableCell {...selectableCellProps(rowIdx, 7)}>
+                    <TableCell {...selectableCellProps(rowIdx, 5)}>
                       {renderEditableTextCell(mergedWord, "translationEnglish", mergedWord.translationEnglish, { emptyLabel: t("words.none"), textVariant: "body2" })}
                     </TableCell>
-                    <TableCell {...selectableCellProps(rowIdx, 8)}>
+                    <TableCell {...selectableCellProps(rowIdx, 6)}>
                       {renderEditableTextCell(mergedWord, "translationKorean", mergedWord.translationKorean, { emptyLabel: t("words.none"), textVariant: "body2" })}
                     </TableCell>
                   </>
@@ -1574,19 +1525,13 @@ export default function WordTable({
                     <TableCell aria-selected={isCellSelected(rowIdx, 3)} onClick={() => openFieldModal(word.id, "pronunciation")} onContextMenu={(e) => handleCellContextMenu(e, rowIdx, 3)} sx={selectableCellSx(rowIdx, 3)}>
                       {!isMissingField(mergedWord, "pronunciation") ? mergedWord.pronunciation : <Tooltip title={t("courses.generatePronunciation")}><AutoFixHighIcon fontSize="small" color="action" /></Tooltip>}
                     </TableCell>
-                    <TableCell aria-selected={isCellSelected(rowIdx, 4)} onClick={() => openFieldModal(word.id, "pronunciation")} onContextMenu={(e) => handleCellContextMenu(e, rowIdx, 4)} sx={selectableCellSx(rowIdx, 4)}>
-                      {!isMissingField(mergedWord, "pronunciation") ? mergedWord.pronunciationRoman : <Tooltip title={t("courses.generatePronunciation")}><AutoFixHighIcon fontSize="small" color="action" /></Tooltip>}
-                    </TableCell>
-                    <TableCell {...selectableCellProps(rowIdx, 5)}>
+                    <TableCell {...selectableCellProps(rowIdx, 4)}>
                       {renderEditableTextCell(mergedWord, "example", mergedWord.example, { emptyLabel: t("words.none"), textVariant: "body2" })}
                     </TableCell>
-                    <TableCell {...selectableCellProps(rowIdx, 6)}>
-                      {renderEditableTextCell(mergedWord, "exampleRoman", mergedWord.exampleRoman, { emptyLabel: t("words.none"), textVariant: "body2" })}
-                    </TableCell>
-                    <TableCell {...selectableCellProps(rowIdx, 7)}>
+                    <TableCell {...selectableCellProps(rowIdx, 5)}>
                       {renderEditableTextCell(mergedWord, "translationEnglish", mergedWord.translationEnglish, { emptyLabel: t("words.none"), textVariant: "body2" })}
                     </TableCell>
-                    <TableCell {...selectableCellProps(rowIdx, 8)}>
+                    <TableCell {...selectableCellProps(rowIdx, 6)}>
                       {renderEditableTextCell(mergedWord, "translationKorean", mergedWord.translationKorean, { emptyLabel: t("words.none"), textVariant: "body2" })}
                     </TableCell>
                   </>
