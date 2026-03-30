@@ -87,10 +87,10 @@ export default function Home() {
       href: "/promotion-codes",
     },
     {
-      title: t("dashboard.removeParentheses"),
-      description: t("dashboard.removeParenthesesDesc"),
+      title: t("dashboard.parenthesesTool"),
+      description: t("dashboard.parenthesesToolDesc"),
       icon: <AutoFixHighIcon />,
-      href: "/remove-parentheses",
+      href: "/parentheses-generation-removal",
     },
     {
       title: t("dashboard.settings"),

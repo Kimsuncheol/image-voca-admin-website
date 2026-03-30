@@ -35,8 +35,8 @@
     "adsDesc": "영상 광고 관리",
     "promotionCodes": "프로모션 코드",
     "promotionCodesDesc": "프로모션 코드 생성 및 관리",
-    "removeParentheses": "괄호 제거",
-    "removeParenthesesDesc": "텍스트에서 괄호와 괄호 안의 내용을 제거",
+    "parenthesesTool": "괄호 도구",
+    "parenthesesToolDesc": "텍스트에서 괄호를 제거하거나 생성",
     "settings": "설정",
     "settingsDesc": "생성에 사용할 AI 모델 설정"
   },
@@ -503,12 +503,15 @@
     "keep": "계속 작성",
     "leave": "나가기"
   },
-  "removeParentheses": {
-    "title": "괄호 제거",
-    "description": "텍스트 처리 API를 사용하여 텍스트에서 괄호와 괄호 안의 내용을 제거합니다.",
+  "parenthesesTool": {
+    "title": "괄호 도구",
+    "description": "텍스트 처리 API를 사용하여 텍스트에서 괄호를 제거하거나 생성합니다.",
+    "tabRemoval": "괄호 제거",
+    "tabGeneration": "괄호 생성",
     "inputLabel": "입력 텍스트",
     "outputLabel": "출력 텍스트",
-    "submitAction": "괄호 제거",
+    "removeAction": "괄호 제거",
+    "generateAction": "괄호 생성",
     "resetAction": "초기화",
     "loading": "처리 중…",
     "inputRequired": "입력 텍스트를 입력해주세요.",
