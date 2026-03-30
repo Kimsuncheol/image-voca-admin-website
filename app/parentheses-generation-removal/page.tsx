@@ -6,6 +6,7 @@ import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Card from "@mui/material/Card";
 import CardContent from "@mui/material/CardContent";
+import Snackbar from "@mui/material/Snackbar";
 import Stack from "@mui/material/Stack";
 import Tab from "@mui/material/Tab";
 import Tabs from "@mui/material/Tabs";
@@ -37,10 +38,12 @@ function ParenthesesForm({
   inputRequiredMsg: string;
   networkErrorMsg: string;
 }) {
+  const { t } = useTranslation();
   const [input, setInput] = useState("");
   const [output, setOutput] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [copySnackbar, setCopySnackbar] = useState<{ open: boolean; success: boolean }>({ open: false, success: true });
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -82,6 +85,15 @@ function ParenthesesForm({
     setError("");
   }
 
+  async function handleCopy() {
+    try {
+      await navigator.clipboard.writeText(output);
+      setCopySnackbar({ open: true, success: true });
+    } catch {
+      setCopySnackbar({ open: true, success: false });
+    }
+  }
+
   return (
     <Box component="form" onSubmit={handleSubmit}>
       <Stack spacing={2}>
@@ -118,6 +130,31 @@ function ParenthesesForm({
           fullWidth
           slotProps={{ input: { readOnly: true } }}
         />
+
+        <Box>
+          <Button
+            variant="outlined"
+            size="small"
+            disabled={!output}
+            onClick={() => void handleCopy()}
+          >
+            Copy
+          </Button>
+        </Box>
+
+        <Snackbar
+          open={copySnackbar.open}
+          autoHideDuration={1500}
+          onClose={() => setCopySnackbar((prev) => ({ ...prev, open: false }))}
+          anchorOrigin={{ vertical: "top", horizontal: "center" }}
+        >
+          <Alert
+            severity={copySnackbar.success ? "success" : "error"}
+            onClose={() => setCopySnackbar((prev) => ({ ...prev, open: false }))}
+          >
+            {copySnackbar.success ? t("common.copied") : t("common.copyFailed")}
+          </Alert>
+        </Snackbar>
       </Stack>
     </Box>
   );
@@ -159,22 +196,22 @@ export default function ParenthesesToolPage() {
             onChange={(_, value: TabIndex) => setTab(value)}
             sx={{ borderBottom: 1, borderColor: "divider", px: 2 }}
           >
-            <Tab label={t("parenthesesTool.tabRemoval")} />
             <Tab label={t("parenthesesTool.tabGeneration")} />
+            <Tab label={t("parenthesesTool.tabRemoval")} />
           </Tabs>
 
           <CardContent>
             {tab === 0 && (
               <ParenthesesForm
-                apiPath="/api/text/remove-parentheses"
-                submitLabel={t("parenthesesTool.removeAction")}
+                apiPath="/api/text/generate-parentheses"
+                submitLabel={t("parenthesesTool.generateAction")}
                 {...sharedFormProps}
               />
             )}
             {tab === 1 && (
               <ParenthesesForm
-                apiPath="/api/text/generate-parentheses"
-                submitLabel={t("parenthesesTool.generateAction")}
+                apiPath="/api/text/remove-parentheses"
+                submitLabel={t("parenthesesTool.removeAction")}
                 {...sharedFormProps}
               />
             )}
