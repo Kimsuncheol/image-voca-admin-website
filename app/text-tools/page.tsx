@@ -16,7 +16,6 @@ import { useAdminGuard } from "@/hooks/useAdminGuard";
 
 import ParenthesesForm from "./ParenthesesForm";
 import VocabularyBatchLookup from "./VocabularyBatchLookup";
-import VocabularyLookup from "./VocabularyLookup";
 
 type ToolGroup =
   | "parentheses"
@@ -26,7 +25,6 @@ type ToolGroup =
   | "vocabulary";
 type ParenthesesAction = "generate" | "remove";
 type FuriganaAction = "add" | "remove";
-type VocabularyMode = "single" | "batch";
 
 export default function TextToolsPage() {
   const { t } = useTranslation();
@@ -36,7 +34,6 @@ export default function TextToolsPage() {
   const [parenthesesAction, setParenthesesAction] =
     useState<ParenthesesAction>("generate");
   const [furiganaAction, setFuriganaAction] = useState<FuriganaAction>("add");
-  const [vocabularyMode, setVocabularyMode] = useState<VocabularyMode>("single");
 
   if (authLoading) return null;
   if (user?.role !== "admin" && user?.role !== "super-admin") return null;
@@ -168,69 +165,31 @@ export default function TextToolsPage() {
     if (group === "vocabulary") {
       return (
         <Stack spacing={2}>
-          {renderActionChips<VocabularyMode>({
-            actions: [
-              { value: "single", label: t("textTools.vocabularyModeSingle") },
-              { value: "batch", label: t("textTools.vocabularyModeBatch") },
-            ],
-            current: vocabularyMode,
-            onSelect: setVocabularyMode,
-          })}
-
-          {vocabularyMode === "single" ? (
-            <VocabularyLookup
-              apiPath="/api/text/vocabulary"
-              submitLabel={t("textTools.vocabularyAction")}
-              loadingLabel={t("textTools.loading")}
-              resetLabel={t("textTools.resetAction")}
-              inputLabel={t("textTools.inputLabel")}
-              inputRequiredMsg={t("textTools.inputRequired")}
-              networkErrorMsg={t("textTools.networkError")}
-              emptyStateLabel={t("textTools.vocabularyEmptyState")}
-              resultTitle={t("textTools.vocabularyResultTitle")}
-              wordLabel={t("textTools.vocabularyWordLabel")}
-              readingLabel={t("textTools.vocabularyReadingLabel")}
-              romanizedLabel={t("textTools.vocabularyRomanizedLabel")}
-              meaningsLabel={t("textTools.vocabularyMeaningsLabel")}
-              partOfSpeechLabel={t("textTools.vocabularyPartOfSpeechLabel")}
-              commonLabel={t("textTools.vocabularyCommonLabel")}
-              uncommonLabel={t("textTools.vocabularyUncommonLabel")}
-              standbyTitle={t("textTools.vocabularyStandbyTitle")}
-              standbyDescription={t("textTools.vocabularyStandbyDescription")}
-            />
-          ) : (
-            <VocabularyBatchLookup
-              apiPath="/api/text/vocabulary/batch"
-              submitLabel={t("textTools.vocabularyBatchAction")}
-              loadingLabel={t("textTools.loading")}
-              resetLabel={t("textTools.resetAction")}
-              inputLabel={t("textTools.vocabularyBatchInputLabel")}
-              inputHelpText={t("textTools.vocabularyBatchInputHelpText")}
-              inputRequiredMsg={t("textTools.vocabularyBatchInputRequired")}
-              networkErrorMsg={t("textTools.networkError")}
-              resultTitle={t("textTools.vocabularyResultTitle")}
-              wordLabel={t("textTools.vocabularyWordLabel")}
-              readingLabel={t("textTools.vocabularyReadingLabel")}
-              romanizedLabel={t("textTools.vocabularyRomanizedLabel")}
-              meaningsLabel={t("textTools.vocabularyMeaningsLabel")}
-              partOfSpeechLabel={t("textTools.vocabularyPartOfSpeechLabel")}
-              commonLabel={t("textTools.vocabularyCommonLabel")}
-              uncommonLabel={t("textTools.vocabularyUncommonLabel")}
-              filterMeaningsLabel={t("textTools.vocabularyFilterMeanings")}
-              filterReadingLabel={t("textTools.vocabularyFilterReading")}
-              filterRomanizedLabel={t("textTools.vocabularyFilterRomanized")}
-              filterPartOfSpeechLabel={t("textTools.vocabularyFilterPartOfSpeech")}
-              layoutCardLabel={t("textTools.vocabularyLayoutCard")}
-              layoutTableLabel={t("textTools.vocabularyLayoutTable")}
-              standbyTitle={t("textTools.vocabularyStandbyTitle")}
-              standbyDescription={t("textTools.vocabularyStandbyDescription")}
-              originalTextLabel={t("textTools.vocabularyBatchOriginalTextLabel")}
-              notFoundTitle={t("textTools.vocabularyBatchNotFoundTitle")}
-              invalidInputTitle={t("textTools.vocabularyBatchInvalidInputTitle")}
-              errorTitle={t("textTools.vocabularyBatchErrorTitle")}
-              unknownErrorMsg={t("textTools.vocabularyBatchUnknownError")}
-            />
-          )}
+          <VocabularyBatchLookup
+            apiPath="/api/text/vocabulary/batch"
+            submitLabel={t("textTools.vocabularyBatchAction")}
+            loadingLabel={t("textTools.loading")}
+            resetLabel={t("textTools.resetAction")}
+            inputLabel={t("textTools.vocabularyBatchInputLabel")}
+            inputHelpText={t("textTools.vocabularyBatchInputHelpText")}
+            inputRequiredMsg={t("textTools.vocabularyBatchInputRequired")}
+            networkErrorMsg={t("textTools.networkError")}
+            resultTitle={t("textTools.vocabularyResultTitle")}
+            wordLabel={t("textTools.vocabularyWordLabel")}
+            readingLabel={t("textTools.vocabularyReadingLabel")}
+            romanizedLabel={t("textTools.vocabularyRomanizedLabel")}
+            meaningsLabel={t("textTools.vocabularyMeaningsLabel")}
+            partOfSpeechLabel={t("textTools.vocabularyPartOfSpeechLabel")}
+            commonLabel={t("textTools.vocabularyCommonLabel")}
+            uncommonLabel={t("textTools.vocabularyUncommonLabel")}
+            standbyTitle={t("textTools.vocabularyStandbyTitle")}
+            standbyDescription={t("textTools.vocabularyStandbyDescription")}
+            originalTextLabel={t("textTools.vocabularyBatchOriginalTextLabel")}
+            notFoundTitle={t("textTools.vocabularyBatchNotFoundTitle")}
+            invalidInputTitle={t("textTools.vocabularyBatchInvalidInputTitle")}
+            errorTitle={t("textTools.vocabularyBatchErrorTitle")}
+            unknownErrorMsg={t("textTools.vocabularyBatchUnknownError")}
+          />
         </Stack>
       );
     }

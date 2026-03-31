@@ -291,9 +291,15 @@ export default function VocabularyResultCard({
                   label: partOfSpeechLabel,
                   copyValue: entry.part_of_speech.join(", "),
                   children: (
-                    <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
-                      {entry.part_of_speech.map((value) => (
-                        <Chip key={value} size="small" variant="outlined" label={value} />
+                    <Stack spacing={0.75} alignItems="flex-start">
+                      {entry.part_of_speech.map((value, index) => (
+                        <Chip
+                          key={`${value}-${index}`}
+                          size="small"
+                          variant="outlined"
+                          label={value}
+                          data-testid={`vocabulary-part-of-speech-${index}`}
+                        />
                       ))}
                     </Stack>
                   ),

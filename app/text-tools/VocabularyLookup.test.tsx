@@ -169,6 +169,12 @@ async function clickMeaningCopyControl(index: number) {
   });
 }
 
+function getPartOfSpeechItems() {
+  return Array.from(
+    document.querySelectorAll('[data-testid^="vocabulary-part-of-speech-"]'),
+  ) as HTMLElement[];
+}
+
 describe("VocabularyLookup", () => {
   let rendered: ReturnType<typeof renderLookup> | null = null;
   let fetchMock: ReturnType<typeof vi.fn>;
@@ -499,6 +505,11 @@ describe("VocabularyLookup", () => {
     });
 
     await clickButton("Lookup");
+
+    const partOfSpeechItems = getPartOfSpeechItems();
+    expect(partOfSpeechItems).toHaveLength(2);
+    expect(partOfSpeechItems[0]?.textContent).toContain("noun");
+    expect(partOfSpeechItems[1]?.textContent).toContain("animal");
 
     hoverSection("meanings");
     await clickCopyControl("meanings");

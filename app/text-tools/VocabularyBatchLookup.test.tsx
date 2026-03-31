@@ -55,12 +55,6 @@ function createLookup() {
       partOfSpeechLabel="Part of Speech"
       commonLabel="Common"
       uncommonLabel="Uncommon"
-      filterMeaningsLabel="Meanings"
-      filterReadingLabel="Reading"
-      filterRomanizedLabel="Romanized"
-      filterPartOfSpeechLabel="Part of Speech"
-      layoutCardLabel="Card"
-      layoutTableLabel="Table"
       originalTextLabel="Original Text"
       notFoundTitle="No vocabulary entry found."
       invalidInputTitle="This input is not valid for batch lookup."
@@ -102,40 +96,6 @@ async function clickButton(label: string) {
 
   await act(async () => {
     button?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-  });
-}
-
-function getFilterChip(section: string) {
-  const chip = document.querySelector(
-    `[data-testid="vocabulary-filter-${section}"]`,
-  );
-
-  expect(chip).not.toBeNull();
-  return chip as HTMLElement;
-}
-
-function clickFilterChip(section: string) {
-  const chip = getFilterChip(section);
-
-  act(() => {
-    chip.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-  });
-}
-
-function getLayoutChip(layout: string) {
-  const chip = document.querySelector(
-    `[data-testid="vocabulary-layout-${layout}"]`,
-  );
-
-  expect(chip).not.toBeNull();
-  return chip as HTMLElement;
-}
-
-function clickLayoutChip(layout: string) {
-  const chip = getLayoutChip(layout);
-
-  act(() => {
-    chip.dispatchEvent(new MouseEvent("click", { bubbles: true }));
   });
 }
 
@@ -241,18 +201,14 @@ describe("VocabularyBatchLookup", () => {
     });
   });
 
-  it("renders batch filter chips selected by default", () => {
+  it("does not render layout chips or batch field filters", () => {
     rendered = renderLookup(createLookup());
 
-    expect(getLayoutChip("table").getAttribute("data-selected")).toBe("true");
-    expect(getLayoutChip("card").getAttribute("data-selected")).toBe("false");
-    expect(getFilterChip("meanings").getAttribute("data-selected")).toBe("true");
-    expect(getFilterChip("reading").getAttribute("data-selected")).toBe("true");
-    expect(getFilterChip("romanized").getAttribute("data-selected")).toBe("true");
-    expect(getFilterChip("partOfSpeech").getAttribute("data-selected")).toBe("true");
+    expect(document.querySelector('[data-testid="vocabulary-layout-options"]')).toBeNull();
+    expect(document.querySelector('[data-testid="vocabulary-filters"]')).toBeNull();
   });
 
-  it("renders successful results in one shared table card with the requested header", async () => {
+  it("renders successful results in one shared table card with the requested visible header", async () => {
     fetchMock.mockResolvedValue({
       ok: true,
       json: async () => ({
@@ -302,64 +258,11 @@ describe("VocabularyBatchLookup", () => {
     expect(document.body.textContent).toContain("reading");
     expect(document.body.textContent).toContain("romanized");
     expect(document.body.textContent).toContain("meanings");
-    expect(document.body.textContent).toContain("part of speech");
+    expect(document.body.textContent).not.toContain("part of speech");
     expect(document.querySelectorAll("thead tr")).toHaveLength(1);
     expect(document.querySelectorAll("tbody tr")).toHaveLength(2);
     expect(document.body.textContent).toContain("cat result");
     expect(document.body.textContent).toContain("today result");
-  });
-
-  it("switches successful batch results to repeated cards when card layout is selected", async () => {
-    fetchMock.mockResolvedValue({
-      ok: true,
-      json: async () => ({
-        original_texts: ["猫", "存在しない単語"],
-        results: [
-          {
-            original_text: "猫",
-            status: "ok",
-            entry: {
-              word: "猫",
-              reading: "ねこ",
-              romanized: "neko",
-              meanings: ["cat result"],
-              part_of_speech: ["noun"],
-              is_common: true,
-            },
-            error: null,
-          },
-          {
-            original_text: "存在しない単語",
-            status: "ok",
-            entry: {
-              word: "存在",
-              reading: "そんざい",
-              romanized: "sonzai",
-              meanings: ["existence"],
-              part_of_speech: ["noun"],
-              is_common: true,
-            },
-            error: null,
-          },
-        ],
-      }),
-    });
-
-    rendered = renderLookup(createLookup());
-    const textarea = getTextarea();
-
-    act(() => {
-      setTextareaValue(textarea, "猫\n存在しない単語");
-    });
-
-    await clickButton("Lookup Multiple Vocabulary Items");
-    clickLayoutChip("card");
-
-    expect(getLayoutChip("card").getAttribute("data-selected")).toBe("true");
-    expect(document.querySelectorAll("tbody tr")).toHaveLength(0);
-    expect(document.body.textContent).toContain("Vocabulary Result");
-    expect(document.body.textContent).toContain("Original Text");
-    expect(document.body.textContent).toContain("存在しない単語");
   });
 
   it("shows original input context outside the table when input differs from the returned word", async () => {
@@ -399,65 +302,7 @@ describe("VocabularyBatchLookup", () => {
     );
   });
 
-  it("hides reading and romanized columns across the whole table when their filters are toggled", async () => {
-    fetchMock.mockResolvedValue({
-      ok: true,
-      json: async () => ({
-        original_texts: ["猫", "今日"],
-        results: [
-          {
-            original_text: "猫",
-            status: "ok",
-            entry: {
-              word: "猫",
-              reading: "ねこ",
-              romanized: "neko",
-              meanings: ["cat result"],
-              part_of_speech: ["noun"],
-              is_common: true,
-            },
-            error: null,
-          },
-          {
-            original_text: "今日",
-            status: "ok",
-            entry: {
-              word: "今日",
-              reading: "きょう",
-              romanized: "kyou",
-              meanings: ["today result"],
-              part_of_speech: ["adverb"],
-              is_common: true,
-            },
-            error: null,
-          },
-        ],
-      }),
-    });
-
-    rendered = renderLookup(createLookup());
-    const textarea = getTextarea();
-
-    act(() => {
-      setTextareaValue(textarea, "猫\n今日");
-    });
-
-    await clickButton("Lookup Multiple Vocabulary Items");
-    clickFilterChip("reading");
-    clickFilterChip("romanized");
-
-    expect(document.body.textContent).not.toContain("reading");
-    expect(document.body.textContent).not.toContain("romanized");
-    expect(document.body.textContent).not.toContain("ねこ");
-    expect(document.body.textContent).not.toContain("きょう");
-    expect(document.body.textContent).not.toContain("neko");
-    expect(document.body.textContent).not.toContain("kyou");
-    expect(document.body.textContent).toContain("word");
-    expect(document.body.textContent).toContain("猫");
-    expect(document.body.textContent).toContain("今日");
-  });
-
-  it("hides meanings and part of speech columns across the whole table when their filters are toggled", async () => {
+  it("shows the remaining visible table columns in batch table layout", async () => {
     fetchMock.mockResolvedValue({
       ok: true,
       json: async () => ({
@@ -471,7 +316,7 @@ describe("VocabularyBatchLookup", () => {
               reading: "あげる",
               romanized: "ageru",
               meanings: ["to raise", "to wake"],
-              part_of_speech: ["verb"],
+              part_of_speech: ["verb", "transitive"],
               is_common: true,
             },
             error: null,
@@ -501,59 +346,21 @@ describe("VocabularyBatchLookup", () => {
     });
 
     await clickButton("Lookup Multiple Vocabulary Items");
-    clickFilterChip("meanings");
-    clickFilterChip("partOfSpeech");
 
-    expect(document.body.textContent).not.toContain("meanings");
+    expect(document.body.textContent).toContain("word");
+    expect(document.body.textContent).toContain("reading");
+    expect(document.body.textContent).toContain("romanized");
+    expect(document.body.textContent).toContain("meanings");
     expect(document.body.textContent).not.toContain("part of speech");
-    expect(document.body.textContent).not.toContain("to raise");
-    expect(document.body.textContent).not.toContain("to wake");
-    expect(document.body.textContent).not.toContain("today");
-    expect(document.body.textContent).not.toContain("verb");
-    expect(document.body.textContent).not.toContain("adverb");
     expect(document.body.textContent).toContain("上げる");
     expect(document.body.textContent).toContain("あげる");
     expect(document.body.textContent).toContain("ageru");
-  });
-
-  it("keeps word visible regardless of filter state", async () => {
-    fetchMock.mockResolvedValue({
-      ok: true,
-      json: async () => ({
-        original_texts: ["猫"],
-        results: [
-          {
-            original_text: "猫",
-            status: "ok",
-            entry: {
-              word: "猫",
-              reading: "ねこ",
-              romanized: "neko",
-              meanings: ["cat"],
-              part_of_speech: ["noun"],
-              is_common: true,
-            },
-            error: null,
-          },
-        ],
-      }),
-    });
-
-    rendered = renderLookup(createLookup());
-    const textarea = getTextarea();
-
-    act(() => {
-      setTextareaValue(textarea, "猫");
-    });
-
-    await clickButton("Lookup Multiple Vocabulary Items");
-    clickFilterChip("reading");
-    clickFilterChip("romanized");
-    clickFilterChip("meanings");
-    clickFilterChip("partOfSpeech");
-
-    expect(document.body.textContent).toContain("word");
-    expect(document.body.textContent).toContain("猫");
+    expect(document.body.textContent).toContain("to raise");
+    expect(document.body.textContent).toContain("to wake");
+    expect(document.body.textContent).toContain("今日");
+    expect(document.body.textContent).toContain("きょう");
+    expect(document.body.textContent).toContain("kyou");
+    expect(document.body.textContent).toContain("today");
     expect(document.body.textContent).toContain("Common");
   });
 
@@ -654,7 +461,7 @@ describe("VocabularyBatchLookup", () => {
     expect(document.body.textContent).toContain("No vocabulary entry found.");
   });
 
-  it("keeps non-success cards below the success area in card layout too", async () => {
+  it("keeps non-success cards below the success table", async () => {
     fetchMock.mockResolvedValue({
       ok: true,
       json: async () => ({
@@ -691,16 +498,15 @@ describe("VocabularyBatchLookup", () => {
     });
 
     await clickButton("Lookup Multiple Vocabulary Items");
-    clickLayoutChip("card");
 
-    expect(document.querySelectorAll("tbody tr")).toHaveLength(0);
+    expect(document.querySelectorAll("tbody tr")).toHaveLength(1);
     expect(document.body.textContent).toContain("cat");
     expect(document.body.textContent).toContain(
       "This input is not valid for batch lookup.",
     );
   });
 
-  it("clears results and restores all batch filters on reset", async () => {
+  it("clears results on reset", async () => {
     fetchMock.mockResolvedValue({
       ok: true,
       json: async () => ({
@@ -731,21 +537,11 @@ describe("VocabularyBatchLookup", () => {
     });
 
     await clickButton("Lookup Multiple Vocabulary Items");
-    clickLayoutChip("card");
-    clickFilterChip("reading");
-    expect(getLayoutChip("card").getAttribute("data-selected")).toBe("true");
-    expect(getFilterChip("reading").getAttribute("data-selected")).toBe("false");
 
     await clickButton("Reset");
 
     expect(textarea.value).toBe("");
     expect(document.body.textContent).not.toContain("Vocabulary Result");
-    expect(getLayoutChip("table").getAttribute("data-selected")).toBe("true");
-    expect(getLayoutChip("card").getAttribute("data-selected")).toBe("false");
-    expect(getFilterChip("reading").getAttribute("data-selected")).toBe("true");
-    expect(getFilterChip("meanings").getAttribute("data-selected")).toBe("true");
-    expect(getFilterChip("romanized").getAttribute("data-selected")).toBe("true");
-    expect(getFilterChip("partOfSpeech").getAttribute("data-selected")).toBe("true");
   });
 
   it("shows the batch input validation message when only blank lines are submitted", async () => {

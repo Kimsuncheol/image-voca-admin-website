@@ -22,10 +22,7 @@ import SearchIcon from "@mui/icons-material/Search";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import { useTranslation } from "react-i18next";
 
-import VocabularyResultCard, {
-  VocabularyEntry,
-  VocabularyVisibleSections,
-} from "./VocabularyResultCard";
+import { VocabularyEntry } from "./VocabularyResultCard";
 
 type VocabularyBatchResult = {
   original_text: string;
@@ -37,15 +34,6 @@ type VocabularyBatchResult = {
 type VocabularyBatchLookupResponse = {
   original_texts: string[];
   results: VocabularyBatchResult[];
-};
-
-type BatchLayout = "card" | "table";
-
-const DEFAULT_VISIBLE_SECTIONS: VocabularyVisibleSections = {
-  meanings: true,
-  reading: true,
-  romanized: true,
-  partOfSpeech: true,
 };
 
 export default function VocabularyBatchLookup({
@@ -65,12 +53,6 @@ export default function VocabularyBatchLookup({
   partOfSpeechLabel,
   commonLabel,
   uncommonLabel,
-  filterMeaningsLabel,
-  filterReadingLabel,
-  filterRomanizedLabel,
-  filterPartOfSpeechLabel,
-  layoutCardLabel,
-  layoutTableLabel,
   originalTextLabel,
   notFoundTitle,
   invalidInputTitle,
@@ -95,12 +77,6 @@ export default function VocabularyBatchLookup({
   partOfSpeechLabel: string;
   commonLabel: string;
   uncommonLabel: string;
-  filterMeaningsLabel: string;
-  filterReadingLabel: string;
-  filterRomanizedLabel: string;
-  filterPartOfSpeechLabel: string;
-  layoutCardLabel: string;
-  layoutTableLabel: string;
   originalTextLabel: string;
   notFoundTitle: string;
   invalidInputTitle: string;
@@ -114,10 +90,6 @@ export default function VocabularyBatchLookup({
   const [results, setResults] = useState<VocabularyBatchResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [layout, setLayout] = useState<BatchLayout>("table");
-  const [visibleSections, setVisibleSections] = useState<VocabularyVisibleSections>(
-    DEFAULT_VISIBLE_SECTIONS,
-  );
   const [activeCell, setActiveCell] = useState<string | null>(null);
   const [activeMeaning, setActiveMeaning] = useState<string | null>(null);
   const [copySnackbar, setCopySnackbar] = useState<{ open: boolean; success: boolean }>({
@@ -172,17 +144,8 @@ export default function VocabularyBatchLookup({
     setInput("");
     setResults([]);
     setError("");
-    setLayout("table");
-    setVisibleSections(DEFAULT_VISIBLE_SECTIONS);
     setActiveCell(null);
     setActiveMeaning(null);
-  }
-
-  function toggleSection(section: keyof VocabularyVisibleSections) {
-    setVisibleSections((current) => ({
-      ...current,
-      [section]: !current[section],
-    }));
   }
 
   async function handleCopy(value: string) {
@@ -316,53 +279,6 @@ export default function VocabularyBatchLookup({
     );
   }
 
-  function renderSuccessCards() {
-    const successResults = results.filter(
-      (result): result is VocabularyBatchResult & { entry: VocabularyEntry } =>
-        result.status === "ok" && result.entry !== null,
-    );
-
-    if (successResults.length === 0) {
-      return null;
-    }
-
-    return (
-      <Stack spacing={2}>
-        {successResults.map((result, index) => {
-          const original = result.original_text.trim();
-          const word = result.entry.word?.trim() ?? "";
-          const showOriginalContext = Boolean(original && word && original !== word);
-
-          return (
-            <Stack key={`${result.original_text}-${index}`} spacing={1.5}>
-              {showOriginalContext ? (
-                <Stack spacing={0.25}>
-                  <Typography variant="caption" color="text.secondary">
-                    {originalTextLabel}
-                  </Typography>
-                  <Typography variant="body2">{original}</Typography>
-                </Stack>
-              ) : null}
-
-              <VocabularyResultCard
-                entry={result.entry}
-                resultTitle={resultTitle}
-                wordLabel={wordLabel}
-                readingLabel={readingLabel}
-                romanizedLabel={romanizedLabel}
-                meaningsLabel={meaningsLabel}
-                partOfSpeechLabel={partOfSpeechLabel}
-                commonLabel={commonLabel}
-                uncommonLabel={uncommonLabel}
-                visibleSections={visibleSections}
-              />
-            </Stack>
-          );
-        })}
-      </Stack>
-    );
-  }
-
   function renderSuccessTable() {
     const successResults = results.filter(
       (result): result is VocabularyBatchResult & { entry: VocabularyEntry } =>
@@ -390,10 +306,10 @@ export default function VocabularyBatchLookup({
                 <TableHead>
                   <TableRow>
                     <TableCell>word</TableCell>
-                    {visibleSections.reading ? <TableCell>reading</TableCell> : null}
-                    {visibleSections.romanized ? <TableCell>romanized</TableCell> : null}
-                    {visibleSections.meanings ? <TableCell>meanings</TableCell> : null}
-                    {visibleSections.partOfSpeech ? <TableCell>part of speech</TableCell> : null}
+                    <TableCell sx={{ whiteSpace: "nowrap" }}>reading</TableCell>
+                    <TableCell>romanized</TableCell>
+                    <TableCell>meanings</TableCell>
+                    {/* <TableCell>part of speech</TableCell> */}
                   </TableRow>
                 </TableHead>
 
@@ -418,122 +334,124 @@ export default function VocabularyBatchLookup({
                         })}
                       </TableCell>
 
-                      {visibleSections.reading ? (
-                        <TableCell>
-                          {renderCellContent({
-                            cellId: `reading-${rowIndex}`,
-                            copyValue: result.entry.reading ?? "",
-                            children: <Typography>{result.entry.reading}</Typography>,
-                          })}
-                        </TableCell>
-                      ) : null}
+                      <TableCell sx={{ whiteSpace: "nowrap" }}>
+                        {renderCellContent({
+                          cellId: `reading-${rowIndex}`,
+                          copyValue: result.entry.reading ?? "",
+                          children: (
+                            <Typography sx={{ whiteSpace: "nowrap" }}>
+                              {result.entry.reading}
+                            </Typography>
+                          ),
+                        })}
+                      </TableCell>
 
-                      {visibleSections.romanized ? (
-                        <TableCell>
-                          {renderCellContent({
-                            cellId: `romanized-${rowIndex}`,
-                            copyValue: result.entry.romanized ?? "",
-                            children: <Typography>{result.entry.romanized}</Typography>,
-                          })}
-                        </TableCell>
-                      ) : null}
+                      <TableCell>
+                        {renderCellContent({
+                          cellId: `romanized-${rowIndex}`,
+                          copyValue: result.entry.romanized ?? "",
+                          children: <Typography>{result.entry.romanized}</Typography>,
+                        })}
+                      </TableCell>
 
-                      {visibleSections.meanings ? (
-                        <TableCell>
-                          {renderCellContent({
-                            cellId: `meanings-${rowIndex}`,
-                            copyValue: result.entry.meanings.join("\n"),
-                            children: (
-                              <Stack spacing={0.5}>
-                                {result.entry.meanings.map((meaning, meaningIndex) => {
-                                  const meaningId = `${rowIndex}-${meaningIndex}`;
+                      <TableCell>
+                        {renderCellContent({
+                          cellId: `meanings-${rowIndex}`,
+                          copyValue: result.entry.meanings.join("\n"),
+                          children: (
+                            <Stack spacing={0.5}>
+                              {result.entry.meanings.map((meaning, meaningIndex) => {
+                                const meaningId = `${rowIndex}-${meaningIndex}`;
 
-                                  return (
-                                    <Box
-                                      key={meaningId}
-                                      role="button"
-                                      tabIndex={0}
-                                      data-testid={`vocabulary-meaning-${meaningId}`}
-                                      onMouseOver={() => setActiveMeaning(meaningId)}
-                                      onMouseOut={() =>
-                                        setActiveMeaning((current) =>
-                                          current === meaningId ? null : current,
-                                        )
-                                      }
-                                      onFocusCapture={() => setActiveMeaning(meaningId)}
-                                      onBlurCapture={(event: FocusEvent<HTMLDivElement>) =>
-                                        handleMeaningBlur(event, meaningId)
-                                      }
-                                      onClick={() => void handleCopy(meaning)}
-                                      onKeyDown={(event: KeyboardEvent<HTMLDivElement>) =>
-                                        handleMeaningKeyDown(event, meaning)
-                                      }
-                                      sx={{
-                                        userSelect: "none",
-                                        position: "relative",
-                                        borderRadius: 1,
-                                        px: 0.75,
-                                        py: 0.5,
-                                        ml: -0.75,
-                                        mr: -0.75,
-                                        pr: 4,
-                                        transition: "background-color 0.15s ease",
-                                        "&:hover": {
-                                          backgroundColor: "action.hover",
-                                        },
-                                        "&:focus-visible": {
-                                          outline: "2px solid",
-                                          outlineColor: "primary.main",
-                                          outlineOffset: 1,
-                                        },
-                                      }}
-                                    >
-                                      {activeMeaning === meaningId ? (
-                                        <IconButton
-                                          size="small"
-                                          aria-label={t("promotionCodes.copyCode", "Copy")}
-                                          data-testid={`vocabulary-meaning-copy-${meaningId}`}
-                                          onClick={(event) => {
-                                            event.stopPropagation();
-                                            void handleCopy(meaning);
-                                          }}
-                                          sx={{
-                                            position: "absolute",
-                                            top: "50%",
-                                            right: 2,
-                                            transform: "translateY(-50%)",
-                                            p: 1.5,
-                                            color: "text.secondary",
-                                          }}
-                                        >
-                                          <ContentCopyIcon sx={{ fontSize: 12 }} />
-                                        </IconButton>
-                                      ) : null}
-                                      <Typography>{meaning}</Typography>
-                                    </Box>
-                                  );
-                                })}
-                              </Stack>
-                            ),
-                          })}
-                        </TableCell>
-                      ) : null}
+                                return (
+                                  <Box
+                                    key={meaningId}
+                                    role="button"
+                                    tabIndex={0}
+                                    data-testid={`vocabulary-meaning-${meaningId}`}
+                                    onMouseOver={() => setActiveMeaning(meaningId)}
+                                    onMouseOut={() =>
+                                      setActiveMeaning((current) =>
+                                        current === meaningId ? null : current,
+                                      )
+                                    }
+                                    onFocusCapture={() => setActiveMeaning(meaningId)}
+                                    onBlurCapture={(event: FocusEvent<HTMLDivElement>) =>
+                                      handleMeaningBlur(event, meaningId)
+                                    }
+                                    onClick={() => void handleCopy(meaning)}
+                                    onKeyDown={(event: KeyboardEvent<HTMLDivElement>) =>
+                                      handleMeaningKeyDown(event, meaning)
+                                    }
+                                    sx={{
+                                      userSelect: "none",
+                                      position: "relative",
+                                      borderRadius: 1,
+                                      px: 0.75,
+                                      py: 0.5,
+                                      ml: -0.75,
+                                      mr: -0.75,
+                                      pr: 4,
+                                      transition: "background-color 0.15s ease",
+                                      "&:hover": {
+                                        backgroundColor: "action.hover",
+                                      },
+                                      "&:focus-visible": {
+                                        outline: "2px solid",
+                                        outlineColor: "primary.main",
+                                        outlineOffset: 1,
+                                      },
+                                    }}
+                                  >
+                                    {activeMeaning === meaningId ? (
+                                      <IconButton
+                                        size="small"
+                                        aria-label={t("promotionCodes.copyCode", "Copy")}
+                                        data-testid={`vocabulary-meaning-copy-${meaningId}`}
+                                        onClick={(event) => {
+                                          event.stopPropagation();
+                                          void handleCopy(meaning);
+                                        }}
+                                        sx={{
+                                          position: "absolute",
+                                          top: "50%",
+                                          right: 2,
+                                          transform: "translateY(-50%)",
+                                          p: 1.5,
+                                          color: "text.secondary",
+                                        }}
+                                      >
+                                        <ContentCopyIcon sx={{ fontSize: 12 }} />
+                                      </IconButton>
+                                    ) : null}
+                                    <Typography>{meaning}</Typography>
+                                  </Box>
+                                );
+                              })}
+                            </Stack>
+                          ),
+                        })}
+                      </TableCell>
 
-                      {visibleSections.partOfSpeech ? (
-                        <TableCell>
-                          {renderCellContent({
-                            cellId: `part-of-speech-${rowIndex}`,
-                            copyValue: result.entry.part_of_speech.join(", "),
-                            children: (
-                              <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
-                                {result.entry.part_of_speech.map((value) => (
-                                  <Chip key={value} size="small" variant="outlined" label={value} />
-                                ))}
-                              </Stack>
-                            ),
-                          })}
-                        </TableCell>
-                      ) : null}
+                      {/* <TableCell>
+                        {renderCellContent({
+                          cellId: `part-of-speech-${rowIndex}`,
+                          copyValue: result.entry.part_of_speech.join(", "),
+                          children: (
+                            <Stack spacing={0.75} alignItems="flex-start">
+                              {result.entry.part_of_speech.map((value, partIndex) => (
+                                <Chip
+                                  key={`${value}-${partIndex}`}
+                                  size="small"
+                                  variant="outlined"
+                                  label={value}
+                                  data-testid={`vocabulary-batch-part-of-speech-${rowIndex}-${partIndex}`}
+                                />
+                              ))}
+                            </Stack>
+                          ),
+                        })}
+                      </TableCell> */}
                     </TableRow>
                   ))}
                 </TableBody>
@@ -586,92 +504,6 @@ export default function VocabularyBatchLookup({
         </Stack>
 
         <Stack spacing={2} sx={{ flex: 1, width: "100%" }}>
-          <Stack
-            direction="row"
-            spacing={1}
-            useFlexGap
-            flexWrap="wrap"
-            data-testid="vocabulary-layout-options"
-          >
-            {[
-              { value: "card" as const, label: layoutCardLabel },
-              { value: "table" as const, label: layoutTableLabel },
-            ].map((option) => {
-              const selected = layout === option.value;
-
-              return (
-                <Chip
-                  key={option.value}
-                  label={option.label}
-                  clickable
-                  color={selected ? "primary" : "default"}
-                  variant={selected ? "filled" : "outlined"}
-                  data-testid={`vocabulary-layout-${option.value}`}
-                  data-selected={selected ? "true" : "false"}
-                  onClick={() => setLayout(option.value)}
-                  sx={{
-                    borderRadius: 999,
-                    fontWeight: selected ? 600 : 500,
-                    px: 0.5,
-                    height: 34,
-                    bgcolor: selected ? undefined : "background.paper",
-                    borderColor: selected ? "primary.main" : "divider",
-                  }}
-                />
-              );
-            })}
-          </Stack>
-
-          <Stack
-            direction="row"
-            spacing={1}
-            useFlexGap
-            flexWrap="wrap"
-            data-testid="vocabulary-filters"
-          >
-            {[
-              {
-                key: "meanings" as const,
-                label: filterMeaningsLabel,
-                selected: visibleSections.meanings,
-              },
-              {
-                key: "reading" as const,
-                label: filterReadingLabel,
-                selected: visibleSections.reading,
-              },
-              {
-                key: "romanized" as const,
-                label: filterRomanizedLabel,
-                selected: visibleSections.romanized,
-              },
-              {
-                key: "partOfSpeech" as const,
-                label: filterPartOfSpeechLabel,
-                selected: visibleSections.partOfSpeech,
-              },
-            ].map((filter) => (
-              <Chip
-                key={filter.key}
-                label={filter.label}
-                clickable
-                color={filter.selected ? "primary" : "default"}
-                variant={filter.selected ? "filled" : "outlined"}
-                data-testid={`vocabulary-filter-${filter.key}`}
-                data-selected={filter.selected ? "true" : "false"}
-                onClick={() => toggleSection(filter.key)}
-                sx={{
-                  borderRadius: 999,
-                  fontWeight: filter.selected ? 600 : 500,
-                  px: 0.5,
-                  height: 34,
-                  bgcolor: filter.selected ? undefined : "background.paper",
-                  borderColor: filter.selected ? "primary.main" : "divider",
-                }}
-              />
-            ))}
-          </Stack>
-
           {results.length === 0 ? (
             <Card
               variant="outlined"
@@ -698,7 +530,7 @@ export default function VocabularyBatchLookup({
             </Card>
           ) : (
             <>
-              {layout === "table" ? renderSuccessTable() : renderSuccessCards()}
+              {renderSuccessTable()}
               {results
                 .filter((result) => result.status !== "ok" || result.entry === null)
                 .map((result, index) => renderNonSuccessResultItem(result, index))}
