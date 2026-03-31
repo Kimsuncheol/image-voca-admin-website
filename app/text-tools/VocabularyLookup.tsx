@@ -180,28 +180,32 @@ export default function VocabularyLookup({
 
   return (
     <Box component="form" onSubmit={handleSubmit}>
-      <Stack spacing={2}>
-        <TextField
-          label={inputLabel}
-          value={input}
-          onChange={(event) => setInput(event.target.value)}
-          multiline
-          minRows={3}
-          fullWidth
-        />
+      <Stack direction={{ xs: "column", md: "row" }} spacing={3} alignItems="flex-start">
+        <Stack spacing={2} sx={{ flex: 1, width: "100%" }}>
+          <TextField
+            label={inputLabel}
+            value={input}
+            onChange={(event) => setInput(event.target.value)}
+            multiline
+            minRows={3}
+            fullWidth
+          />
 
-        <Stack direction="row" spacing={2}>
-          <Button type="submit" variant="contained" disabled={loading}>
-            {loading ? loadingLabel : submitLabel}
-          </Button>
-          <Button type="button" variant="outlined" onClick={handleReset} disabled={loading}>
-            {resetLabel}
-          </Button>
+          <Stack direction="row" spacing={2}>
+            <Button type="submit" variant="contained" disabled={loading}>
+              {loading ? loadingLabel : submitLabel}
+            </Button>
+            <Button type="button" variant="outlined" onClick={handleReset} disabled={loading}>
+              {resetLabel}
+            </Button>
+          </Stack>
+
+          {error ? <Alert severity="error">{error}</Alert> : null}
         </Stack>
 
-        {error ? <Alert severity="error">{error}</Alert> : null}
-
-        {renderResult()}
+        <Box sx={{ flex: 1, width: "100%" }}>
+          {renderResult()}
+        </Box>
       </Stack>
     </Box>
   );
