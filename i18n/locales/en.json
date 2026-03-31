@@ -515,7 +515,13 @@
     "resetAction": "Reset",
     "loading": "Processing…",
     "inputRequired": "Input text is required.",
-    "networkError": "Network error. Please try again."
+    "networkError": "Network error. Please try again.",
+    "tabRomanize": "Romanize",
+    "tabAddFurigana": "Add Furigana",
+    "tabTranslate": "Translate",
+    "romanizeAction": "Romanize",
+    "addFuriganaAction": "Add Furigana",
+    "translateAction": "Translate"
   },
   "notFound": {
     "title": "404",

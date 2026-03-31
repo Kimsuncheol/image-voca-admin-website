@@ -15,7 +15,7 @@ import { useAdminGuard } from "@/hooks/useAdminGuard";
 
 import ParenthesesForm from "./ParenthesesForm";
 
-type TabIndex = 0 | 1;
+type TabIndex = 0 | 1 | 2 | 3 | 4;
 
 export default function ParenthesesToolPage() {
   const { t } = useTranslation();
@@ -55,6 +55,9 @@ export default function ParenthesesToolPage() {
           >
             <Tab label={t("parenthesesTool.tabGeneration")} />
             <Tab label={t("parenthesesTool.tabRemoval")} />
+            <Tab label={t("parenthesesTool.tabRomanize")} />
+            <Tab label={t("parenthesesTool.tabAddFurigana")} />
+            <Tab label={t("parenthesesTool.tabTranslate")} />
           </Tabs>
 
           <CardContent>
@@ -69,6 +72,27 @@ export default function ParenthesesToolPage() {
               <ParenthesesForm
                 apiPath="/api/text/remove-parentheses"
                 submitLabel={t("parenthesesTool.removeAction")}
+                {...sharedFormProps}
+              />
+            )}
+            {tab === 2 && (
+              <ParenthesesForm
+                apiPath="/api/text/romanize"
+                submitLabel={t("parenthesesTool.romanizeAction")}
+                {...sharedFormProps}
+              />
+            )}
+            {tab === 3 && (
+              <ParenthesesForm
+                apiPath="/api/text/add-furigana"
+                submitLabel={t("parenthesesTool.addFuriganaAction")}
+                {...sharedFormProps}
+              />
+            )}
+            {tab === 4 && (
+              <ParenthesesForm
+                apiPath="/api/text/translate"
+                submitLabel={t("parenthesesTool.translateAction")}
                 {...sharedFormProps}
               />
             )}

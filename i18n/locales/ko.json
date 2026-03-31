@@ -515,7 +515,13 @@
     "resetAction": "초기화",
     "loading": "처리 중…",
     "inputRequired": "입력 텍스트를 입력해주세요.",
-    "networkError": "네트워크 오류가 발생했습니다. 다시 시도해주세요."
+    "networkError": "네트워크 오류가 발생했습니다. 다시 시도해주세요.",
+    "tabRomanize": "로마자 변환",
+    "tabAddFurigana": "후리가나 추가",
+    "tabTranslate": "번역",
+    "romanizeAction": "로마자 변환",
+    "addFuriganaAction": "후리가나 추가",
+    "translateAction": "번역"
   },
   "notFound": {
     "title": "404",
