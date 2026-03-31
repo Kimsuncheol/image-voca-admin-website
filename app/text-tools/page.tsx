@@ -15,8 +15,14 @@ import PageLayout from "@/components/layout/PageLayout";
 import { useAdminGuard } from "@/hooks/useAdminGuard";
 
 import ParenthesesForm from "./ParenthesesForm";
+import VocabularyLookup from "./VocabularyLookup";
 
-type ToolGroup = "parentheses" | "romanize" | "furigana" | "translate";
+type ToolGroup =
+  | "parentheses"
+  | "romanize"
+  | "furigana"
+  | "translate"
+  | "vocabulary";
 type ParenthesesAction = "generate" | "remove";
 type FuriganaAction = "add" | "remove";
 
@@ -156,6 +162,29 @@ export default function TextToolsPage() {
       );
     }
 
+    if (group === "vocabulary") {
+      return (
+        <VocabularyLookup
+          apiPath="/api/text/vocabulary"
+          submitLabel={t("textTools.vocabularyAction")}
+          loadingLabel={t("textTools.loading")}
+          resetLabel={t("textTools.resetAction")}
+          inputLabel={t("textTools.inputLabel")}
+          inputRequiredMsg={t("textTools.inputRequired")}
+          networkErrorMsg={t("textTools.networkError")}
+          emptyStateLabel={t("textTools.vocabularyEmptyState")}
+          resultTitle={t("textTools.vocabularyResultTitle")}
+          wordLabel={t("textTools.vocabularyWordLabel")}
+          readingLabel={t("textTools.vocabularyReadingLabel")}
+          romanizedLabel={t("textTools.vocabularyRomanizedLabel")}
+          meaningsLabel={t("textTools.vocabularyMeaningsLabel")}
+          partOfSpeechLabel={t("textTools.vocabularyPartOfSpeechLabel")}
+          commonLabel={t("textTools.vocabularyCommonLabel")}
+          uncommonLabel={t("textTools.vocabularyUncommonLabel")}
+        />
+      );
+    }
+
     return (
       <ParenthesesForm
         apiPath="/api/text/translate"
@@ -187,6 +216,7 @@ export default function TextToolsPage() {
             <Tab label={t("textTools.tabRomanize")} value="romanize" />
             <Tab label={t("textTools.tabFurigana")} value="furigana" />
             <Tab label={t("textTools.tabTranslate")} value="translate" />
+            <Tab label={t("textTools.tabVocabulary")} value="vocabulary" />
           </Tabs>
 
           <CardContent>{renderCurrentForm()}</CardContent>

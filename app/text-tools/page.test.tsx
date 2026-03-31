@@ -22,6 +22,7 @@ vi.mock("react-i18next", () => ({
         "textTools.tabRomanize": "Romanize",
         "textTools.tabFurigana": "Furigana",
         "textTools.tabTranslate": "Translate",
+        "textTools.tabVocabulary": "Vocabulary",
         "textTools.subtabGenerate": "Generate",
         "textTools.subtabRemove": "Remove",
         "textTools.subtabAdd": "Add",
@@ -33,6 +34,16 @@ vi.mock("react-i18next", () => ({
         "textTools.removeFuriganaRemoveBracketsOption":
           "Remove brackets at the same time.",
         "textTools.translateAction": "Translate",
+        "textTools.vocabularyAction": "Lookup Vocabulary",
+        "textTools.vocabularyEmptyState": "No vocabulary entry found.",
+        "textTools.vocabularyResultTitle": "Vocabulary Result",
+        "textTools.vocabularyWordLabel": "Word",
+        "textTools.vocabularyReadingLabel": "Reading",
+        "textTools.vocabularyRomanizedLabel": "Romanized",
+        "textTools.vocabularyMeaningsLabel": "Meanings",
+        "textTools.vocabularyPartOfSpeechLabel": "Part of Speech",
+        "textTools.vocabularyCommonLabel": "Common",
+        "textTools.vocabularyUncommonLabel": "Uncommon",
       };
 
       return labels[key] ?? key;
@@ -65,6 +76,12 @@ vi.mock("./ParenthesesForm", () => ({
       {`${submitLabel}:${apiPath}`}
       {booleanOption ? <span>{booleanOption.label}</span> : null}
     </div>
+  ),
+}));
+
+vi.mock("./VocabularyLookup", () => ({
+  default: ({ apiPath, submitLabel }: { apiPath: string; submitLabel: string }) => (
+    <div data-testid="mock-vocabulary-lookup">{`${submitLabel}:${apiPath}`}</div>
   ),
 }));
 
@@ -134,6 +151,7 @@ describe("TextToolsPage", () => {
     expect(document.body.textContent).toContain("Romanize");
     expect(document.body.textContent).toContain("Furigana");
     expect(document.body.textContent).toContain("Translate");
+    expect(document.body.textContent).toContain("Vocabulary");
     expect(document.body.textContent).toContain("Generate");
     expect(document.body.textContent).toContain("Remove");
     expect(document.body.textContent).toContain(
@@ -181,6 +199,16 @@ describe("TextToolsPage", () => {
 
     expect(document.body.textContent).toContain(
       "Remove Furigana:/api/text/remove-furigana",
+    );
+  });
+
+  it("renders the vocabulary lookup component when the vocabulary tab is selected", () => {
+    rendered = renderPage(<TextToolsPage />);
+
+    clickTab("Vocabulary");
+
+    expect(document.body.textContent).toContain(
+      "Lookup Vocabulary:/api/text/vocabulary",
     );
   });
 });

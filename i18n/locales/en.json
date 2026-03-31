@@ -510,6 +510,7 @@
     "tabRomanize": "Romanize",
     "tabFurigana": "Furigana",
     "tabTranslate": "Translate",
+    "tabVocabulary": "Vocabulary",
     "subtabGenerate": "Generate",
     "subtabRemove": "Remove",
     "subtabAdd": "Add",
@@ -525,7 +526,17 @@
     "addFuriganaAction": "Add Furigana",
     "removeFuriganaAction": "Remove Furigana",
     "removeFuriganaRemoveBracketsOption": "Remove brackets at the same time.",
-    "translateAction": "Translate"
+    "translateAction": "Translate",
+    "vocabularyAction": "Lookup Vocabulary",
+    "vocabularyEmptyState": "No vocabulary entry found.",
+    "vocabularyResultTitle": "Vocabulary Result",
+    "vocabularyWordLabel": "Word",
+    "vocabularyReadingLabel": "Reading",
+    "vocabularyRomanizedLabel": "Romanized",
+    "vocabularyMeaningsLabel": "Meanings",
+    "vocabularyPartOfSpeechLabel": "Part of Speech",
+    "vocabularyCommonLabel": "Common",
+    "vocabularyUncommonLabel": "Uncommon"
   },
   "notFound": {
     "title": "404",

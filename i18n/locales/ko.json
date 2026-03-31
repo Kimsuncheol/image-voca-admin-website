@@ -510,6 +510,7 @@
     "tabRomanize": "로마자 변환",
     "tabFurigana": "후리가나",
     "tabTranslate": "번역",
+    "tabVocabulary": "어휘",
     "subtabGenerate": "생성",
     "subtabRemove": "제거",
     "subtabAdd": "추가",
@@ -525,7 +526,17 @@
     "addFuriganaAction": "후리가나 추가",
     "removeFuriganaAction": "후리가나 제거",
     "removeFuriganaRemoveBracketsOption": "괄호도 함께 제거",
-    "translateAction": "번역"
+    "translateAction": "번역",
+    "vocabularyAction": "어휘 조회",
+    "vocabularyEmptyState": "일치하는 어휘를 찾지 못했습니다.",
+    "vocabularyResultTitle": "어휘 결과",
+    "vocabularyWordLabel": "단어",
+    "vocabularyReadingLabel": "읽기",
+    "vocabularyRomanizedLabel": "로마자",
+    "vocabularyMeaningsLabel": "의미",
+    "vocabularyPartOfSpeechLabel": "품사",
+    "vocabularyCommonLabel": "일상 표현",
+    "vocabularyUncommonLabel": "비일상 표현"
   },
   "notFound": {
     "title": "404",
