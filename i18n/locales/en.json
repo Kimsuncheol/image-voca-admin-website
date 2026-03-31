@@ -35,8 +35,8 @@
     "adsDesc": "Manage video advertisements",
     "promotionCodes": "Promotion Codes",
     "promotionCodesDesc": "Generate and manage promotion codes",
-    "parenthesesTool": "Parentheses Tool",
-    "parenthesesToolDesc": "Remove or generate parentheses in text",
+    "textTools": "Text Tools",
+    "textToolsDesc": "Parentheses, romanization, furigana, and translation utilities",
     "settings": "Settings",
     "settingsDesc": "Configure AI models for generation"
   },
@@ -503,11 +503,16 @@
     "keep": "Keep editing",
     "leave": "Leave"
   },
-  "parenthesesTool": {
-    "title": "Parentheses Tool",
-    "description": "Remove or generate parentheses in text using the text processing API.",
-    "tabRemoval": "Parentheses removal",
-    "tabGeneration": "Parentheses generation",
+  "textTools": {
+    "title": "Text Tools",
+    "description": "Work with parentheses, romanization, furigana, and translation using the text processing API.",
+    "tabParentheses": "Parentheses",
+    "tabRomanize": "Romanize",
+    "tabFurigana": "Furigana",
+    "tabTranslate": "Translate",
+    "subtabGenerate": "Generate",
+    "subtabRemove": "Remove",
+    "subtabAdd": "Add",
     "inputLabel": "Input Text",
     "outputLabel": "Output Text",
     "removeAction": "Remove Parentheses",
@@ -516,11 +521,10 @@
     "loading": "Processing…",
     "inputRequired": "Input text is required.",
     "networkError": "Network error. Please try again.",
-    "tabRomanize": "Romanize",
-    "tabAddFurigana": "Add Furigana",
-    "tabTranslate": "Translate",
     "romanizeAction": "Romanize",
     "addFuriganaAction": "Add Furigana",
+    "removeFuriganaAction": "Remove Furigana",
+    "removeFuriganaRemoveBracketsOption": "Remove brackets at the same time.",
     "translateAction": "Translate"
   },
   "notFound": {

@@ -86,9 +86,9 @@ export function useNavItems(): NavItem[] {
       href: "/promotion-codes",
     },
     {
-      title: t("dashboard.parenthesesTool", "Parentheses Tool"),
+      title: t("dashboard.textTools", "Text Tools"),
       icon: <AutoFixHighIcon />,
-      href: "/parentheses-generation-removal",
+      href: "/text-tools",
     },
     {
       title: t("settings.title", "Settings"),

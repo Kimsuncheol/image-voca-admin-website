@@ -21,6 +21,9 @@ vi.mock("react-i18next", () => ({
         "dashboard.adsDesc": "Manage video advertisements",
         "dashboard.promotionCodes": "Promotion Codes",
         "dashboard.promotionCodesDesc": "Generate and manage promotion codes",
+        "dashboard.textTools": "Text Tools",
+        "dashboard.textToolsDesc":
+          "Parentheses, romanization, furigana, and translation utilities",
         "dashboard.naverDictApi": "Naver Dict API",
         "dashboard.naverDictApiDesc": "Test /dict/types and /dict/search",
         "dashboard.settings": "Settings",
@@ -60,5 +63,15 @@ describe("Dashboard page", () => {
     expect(markup).toContain("Naver Dict API");
     expect(markup).toContain("Test /dict/types and /dict/search");
     expect(markup).toContain("/naver-dict");
+  });
+
+  it("includes the Text Tools card", () => {
+    const markup = renderToStaticMarkup(<Home />);
+
+    expect(markup).toContain("Text Tools");
+    expect(markup).toContain(
+      "Parentheses, romanization, furigana, and translation utilities",
+    );
+    expect(markup).toContain("/text-tools");
   });
 });

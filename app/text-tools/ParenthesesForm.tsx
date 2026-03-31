@@ -4,10 +4,18 @@ import { FormEvent, useState } from "react";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
+import Checkbox from "@mui/material/Checkbox";
+import FormControlLabel from "@mui/material/FormControlLabel";
 import Snackbar from "@mui/material/Snackbar";
 import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import { useTranslation } from "react-i18next";
+
+type BooleanOptionConfig = {
+  key: string;
+  label: string;
+  defaultValue: boolean;
+};
 
 export default function ParenthesesForm({
   apiPath,
@@ -18,6 +26,7 @@ export default function ParenthesesForm({
   outputLabel,
   inputRequiredMsg,
   networkErrorMsg,
+  booleanOption,
 }: {
   apiPath: string;
   submitLabel: string;
@@ -27,13 +36,20 @@ export default function ParenthesesForm({
   outputLabel: string;
   inputRequiredMsg: string;
   networkErrorMsg: string;
+  booleanOption?: BooleanOptionConfig;
 }) {
   const { t } = useTranslation();
   const [input, setInput] = useState("");
   const [output, setOutput] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [copySnackbar, setCopySnackbar] = useState<{ open: boolean; success: boolean }>({ open: false, success: true });
+  const [booleanOptionValue, setBooleanOptionValue] = useState(
+    booleanOption?.defaultValue ?? false,
+  );
+  const [copySnackbar, setCopySnackbar] = useState<{ open: boolean; success: boolean }>({
+    open: false,
+    success: true,
+  });
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -51,17 +67,23 @@ export default function ParenthesesForm({
       const response = await fetch(apiPath, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: input }),
+        body: JSON.stringify({
+          text: input,
+          ...(booleanOption ? { [booleanOption.key]: booleanOptionValue } : {}),
+        }),
       });
 
-      const data = (await response.json()) as { result_text?: string };
+      const data = (await response.json()) as {
+        result_text?: string;
+        romanized_text?: string;
+      };
 
       if (!response.ok) {
         setError(networkErrorMsg);
         return;
       }
 
-      setOutput(data.result_text ?? "");
+      setOutput(data.result_text ?? data.romanized_text ?? "");
     } catch {
       setError(networkErrorMsg);
     } finally {
@@ -73,6 +95,7 @@ export default function ParenthesesForm({
     setInput("");
     setOutput("");
     setError("");
+    setBooleanOptionValue(booleanOption?.defaultValue ?? false);
   }
 
   async function handleCopy() {
@@ -95,6 +118,18 @@ export default function ParenthesesForm({
           minRows={5}
           fullWidth
         />
+
+        {booleanOption ? (
+          <FormControlLabel
+            control={
+              <Checkbox
+                checked={booleanOptionValue}
+                onChange={(event) => setBooleanOptionValue(event.target.checked)}
+              />
+            }
+            label={booleanOption.label}
+          />
+        ) : null}
 
         <Stack direction="row" spacing={2}>
           <Button type="submit" variant="contained" disabled={loading}>
