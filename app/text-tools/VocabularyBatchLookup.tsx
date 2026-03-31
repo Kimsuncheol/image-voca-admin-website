@@ -299,8 +299,6 @@ export default function VocabularyBatchLookup({
       <Card variant="outlined">
         <CardContent>
           <Stack spacing={2}>
-            <Typography variant="h6">{resultTitle}</Typography>
-
             <TableContainer>
               <Table size="small">
                 <TableHead>
