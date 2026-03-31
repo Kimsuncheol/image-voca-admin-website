@@ -144,11 +144,11 @@ export default function VocabularyResultCard({
               position: "absolute",
               top: 0,
               right: 0,
-              p: 4,
+              p: 1,
               color: "text.secondary",
             }}
           >
-            <ContentCopyIcon sx={{ fontSize: sectionId === "meanings" ? 16 : 8 }} />
+            <ContentCopyIcon sx={{ fontSize: 16 }} />
           </IconButton>
         ) : null}
 
@@ -269,7 +269,7 @@ export default function VocabularyResultCard({
                                 top: "50%",
                                 right: 2,
                                 transform: "translateY(-50%)",
-                                p: 4,
+                                p: 1.5,
                                 color: "text.secondary",
                               }}
                             >
