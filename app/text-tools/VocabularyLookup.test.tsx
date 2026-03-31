@@ -140,6 +140,35 @@ function getMeaningRow(index: number) {
   return row as HTMLElement;
 }
 
+function hoverMeaningRow(index: number) {
+  const row = getMeaningRow(index);
+
+  act(() => {
+    row.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
+  });
+}
+
+function leaveMeaningRow(index: number) {
+  const row = getMeaningRow(index);
+
+  act(() => {
+    row.dispatchEvent(new MouseEvent("mouseout", { bubbles: true }));
+  });
+}
+
+async function clickMeaningCopyControl(index: number) {
+  const button = document.querySelector(
+    `[data-testid="vocabulary-meaning-copy-${index}"]`,
+  );
+
+  expect(button).not.toBeNull();
+  expect(button?.getAttribute("aria-label")).toBe("Copy");
+
+  await act(async () => {
+    button?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+  });
+}
+
 describe("VocabularyLookup", () => {
   let rendered: ReturnType<typeof renderLookup> | null = null;
   let fetchMock: ReturnType<typeof vi.fn>;
@@ -205,6 +234,12 @@ describe("VocabularyLookup", () => {
     expect(document.body.textContent).toContain("noun");
     expect(document.body.textContent).toContain("Common");
     expect(document.querySelector('[data-testid^="vocabulary-copy-"]')).toBeNull();
+  });
+
+  it("does not render field filter chips in single lookup", () => {
+    rendered = renderLookup(createLookup());
+
+    expect(document.querySelector('[data-testid="vocabulary-filters"]')).toBeNull();
   });
 
   it("renders an empty state when the entry is null", async () => {
@@ -347,6 +382,98 @@ describe("VocabularyLookup", () => {
     expect(writeTextMock).toHaveBeenCalledWith("猫");
     expect(document.body.textContent).toContain("Copied!");
   });
+
+  it("does not render a per-meaning copy button by default", async () => {
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        original_text: "上げる",
+        entry: {
+          word: "上げる",
+          reading: "あげる",
+          romanized: "ageru",
+          meanings: ["to raise", "to wake"],
+          part_of_speech: ["verb"],
+          is_common: true,
+        },
+      }),
+    });
+
+    rendered = renderLookup(createLookup());
+    const textarea = getTextarea();
+
+    act(() => {
+      setTextareaValue(textarea, "上げる");
+    });
+
+    await clickButton("Lookup");
+
+    expect(document.querySelector('[data-testid="vocabulary-meaning-copy-0"]')).toBeNull();
+    expect(document.querySelector('[data-testid="vocabulary-meaning-copy-1"]')).toBeNull();
+  });
+
+  it("mounts and unmounts a per-meaning copy button on row hover", async () => {
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        original_text: "上げる",
+        entry: {
+          word: "上げる",
+          reading: "あげる",
+          romanized: "ageru",
+          meanings: ["to raise", "to wake"],
+          part_of_speech: ["verb"],
+          is_common: true,
+        },
+      }),
+    });
+
+    rendered = renderLookup(createLookup());
+    const textarea = getTextarea();
+
+    act(() => {
+      setTextareaValue(textarea, "上げる");
+    });
+
+    await clickButton("Lookup");
+
+    hoverMeaningRow(0);
+    expect(document.querySelector('[data-testid="vocabulary-meaning-copy-0"]')).not.toBeNull();
+
+    leaveMeaningRow(0);
+    expect(document.querySelector('[data-testid="vocabulary-meaning-copy-0"]')).toBeNull();
+  });
+
+  it("copies only that meaning when the per-meaning copy button is clicked", async () => {
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        original_text: "上げる",
+        entry: {
+          word: "上げる",
+          reading: "あげる",
+          romanized: "ageru",
+          meanings: ["to raise", "to wake"],
+          part_of_speech: ["verb"],
+          is_common: true,
+        },
+      }),
+    });
+
+    rendered = renderLookup(createLookup());
+    const textarea = getTextarea();
+
+    act(() => {
+      setTextareaValue(textarea, "上げる");
+    });
+
+    await clickButton("Lookup");
+    hoverMeaningRow(1);
+    await clickMeaningCopyControl(1);
+
+    expect(writeTextMock).toHaveBeenCalledWith("to wake");
+  });
+
 
   it("copies serialized list content for meanings and part of speech", async () => {
     fetchMock.mockResolvedValue({

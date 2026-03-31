@@ -27,6 +27,13 @@ export type VocabularyEntry = {
   is_common: boolean;
 };
 
+export type VocabularyVisibleSections = {
+  meanings: boolean;
+  reading: boolean;
+  romanized: boolean;
+  partOfSpeech: boolean;
+};
+
 export default function VocabularyResultCard({
   entry,
   resultTitle,
@@ -37,6 +44,7 @@ export default function VocabularyResultCard({
   partOfSpeechLabel,
   commonLabel,
   uncommonLabel,
+  visibleSections,
 }: {
   entry: VocabularyEntry;
   resultTitle: string;
@@ -47,9 +55,11 @@ export default function VocabularyResultCard({
   partOfSpeechLabel: string;
   commonLabel: string;
   uncommonLabel: string;
+  visibleSections?: VocabularyVisibleSections;
 }) {
   const { t } = useTranslation();
   const [activeSection, setActiveSection] = useState<string | null>(null);
+  const [activeMeaningIndex, setActiveMeaningIndex] = useState<number | null>(null);
   const [copySnackbar, setCopySnackbar] = useState<{ open: boolean; success: boolean }>({
     open: false,
     success: true,
@@ -85,6 +95,17 @@ export default function VocabularyResultCard({
 
     event.preventDefault();
     void handleCopy(meaning);
+  }
+
+  function handleMeaningBlur(
+    event: FocusEvent<HTMLDivElement>,
+    meaningIndex: number,
+  ) {
+    if (event.currentTarget.contains(event.relatedTarget as Node | null)) {
+      return;
+    }
+
+    setActiveMeaningIndex((current) => (current === meaningIndex ? null : current));
   }
 
   function renderCopySection({
@@ -123,13 +144,11 @@ export default function VocabularyResultCard({
               position: "absolute",
               top: 0,
               right: 0,
-              width: 28,
-              height: 28,
-              p: 0.5,
+              p: 4,
               color: "text.secondary",
             }}
           >
-            <ContentCopyIcon sx={{ fontSize: 16 }} />
+            <ContentCopyIcon sx={{ fontSize: sectionId === "meanings" ? 16 : 8 }} />
           </IconButton>
         ) : null}
 
@@ -182,10 +201,14 @@ export default function VocabularyResultCard({
             </Stack>
 
             {renderField("word", wordLabel, entry.word)}
-            {renderField("reading", readingLabel, entry.reading)}
-            {renderField("romanized", romanizedLabel, entry.romanized)}
+            {visibleSections?.reading !== false
+              ? renderField("reading", readingLabel, entry.reading)
+              : null}
+            {visibleSections?.romanized !== false
+              ? renderField("romanized", romanizedLabel, entry.romanized)
+              : null}
 
-            {entry.meanings.length > 0
+            {visibleSections?.meanings !== false && entry.meanings.length > 0
               ? renderCopySection({
                   sectionId: "meanings",
                   label: meaningsLabel,
@@ -198,17 +221,29 @@ export default function VocabularyResultCard({
                           role="button"
                           tabIndex={0}
                           data-testid={`vocabulary-meaning-${index}`}
+                          onMouseOver={() => setActiveMeaningIndex(index)}
+                          onMouseOut={() =>
+                            setActiveMeaningIndex((current) =>
+                              current === index ? null : current,
+                            )
+                          }
+                          onFocusCapture={() => setActiveMeaningIndex(index)}
+                          onBlurCapture={(event: FocusEvent<HTMLDivElement>) =>
+                            handleMeaningBlur(event, index)
+                          }
                           onClick={() => void handleCopy(meaning)}
                           onKeyDown={(event: KeyboardEvent<HTMLDivElement>) =>
                             handleMeaningKeyDown(event, meaning)
                           }
                           sx={{
-                            cursor: "pointer",
+                            userSelect: "none",
+                            position: "relative",
                             borderRadius: 1,
                             px: 0.75,
                             py: 0.5,
                             ml: -0.75,
                             mr: -0.75,
+                            pr: 4,
                             transition: "background-color 0.15s ease",
                             "&:hover": {
                               backgroundColor: "action.hover",
@@ -220,6 +255,27 @@ export default function VocabularyResultCard({
                             },
                           }}
                         >
+                          {activeMeaningIndex === index ? (
+                            <IconButton
+                              size="small"
+                              aria-label={t("promotionCodes.copyCode", "Copy")}
+                              data-testid={`vocabulary-meaning-copy-${index}`}
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                void handleCopy(meaning);
+                              }}
+                              sx={{
+                                position: "absolute",
+                                top: "50%",
+                                right: 2,
+                                transform: "translateY(-50%)",
+                                p: 4,
+                                color: "text.secondary",
+                              }}
+                            >
+                              <ContentCopyIcon sx={{ fontSize: 12 }} />
+                            </IconButton>
+                          ) : null}
                           <Typography>{meaning}</Typography>
                         </Box>
                       ))}
@@ -228,7 +284,8 @@ export default function VocabularyResultCard({
                 })
               : null}
 
-            {entry.part_of_speech.length > 0
+            {visibleSections?.partOfSpeech !== false &&
+            entry.part_of_speech.length > 0
               ? renderCopySection({
                   sectionId: "part-of-speech",
                   label: partOfSpeechLabel,

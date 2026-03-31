@@ -216,6 +216,10 @@ export default function TextToolsPage() {
               partOfSpeechLabel={t("textTools.vocabularyPartOfSpeechLabel")}
               commonLabel={t("textTools.vocabularyCommonLabel")}
               uncommonLabel={t("textTools.vocabularyUncommonLabel")}
+              filterMeaningsLabel={t("textTools.vocabularyFilterMeanings")}
+              filterReadingLabel={t("textTools.vocabularyFilterReading")}
+              filterRomanizedLabel={t("textTools.vocabularyFilterRomanized")}
+              filterPartOfSpeechLabel={t("textTools.vocabularyFilterPartOfSpeech")}
               standbyTitle={t("textTools.vocabularyStandbyTitle")}
               standbyDescription={t("textTools.vocabularyStandbyDescription")}
               originalTextLabel={t("textTools.vocabularyBatchOriginalTextLabel")}

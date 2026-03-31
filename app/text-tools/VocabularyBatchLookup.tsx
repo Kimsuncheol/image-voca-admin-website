@@ -6,12 +6,16 @@ import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Card from "@mui/material/Card";
 import CardContent from "@mui/material/CardContent";
+import Chip from "@mui/material/Chip";
 import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import SearchIcon from "@mui/icons-material/Search";
 
-import VocabularyResultCard, { VocabularyEntry } from "./VocabularyResultCard";
+import VocabularyResultCard, {
+  VocabularyEntry,
+  VocabularyVisibleSections,
+} from "./VocabularyResultCard";
 
 type VocabularyBatchResult = {
   original_text: string;
@@ -23,6 +27,13 @@ type VocabularyBatchResult = {
 type VocabularyBatchLookupResponse = {
   original_texts: string[];
   results: VocabularyBatchResult[];
+};
+
+const DEFAULT_VISIBLE_SECTIONS: VocabularyVisibleSections = {
+  meanings: true,
+  reading: true,
+  romanized: true,
+  partOfSpeech: true,
 };
 
 export default function VocabularyBatchLookup({
@@ -42,6 +53,10 @@ export default function VocabularyBatchLookup({
   partOfSpeechLabel,
   commonLabel,
   uncommonLabel,
+  filterMeaningsLabel,
+  filterReadingLabel,
+  filterRomanizedLabel,
+  filterPartOfSpeechLabel,
   originalTextLabel,
   notFoundTitle,
   invalidInputTitle,
@@ -66,6 +81,10 @@ export default function VocabularyBatchLookup({
   partOfSpeechLabel: string;
   commonLabel: string;
   uncommonLabel: string;
+  filterMeaningsLabel: string;
+  filterReadingLabel: string;
+  filterRomanizedLabel: string;
+  filterPartOfSpeechLabel: string;
   originalTextLabel: string;
   notFoundTitle: string;
   invalidInputTitle: string;
@@ -78,6 +97,9 @@ export default function VocabularyBatchLookup({
   const [results, setResults] = useState<VocabularyBatchResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [visibleSections, setVisibleSections] = useState<VocabularyVisibleSections>(
+    DEFAULT_VISIBLE_SECTIONS,
+  );
 
   function parseTexts(value: string) {
     return value
@@ -126,6 +148,14 @@ export default function VocabularyBatchLookup({
     setInput("");
     setResults([]);
     setError("");
+    setVisibleSections(DEFAULT_VISIBLE_SECTIONS);
+  }
+
+  function toggleSection(section: keyof VocabularyVisibleSections) {
+    setVisibleSections((current) => ({
+      ...current,
+      [section]: !current[section],
+    }));
   }
 
   function renderResultItem(result: VocabularyBatchResult, index: number) {
@@ -151,6 +181,7 @@ export default function VocabularyBatchLookup({
             partOfSpeechLabel={partOfSpeechLabel}
             commonLabel={commonLabel}
             uncommonLabel={uncommonLabel}
+            visibleSections={visibleSections}
           />
         </Stack>
       );
@@ -221,6 +252,56 @@ export default function VocabularyBatchLookup({
         </Stack>
 
         <Stack spacing={2} sx={{ flex: 1, width: "100%" }}>
+          <Stack
+            direction="row"
+            spacing={1}
+            useFlexGap
+            flexWrap="wrap"
+            data-testid="vocabulary-filters"
+          >
+            {[
+              {
+                key: "meanings" as const,
+                label: filterMeaningsLabel,
+                selected: visibleSections.meanings,
+              },
+              {
+                key: "reading" as const,
+                label: filterReadingLabel,
+                selected: visibleSections.reading,
+              },
+              {
+                key: "romanized" as const,
+                label: filterRomanizedLabel,
+                selected: visibleSections.romanized,
+              },
+              {
+                key: "partOfSpeech" as const,
+                label: filterPartOfSpeechLabel,
+                selected: visibleSections.partOfSpeech,
+              },
+            ].map((filter) => (
+              <Chip
+                key={filter.key}
+                label={filter.label}
+                clickable
+                color={filter.selected ? "primary" : "default"}
+                variant={filter.selected ? "filled" : "outlined"}
+                data-testid={`vocabulary-filter-${filter.key}`}
+                data-selected={filter.selected ? "true" : "false"}
+                onClick={() => toggleSection(filter.key)}
+                sx={{
+                  borderRadius: 999,
+                  fontWeight: filter.selected ? 600 : 500,
+                  px: 0.5,
+                  height: 34,
+                  bgcolor: filter.selected ? undefined : "background.paper",
+                  borderColor: filter.selected ? "primary.main" : "divider",
+                }}
+              />
+            ))}
+          </Stack>
+
           {results.length === 0 ? (
             <Card
               variant="outlined"
