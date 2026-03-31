@@ -220,6 +220,8 @@ export default function TextToolsPage() {
               filterReadingLabel={t("textTools.vocabularyFilterReading")}
               filterRomanizedLabel={t("textTools.vocabularyFilterRomanized")}
               filterPartOfSpeechLabel={t("textTools.vocabularyFilterPartOfSpeech")}
+              layoutCardLabel={t("textTools.vocabularyLayoutCard")}
+              layoutTableLabel={t("textTools.vocabularyLayoutTable")}
               standbyTitle={t("textTools.vocabularyStandbyTitle")}
               standbyDescription={t("textTools.vocabularyStandbyDescription")}
               originalTextLabel={t("textTools.vocabularyBatchOriginalTextLabel")}

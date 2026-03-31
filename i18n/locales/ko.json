@@ -550,6 +550,8 @@
     "vocabularyFilterReading": "읽기",
     "vocabularyFilterRomanized": "로마자",
     "vocabularyFilterPartOfSpeech": "품사",
+    "vocabularyLayoutCard": "카드",
+    "vocabularyLayoutTable": "테이블",
     "vocabularyCommonLabel": "일상 표현",
     "vocabularyUncommonLabel": "비일상 표현",
     "vocabularyStandbyTitle": "어휘 검색",

@@ -550,6 +550,8 @@
     "vocabularyFilterReading": "Reading",
     "vocabularyFilterRomanized": "Romanized",
     "vocabularyFilterPartOfSpeech": "Part of Speech",
+    "vocabularyLayoutCard": "Card",
+    "vocabularyLayoutTable": "Table",
     "vocabularyCommonLabel": "Common",
     "vocabularyUncommonLabel": "Uncommon",
     "vocabularyStandbyTitle": "Vocabulary Search",

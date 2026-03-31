@@ -57,6 +57,12 @@ vi.mock("react-i18next", () => ({
         "textTools.vocabularyRomanizedLabel": "Romanized",
         "textTools.vocabularyMeaningsLabel": "Meanings",
         "textTools.vocabularyPartOfSpeechLabel": "Part of Speech",
+        "textTools.vocabularyFilterMeanings": "Meanings",
+        "textTools.vocabularyFilterReading": "Reading",
+        "textTools.vocabularyFilterRomanized": "Romanized",
+        "textTools.vocabularyFilterPartOfSpeech": "Part of Speech",
+        "textTools.vocabularyLayoutCard": "Card",
+        "textTools.vocabularyLayoutTable": "Table",
         "textTools.vocabularyCommonLabel": "Common",
         "textTools.vocabularyUncommonLabel": "Uncommon",
       };
