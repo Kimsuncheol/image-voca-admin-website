@@ -1,13 +1,12 @@
 "use client";
 
-import { FocusEvent, FormEvent, KeyboardEvent, useState } from "react";
+import { FormEvent, KeyboardEvent, MouseEvent, useEffect, useRef, useState } from "react";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Card from "@mui/material/Card";
 import CardContent from "@mui/material/CardContent";
 import Chip from "@mui/material/Chip";
-import IconButton from "@mui/material/IconButton";
 import Snackbar from "@mui/material/Snackbar";
 import Stack from "@mui/material/Stack";
 import Table from "@mui/material/Table";
@@ -19,7 +18,6 @@ import TableRow from "@mui/material/TableRow";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import SearchIcon from "@mui/icons-material/Search";
-import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import { useTranslation } from "react-i18next";
 
 import { VocabularyEntry } from "./VocabularyResultCard";
@@ -36,6 +34,45 @@ type VocabularyBatchLookupResponse = {
   results: VocabularyBatchResult[];
 };
 
+type TableColumnKey = "word" | "reading" | "romanized" | "meanings";
+
+type TableCellCoords = {
+  row: number;
+  col: number;
+};
+
+type TableSelectionRange = {
+  start: TableCellCoords;
+  end: TableCellCoords;
+};
+
+const TABLE_COLUMNS: TableColumnKey[] = ["word", "reading", "romanized", "meanings"];
+
+function normalizeSelectionRange(
+  start: TableCellCoords,
+  end: TableCellCoords,
+): TableSelectionRange {
+  return {
+    start: {
+      row: Math.min(start.row, end.row),
+      col: Math.min(start.col, end.col),
+    },
+    end: {
+      row: Math.max(start.row, end.row),
+      col: Math.max(start.col, end.col),
+    },
+  };
+}
+
+function isCellInRange(cell: TableCellCoords, range: TableSelectionRange) {
+  return (
+    cell.row >= range.start.row &&
+    cell.row <= range.end.row &&
+    cell.col >= range.start.col &&
+    cell.col <= range.end.col
+  );
+}
+
 export default function VocabularyBatchLookup({
   apiPath,
   submitLabel,
@@ -50,7 +87,6 @@ export default function VocabularyBatchLookup({
   readingLabel,
   romanizedLabel,
   meaningsLabel,
-  partOfSpeechLabel,
   commonLabel,
   uncommonLabel,
   originalTextLabel,
@@ -90,18 +126,65 @@ export default function VocabularyBatchLookup({
   const [results, setResults] = useState<VocabularyBatchResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [activeCell, setActiveCell] = useState<string | null>(null);
-  const [activeMeaning, setActiveMeaning] = useState<string | null>(null);
+  const [selectionRanges, setSelectionRanges] = useState<TableSelectionRange[]>([]);
+  const [selectionAnchor, setSelectionAnchor] = useState<TableCellCoords | null>(null);
+  const [dragState, setDragState] = useState<{
+    start: TableCellCoords;
+    current: TableCellCoords;
+    additive: boolean;
+  } | null>(null);
+  const dragStateRef = useRef<typeof dragState>(null);
   const [copySnackbar, setCopySnackbar] = useState<{ open: boolean; success: boolean }>({
     open: false,
     success: true,
   });
+
+  function commitDragSelection(currentDragState = dragStateRef.current) {
+    if (!currentDragState) {
+      return;
+    }
+
+    const committedRange = normalizeSelectionRange(
+      currentDragState.start,
+      currentDragState.current,
+    );
+
+    setSelectionRanges((currentRanges) =>
+      currentDragState.additive ? [...currentRanges, committedRange] : [committedRange],
+    );
+    setSelectionAnchor(currentDragState.start);
+    dragStateRef.current = null;
+    setDragState(null);
+  }
+
+  useEffect(() => {
+    if (!dragState) {
+      return;
+    }
+
+    function handleWindowMouseUp() {
+      commitDragSelection();
+    }
+
+    window.addEventListener("mouseup", handleWindowMouseUp);
+
+    return () => {
+      window.removeEventListener("mouseup", handleWindowMouseUp);
+    };
+  }, [dragState]);
 
   function parseTexts(value: string) {
     return value
       .split("\n")
       .map((line) => line.trim())
       .filter(Boolean);
+  }
+
+  function clearSelection() {
+    setSelectionRanges([]);
+    setSelectionAnchor(null);
+    dragStateRef.current = null;
+    setDragState(null);
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -117,6 +200,7 @@ export default function VocabularyBatchLookup({
     setLoading(true);
     setError("");
     setResults([]);
+    clearSelection();
 
     try {
       const response = await fetch(apiPath, {
@@ -144,8 +228,7 @@ export default function VocabularyBatchLookup({
     setInput("");
     setResults([]);
     setError("");
-    setActiveCell(null);
-    setActiveMeaning(null);
+    clearSelection();
   }
 
   async function handleCopy(value: string) {
@@ -157,85 +240,87 @@ export default function VocabularyBatchLookup({
     }
   }
 
-  function handleCellBlur(
-    event: FocusEvent<HTMLDivElement>,
-    cellId: string,
-  ) {
-    if (event.currentTarget.contains(event.relatedTarget as Node | null)) {
-      return;
+  function getCellValue(entry: VocabularyEntry, columnKey: TableColumnKey) {
+    if (columnKey === "word") {
+      return entry.word ?? "";
     }
 
-    setActiveCell((current) => (current === cellId ? null : current));
-  }
-
-  function handleMeaningBlur(
-    event: FocusEvent<HTMLDivElement>,
-    meaningId: string,
-  ) {
-    if (event.currentTarget.contains(event.relatedTarget as Node | null)) {
-      return;
+    if (columnKey === "reading") {
+      return entry.reading ?? "";
     }
 
-    setActiveMeaning((current) => (current === meaningId ? null : current));
+    if (columnKey === "romanized") {
+      return entry.romanized ?? "";
+    }
+
+    return entry.meanings.join("\n");
   }
 
-  function handleMeaningKeyDown(
-    event: KeyboardEvent<HTMLDivElement>,
-    meaning: string,
+  function serializeSelectionRanges(
+    ranges: TableSelectionRange[],
+    successResults: Array<VocabularyBatchResult & { entry: VocabularyEntry }>,
   ) {
-    if (event.key !== "Enter" && event.key !== " ") {
+    return ranges
+      .map((range) => {
+        const rows: string[] = [];
+
+        for (let rowIndex = range.start.row; rowIndex <= range.end.row; rowIndex += 1) {
+          const row = successResults[rowIndex];
+          const values: string[] = [];
+
+          for (let columnIndex = range.start.col; columnIndex <= range.end.col; columnIndex += 1) {
+            values.push(getCellValue(row.entry, TABLE_COLUMNS[columnIndex]));
+          }
+
+          rows.push(values.join("\t"));
+        }
+
+        return rows.join("\n");
+      })
+      .join("\n\n");
+  }
+
+  function handleCellMouseDown(
+    cell: TableCellCoords,
+    event: MouseEvent<HTMLTableCellElement>,
+  ) {
+    if (event.button !== 0) {
       return;
     }
 
     event.preventDefault();
-    void handleCopy(meaning);
+    event.currentTarget.focus();
+
+    const additive = event.metaKey || event.ctrlKey;
+    const startCell = event.shiftKey && selectionAnchor ? selectionAnchor : cell;
+    const nextDragState = {
+      start: startCell,
+      current: cell,
+      additive,
+    };
+
+    dragStateRef.current = nextDragState;
+    setDragState(nextDragState);
   }
 
-  function renderCellContent({
-    cellId,
-    copyValue,
-    children,
-  }: {
-    cellId: string;
-    copyValue: string;
-    children: React.ReactNode;
-  }) {
-    const isActive = activeCell === cellId;
+  function handleCellMouseEnter(cell: TableCellCoords) {
+    const currentDragState = dragStateRef.current;
 
-    return (
-      <Box
-        data-testid={`vocabulary-batch-cell-${cellId}`}
-        onMouseOver={() => setActiveCell(cellId)}
-        onMouseOut={() =>
-          setActiveCell((current) => (current === cellId ? null : current))
-        }
-        onFocusCapture={() => setActiveCell(cellId)}
-        onBlurCapture={(event: FocusEvent<HTMLDivElement>) =>
-          handleCellBlur(event, cellId)
-        }
-        sx={{ position: "relative", pr: 5 }}
-      >
-        {isActive ? (
-          <IconButton
-            size="small"
-            aria-label={t("promotionCodes.copyCode", "Copy")}
-            data-testid={`vocabulary-batch-copy-${cellId}`}
-            onClick={() => void handleCopy(copyValue)}
-            sx={{
-              position: "absolute",
-              top: 0,
-              right: 0,
-              p: 1,
-              color: "text.secondary",
-            }}
-          >
-            <ContentCopyIcon sx={{ fontSize: 16 }} />
-          </IconButton>
-        ) : null}
+    if (!currentDragState) {
+      return;
+    }
 
-        {children}
-      </Box>
-    );
+    const nextDragState = {
+      ...currentDragState,
+      current: cell,
+    };
+
+    dragStateRef.current = nextDragState;
+    setDragState(nextDragState);
+  }
+
+  function handleCellMouseUp() {
+    commitDragSelection();
   }
 
   function renderNonSuccessResultItem(result: VocabularyBatchResult, index: number) {
@@ -294,19 +379,51 @@ export default function VocabularyBatchLookup({
       const word = result.entry.word?.trim() ?? "";
       return original && word && original !== word;
     });
+    const displayedRanges = dragState
+      ? [
+          ...(dragState.additive ? selectionRanges : []),
+          normalizeSelectionRange(dragState.start, dragState.current),
+        ]
+      : selectionRanges;
+
+    function isSelected(rowIndex: number, columnIndex: number) {
+      return displayedRanges.some((range) =>
+        isCellInRange({ row: rowIndex, col: columnIndex }, range),
+      );
+    }
+
+    function handleSelectionKeyDown(event: KeyboardEvent<HTMLDivElement>) {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "c") {
+        if (selectionRanges.length === 0) {
+          return;
+        }
+
+        event.preventDefault();
+        void handleCopy(serializeSelectionRanges(selectionRanges, successResults));
+      }
+    }
 
     return (
       <Card variant="outlined">
         <CardContent>
           <Stack spacing={2}>
-            <TableContainer>
+            <Typography variant="subtitle1" fontWeight={600}>
+              {resultTitle}
+            </Typography>
+
+            <TableContainer
+              onKeyDown={handleSelectionKeyDown}
+              sx={{
+                userSelect: dragState ? "none" : "auto",
+              }}
+            >
               <Table size="small">
                 <TableHead>
                   <TableRow>
-                    <TableCell>word</TableCell>
-                    <TableCell sx={{ whiteSpace: "nowrap" }}>reading</TableCell>
-                    <TableCell>romanized</TableCell>
-                    <TableCell>meanings</TableCell>
+                    <TableCell>{wordLabel}</TableCell>
+                    <TableCell sx={{ whiteSpace: "nowrap" }}>{readingLabel}</TableCell>
+                    <TableCell>{romanizedLabel}</TableCell>
+                    <TableCell>{meaningsLabel}</TableCell>
                     {/* <TableCell>part of speech</TableCell> */}
                   </TableRow>
                 </TableHead>
@@ -314,121 +431,123 @@ export default function VocabularyBatchLookup({
                 <TableBody>
                   {successResults.map((result, rowIndex) => (
                     <TableRow key={`${result.original_text}-${rowIndex}`}>
-                      <TableCell>
-                        {renderCellContent({
-                          cellId: `word-${rowIndex}`,
-                          copyValue: result.entry.word ?? "",
-                          children: (
-                            <Stack spacing={0.5}>
-                              <Typography>{result.entry.word}</Typography>
-                              <Chip
-                                size="small"
-                                color={result.entry.is_common ? "success" : "default"}
-                                label={result.entry.is_common ? commonLabel : uncommonLabel}
-                                sx={{ alignSelf: "flex-start" }}
-                              />
-                            </Stack>
-                          ),
-                        })}
+                      <TableCell
+                        tabIndex={0}
+                        aria-selected={isSelected(rowIndex, 0) || undefined}
+                        data-testid={`vocabulary-batch-cell-${rowIndex}-word`}
+                        onMouseDown={(event) =>
+                          handleCellMouseDown({ row: rowIndex, col: 0 }, event)
+                        }
+                        onMouseOver={() => handleCellMouseEnter({ row: rowIndex, col: 0 })}
+                        onMouseUp={handleCellMouseUp}
+                        sx={{
+                          cursor: "cell",
+                          userSelect: "none",
+                          backgroundColor: isSelected(rowIndex, 0) ? "action.selected" : "inherit",
+                          boxShadow: isSelected(rowIndex, 0)
+                            ? (theme) => `inset 0 0 0 2px ${theme.palette.primary.main}`
+                            : "none",
+                          "&:focus-visible": {
+                            outline: "2px solid",
+                            outlineColor: "primary.main",
+                            outlineOffset: -2,
+                          },
+                        }}
+                      >
+                        <Stack spacing={0.5}>
+                          <Typography>{result.entry.word}</Typography>
+                          <Chip
+                            size="small"
+                            color={result.entry.is_common ? "success" : "default"}
+                            label={result.entry.is_common ? commonLabel : uncommonLabel}
+                            sx={{ alignSelf: "flex-start" }}
+                          />
+                        </Stack>
                       </TableCell>
 
-                      <TableCell sx={{ whiteSpace: "nowrap" }}>
-                        {renderCellContent({
-                          cellId: `reading-${rowIndex}`,
-                          copyValue: result.entry.reading ?? "",
-                          children: (
-                            <Typography sx={{ whiteSpace: "nowrap" }}>
-                              {result.entry.reading}
-                            </Typography>
-                          ),
-                        })}
+                      <TableCell
+                        tabIndex={0}
+                        aria-selected={isSelected(rowIndex, 1) || undefined}
+                        data-testid={`vocabulary-batch-cell-${rowIndex}-reading`}
+                        onMouseDown={(event) =>
+                          handleCellMouseDown({ row: rowIndex, col: 1 }, event)
+                        }
+                        onMouseOver={() => handleCellMouseEnter({ row: rowIndex, col: 1 })}
+                        onMouseUp={handleCellMouseUp}
+                        sx={{
+                          whiteSpace: "nowrap",
+                          cursor: "cell",
+                          userSelect: "none",
+                          backgroundColor: isSelected(rowIndex, 1) ? "action.selected" : "inherit",
+                          boxShadow: isSelected(rowIndex, 1)
+                            ? (theme) => `inset 0 0 0 2px ${theme.palette.primary.main}`
+                            : "none",
+                          "&:focus-visible": {
+                            outline: "2px solid",
+                            outlineColor: "primary.main",
+                            outlineOffset: -2,
+                          },
+                        }}
+                      >
+                        <Typography sx={{ whiteSpace: "nowrap" }}>
+                          {result.entry.reading}
+                        </Typography>
                       </TableCell>
 
-                      <TableCell>
-                        {renderCellContent({
-                          cellId: `romanized-${rowIndex}`,
-                          copyValue: result.entry.romanized ?? "",
-                          children: <Typography>{result.entry.romanized}</Typography>,
-                        })}
+                      <TableCell
+                        tabIndex={0}
+                        aria-selected={isSelected(rowIndex, 2) || undefined}
+                        data-testid={`vocabulary-batch-cell-${rowIndex}-romanized`}
+                        onMouseDown={(event) =>
+                          handleCellMouseDown({ row: rowIndex, col: 2 }, event)
+                        }
+                        onMouseOver={() => handleCellMouseEnter({ row: rowIndex, col: 2 })}
+                        onMouseUp={handleCellMouseUp}
+                        sx={{
+                          cursor: "cell",
+                          userSelect: "none",
+                          backgroundColor: isSelected(rowIndex, 2) ? "action.selected" : "inherit",
+                          boxShadow: isSelected(rowIndex, 2)
+                            ? (theme) => `inset 0 0 0 2px ${theme.palette.primary.main}`
+                            : "none",
+                          "&:focus-visible": {
+                            outline: "2px solid",
+                            outlineColor: "primary.main",
+                            outlineOffset: -2,
+                          },
+                        }}
+                      >
+                        <Typography>{result.entry.romanized}</Typography>
                       </TableCell>
 
-                      <TableCell>
-                        {renderCellContent({
-                          cellId: `meanings-${rowIndex}`,
-                          copyValue: result.entry.meanings.join("\n"),
-                          children: (
-                            <Stack spacing={0.5}>
-                              {result.entry.meanings.map((meaning, meaningIndex) => {
-                                const meaningId = `${rowIndex}-${meaningIndex}`;
-
-                                return (
-                                  <Box
-                                    key={meaningId}
-                                    role="button"
-                                    tabIndex={0}
-                                    data-testid={`vocabulary-meaning-${meaningId}`}
-                                    onMouseOver={() => setActiveMeaning(meaningId)}
-                                    onMouseOut={() =>
-                                      setActiveMeaning((current) =>
-                                        current === meaningId ? null : current,
-                                      )
-                                    }
-                                    onFocusCapture={() => setActiveMeaning(meaningId)}
-                                    onBlurCapture={(event: FocusEvent<HTMLDivElement>) =>
-                                      handleMeaningBlur(event, meaningId)
-                                    }
-                                    onClick={() => void handleCopy(meaning)}
-                                    onKeyDown={(event: KeyboardEvent<HTMLDivElement>) =>
-                                      handleMeaningKeyDown(event, meaning)
-                                    }
-                                    sx={{
-                                      userSelect: "none",
-                                      position: "relative",
-                                      borderRadius: 1,
-                                      px: 0.75,
-                                      py: 0.5,
-                                      ml: -0.75,
-                                      mr: -0.75,
-                                      pr: 4,
-                                      transition: "background-color 0.15s ease",
-                                      "&:hover": {
-                                        backgroundColor: "action.hover",
-                                      },
-                                      "&:focus-visible": {
-                                        outline: "2px solid",
-                                        outlineColor: "primary.main",
-                                        outlineOffset: 1,
-                                      },
-                                    }}
-                                  >
-                                    {activeMeaning === meaningId ? (
-                                      <IconButton
-                                        size="small"
-                                        aria-label={t("promotionCodes.copyCode", "Copy")}
-                                        data-testid={`vocabulary-meaning-copy-${meaningId}`}
-                                        onClick={(event) => {
-                                          event.stopPropagation();
-                                          void handleCopy(meaning);
-                                        }}
-                                        sx={{
-                                          position: "absolute",
-                                          top: "50%",
-                                          right: 2,
-                                          transform: "translateY(-50%)",
-                                          p: 1.5,
-                                          color: "text.secondary",
-                                        }}
-                                      >
-                                        <ContentCopyIcon sx={{ fontSize: 12 }} />
-                                      </IconButton>
-                                    ) : null}
-                                    <Typography>{meaning}</Typography>
-                                  </Box>
-                                );
-                              })}
-                            </Stack>
-                          ),
-                        })}
+                      <TableCell
+                        tabIndex={0}
+                        aria-selected={isSelected(rowIndex, 3) || undefined}
+                        data-testid={`vocabulary-batch-cell-${rowIndex}-meanings`}
+                        onMouseDown={(event) =>
+                          handleCellMouseDown({ row: rowIndex, col: 3 }, event)
+                        }
+                        onMouseOver={() => handleCellMouseEnter({ row: rowIndex, col: 3 })}
+                        onMouseUp={handleCellMouseUp}
+                        sx={{
+                          cursor: "cell",
+                          userSelect: "none",
+                          backgroundColor: isSelected(rowIndex, 3) ? "action.selected" : "inherit",
+                          boxShadow: isSelected(rowIndex, 3)
+                            ? (theme) => `inset 0 0 0 2px ${theme.palette.primary.main}`
+                            : "none",
+                          "&:focus-visible": {
+                            outline: "2px solid",
+                            outlineColor: "primary.main",
+                            outlineOffset: -2,
+                          },
+                        }}
+                      >
+                        <Stack spacing={0.5}>
+                          {result.entry.meanings.map((meaning, meaningIndex) => (
+                            <Typography key={`${meaning}-${meaningIndex}`}>{meaning}</Typography>
+                          ))}
+                        </Stack>
                       </TableCell>
 
                       {/* <TableCell>

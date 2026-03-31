@@ -9,7 +9,6 @@ import VocabularyBatchLookup from "./VocabularyBatchLookup";
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({
     t: (key: string, fallback?: string) => {
-      if (key === "promotionCodes.copyCode") return "Copy";
       if (key === "common.copied") return "Copied!";
       if (key === "common.copyFailed") return "Copy failed";
       return typeof fallback === "string" ? fallback : key;
@@ -99,53 +98,109 @@ async function clickButton(label: string) {
   });
 }
 
-function hoverBatchCell(cellId: string) {
+function getBatchCell(rowIndex: number, columnKey: string) {
   const cell = document.querySelector(
-    `[data-testid="vocabulary-batch-cell-${cellId}"]`,
+    `[data-testid="vocabulary-batch-cell-${rowIndex}-${columnKey}"]`,
   );
 
   expect(cell).not.toBeNull();
-
-  act(() => {
-    cell?.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
-  });
+  return cell as HTMLElement;
 }
 
-async function clickBatchCopyControl(cellId: string) {
-  const button = document.querySelector(
-    `[data-testid="vocabulary-batch-copy-${cellId}"]`,
-  );
-
-  expect(button).not.toBeNull();
-  expect(button?.getAttribute("aria-label")).toBe("Copy");
+async function clickBatchCell(
+  rowIndex: number,
+  columnKey: string,
+  options?: { shiftKey?: boolean; ctrlKey?: boolean; metaKey?: boolean },
+) {
+  const cell = getBatchCell(rowIndex, columnKey);
 
   await act(async () => {
-    button?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    cell.dispatchEvent(
+      new MouseEvent("mousedown", {
+        bubbles: true,
+        button: 0,
+        shiftKey: options?.shiftKey,
+        ctrlKey: options?.ctrlKey,
+        metaKey: options?.metaKey,
+      }),
+    );
+    cell.dispatchEvent(
+      new MouseEvent("mouseup", {
+        bubbles: true,
+        button: 0,
+        shiftKey: options?.shiftKey,
+        ctrlKey: options?.ctrlKey,
+        metaKey: options?.metaKey,
+      }),
+    );
   });
 }
 
-function hoverMeaningRow(rowIndex: number, meaningIndex: number) {
-  const row = document.querySelector(
-    `[data-testid="vocabulary-meaning-${rowIndex}-${meaningIndex}"]`,
-  );
-
-  expect(row).not.toBeNull();
-
-  act(() => {
-    row?.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
-  });
-}
-
-async function clickMeaningCopyControl(rowIndex: number, meaningIndex: number) {
-  const button = document.querySelector(
-    `[data-testid="vocabulary-meaning-copy-${rowIndex}-${meaningIndex}"]`,
-  );
-
-  expect(button).not.toBeNull();
-  expect(button?.getAttribute("aria-label")).toBe("Copy");
+async function dragBatchRange(
+  start: { rowIndex: number; columnKey: string },
+  end: { rowIndex: number; columnKey: string },
+  options?: { ctrlKey?: boolean; metaKey?: boolean },
+) {
+  const startCell = getBatchCell(start.rowIndex, start.columnKey);
+  const endCell = getBatchCell(end.rowIndex, end.columnKey);
 
   await act(async () => {
-    button?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    startCell.dispatchEvent(
+      new MouseEvent("mousedown", {
+        bubbles: true,
+        button: 0,
+        ctrlKey: options?.ctrlKey,
+        metaKey: options?.metaKey,
+      }),
+    );
+    endCell.dispatchEvent(
+      new MouseEvent("mouseover", {
+        bubbles: true,
+        ctrlKey: options?.ctrlKey,
+        metaKey: options?.metaKey,
+      }),
+    );
+    endCell.dispatchEvent(new MouseEvent("mouseenter", { bubbles: true }));
+    endCell.dispatchEvent(
+      new MouseEvent("mouseup", {
+        bubbles: true,
+        button: 0,
+        ctrlKey: options?.ctrlKey,
+        metaKey: options?.metaKey,
+      }),
+    );
+  });
+}
+
+function expectSelectedCells(cells: Array<[number, string]>) {
+  const selectedKeys = new Set(cells.map(([rowIndex, columnKey]) => `${rowIndex}-${columnKey}`));
+
+  document
+    .querySelectorAll('[data-testid^="vocabulary-batch-cell-"]')
+    .forEach((node) => {
+      const testId = node.getAttribute("data-testid") ?? "";
+      const key = testId.replace("vocabulary-batch-cell-", "");
+      const shouldBeSelected = selectedKeys.has(key);
+
+      if (shouldBeSelected) {
+        expect(node.getAttribute("aria-selected")).toBe("true");
+      } else {
+        expect(node.getAttribute("aria-selected")).toBeNull();
+      }
+    });
+}
+
+async function copySelectedCellsFrom(rowIndex: number, columnKey: string) {
+  const cell = getBatchCell(rowIndex, columnKey);
+
+  await act(async () => {
+    cell.dispatchEvent(
+      new KeyboardEvent("keydown", {
+        key: "c",
+        ctrlKey: true,
+        bubbles: true,
+      }),
+    );
   });
 }
 
@@ -254,10 +309,10 @@ describe("VocabularyBatchLookup", () => {
     await clickButton("Lookup Multiple Vocabulary Items");
 
     expect(document.body.textContent).toContain("Vocabulary Result");
-    expect(document.body.textContent).toContain("word");
-    expect(document.body.textContent).toContain("reading");
-    expect(document.body.textContent).toContain("romanized");
-    expect(document.body.textContent).toContain("meanings");
+    expect(document.body.textContent).toContain("Word");
+    expect(document.body.textContent).toContain("Reading");
+    expect(document.body.textContent).toContain("Romanized");
+    expect(document.body.textContent).toContain("Meanings");
     expect(document.body.textContent).not.toContain("part of speech");
     expect(document.querySelectorAll("thead tr")).toHaveLength(1);
     expect(document.querySelectorAll("tbody tr")).toHaveLength(2);
@@ -347,10 +402,10 @@ describe("VocabularyBatchLookup", () => {
 
     await clickButton("Lookup Multiple Vocabulary Items");
 
-    expect(document.body.textContent).toContain("word");
-    expect(document.body.textContent).toContain("reading");
-    expect(document.body.textContent).toContain("romanized");
-    expect(document.body.textContent).toContain("meanings");
+    expect(document.body.textContent).toContain("Word");
+    expect(document.body.textContent).toContain("Reading");
+    expect(document.body.textContent).toContain("Romanized");
+    expect(document.body.textContent).toContain("Meanings");
     expect(document.body.textContent).not.toContain("part of speech");
     expect(document.body.textContent).toContain("上げる");
     expect(document.body.textContent).toContain("あげる");
@@ -364,7 +419,7 @@ describe("VocabularyBatchLookup", () => {
     expect(document.body.textContent).toContain("Common");
   });
 
-  it("preserves visible-cell and meaning copy behavior in the table", async () => {
+  it("does not render table copy buttons after results load", async () => {
     fetchMock.mockResolvedValue({
       ok: true,
       json: async () => ({
@@ -396,18 +451,235 @@ describe("VocabularyBatchLookup", () => {
 
     await clickButton("Lookup Multiple Vocabulary Items");
 
-    hoverBatchCell("word-0");
-    await clickBatchCopyControl("word-0");
-    expect(writeTextMock).toHaveBeenCalledWith("上げる");
+    expect(document.querySelector('[data-testid^="vocabulary-batch-copy-"]')).toBeNull();
+    expect(document.querySelector('[data-testid^="vocabulary-meaning-copy-"]')).toBeNull();
+  });
 
-    hoverBatchCell("meanings-0");
-    await clickBatchCopyControl("meanings-0");
-    expect(writeTextMock).toHaveBeenLastCalledWith("to raise\nto wake");
+  it("selects one cell at a time on click", async () => {
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        original_texts: ["上げる", "今日"],
+        results: [
+          {
+            original_text: "上げる",
+            status: "ok",
+            entry: {
+              word: "上げる",
+              reading: "あげる",
+              romanized: "ageru",
+              meanings: ["to raise", "to wake"],
+              part_of_speech: ["verb"],
+              is_common: true,
+            },
+            error: null,
+          },
+          {
+            original_text: "今日",
+            status: "ok",
+            entry: {
+              word: "今日",
+              reading: "きょう",
+              romanized: "kyou",
+              meanings: ["today"],
+              part_of_speech: ["adverb"],
+              is_common: true,
+            },
+            error: null,
+          },
+        ],
+      }),
+    });
 
-    hoverMeaningRow(0, 0);
-    expect(document.querySelector('[data-testid="vocabulary-meaning-copy-0-0"]')).not.toBeNull();
-    await clickMeaningCopyControl(0, 0);
-    expect(writeTextMock).toHaveBeenLastCalledWith("to raise");
+    rendered = renderLookup(createLookup());
+    const textarea = getTextarea();
+
+    act(() => {
+      setTextareaValue(textarea, "上げる\n今日");
+    });
+
+    await clickButton("Lookup Multiple Vocabulary Items");
+    await clickBatchCell(0, "word");
+    expectSelectedCells([[0, "word"]]);
+
+    await clickBatchCell(1, "reading");
+    expectSelectedCells([[1, "reading"]]);
+  });
+
+  it("supports rectangular shift selection and additive multi-range selection", async () => {
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        original_texts: ["上げる", "今日"],
+        results: [
+          {
+            original_text: "上げる",
+            status: "ok",
+            entry: {
+              word: "上げる",
+              reading: "あげる",
+              romanized: "ageru",
+              meanings: ["to raise", "to wake"],
+              part_of_speech: ["verb"],
+              is_common: true,
+            },
+            error: null,
+          },
+          {
+            original_text: "今日",
+            status: "ok",
+            entry: {
+              word: "今日",
+              reading: "きょう",
+              romanized: "kyou",
+              meanings: ["today"],
+              part_of_speech: ["adverb"],
+              is_common: true,
+            },
+            error: null,
+          },
+        ],
+      }),
+    });
+
+    rendered = renderLookup(createLookup());
+    const textarea = getTextarea();
+
+    act(() => {
+      setTextareaValue(textarea, "上げる\n今日");
+    });
+
+    await clickButton("Lookup Multiple Vocabulary Items");
+    await clickBatchCell(0, "word");
+    await clickBatchCell(1, "romanized", { shiftKey: true });
+    expectSelectedCells([
+      [0, "word"],
+      [0, "reading"],
+      [0, "romanized"],
+      [1, "word"],
+      [1, "reading"],
+      [1, "romanized"],
+    ]);
+
+    await dragBatchRange(
+      { rowIndex: 0, columnKey: "meanings" },
+      { rowIndex: 1, columnKey: "meanings" },
+      { ctrlKey: true },
+    );
+    expectSelectedCells([
+      [0, "word"],
+      [0, "reading"],
+      [0, "romanized"],
+      [1, "word"],
+      [1, "reading"],
+      [1, "romanized"],
+      [0, "meanings"],
+      [1, "meanings"],
+    ]);
+  });
+
+  it("copies selected cells as TSV for single, rectangular, and multi-range selections", async () => {
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        original_texts: ["上げる", "今日"],
+        results: [
+          {
+            original_text: "上げる",
+            status: "ok",
+            entry: {
+              word: "上げる",
+              reading: "あげる",
+              romanized: "ageru",
+              meanings: ["to raise", "to wake"],
+              part_of_speech: ["verb"],
+              is_common: true,
+            },
+            error: null,
+          },
+          {
+            original_text: "今日",
+            status: "ok",
+            entry: {
+              word: "今日",
+              reading: "きょう",
+              romanized: "kyou",
+              meanings: ["today"],
+              part_of_speech: ["adverb"],
+              is_common: true,
+            },
+            error: null,
+          },
+        ],
+      }),
+    });
+
+    rendered = renderLookup(createLookup());
+    const textarea = getTextarea();
+
+    act(() => {
+      setTextareaValue(textarea, "上げる\n今日");
+    });
+
+    await clickButton("Lookup Multiple Vocabulary Items");
+
+    await clickBatchCell(0, "word");
+    await copySelectedCellsFrom(0, "word");
+    expect(writeTextMock).toHaveBeenLastCalledWith("上げる");
+
+    await clickBatchCell(0, "reading");
+    await clickBatchCell(1, "meanings", { shiftKey: true });
+    await copySelectedCellsFrom(1, "meanings");
+    expect(writeTextMock).toHaveBeenLastCalledWith(
+      "あげる\tageru\tto raise\nto wake\nきょう\tkyou\ttoday",
+    );
+
+    await clickBatchCell(0, "word");
+    await dragBatchRange(
+      { rowIndex: 0, columnKey: "meanings" },
+      { rowIndex: 1, columnKey: "meanings" },
+      { ctrlKey: true },
+    );
+    await copySelectedCellsFrom(1, "meanings");
+    expect(writeTextMock).toHaveBeenLastCalledWith("上げる\n\nto raise\nto wake\ntoday");
+  });
+
+  it("clears selection when reset is used", async () => {
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        original_texts: ["上げる"],
+        results: [
+          {
+            original_text: "上げる",
+            status: "ok",
+            entry: {
+              word: "上げる",
+              reading: "あげる",
+              romanized: "ageru",
+              meanings: ["to raise", "to wake"],
+              part_of_speech: ["verb"],
+              is_common: true,
+            },
+            error: null,
+          },
+        ],
+      }),
+    });
+
+    rendered = renderLookup(createLookup());
+    const textarea = getTextarea();
+
+    act(() => {
+      setTextareaValue(textarea, "上げる");
+    });
+
+    await clickButton("Lookup Multiple Vocabulary Items");
+    await clickBatchCell(0, "word");
+    expectSelectedCells([[0, "word"]]);
+
+    await clickButton("Reset");
+    expect(document.querySelectorAll('[data-testid^="vocabulary-batch-cell-"]')).toHaveLength(0);
   });
 
   it("renders non-success items as separate compact cards below the table", async () => {
