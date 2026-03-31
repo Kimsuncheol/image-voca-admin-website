@@ -528,6 +528,17 @@
     "removeFuriganaRemoveBracketsOption": "괄호도 함께 제거",
     "translateAction": "번역",
     "vocabularyAction": "어휘 조회",
+    "vocabularyModeSingle": "단일",
+    "vocabularyModeBatch": "배치",
+    "vocabularyBatchAction": "여러 어휘 조회",
+    "vocabularyBatchInputLabel": "어휘 목록",
+    "vocabularyBatchInputHelpText": "한 줄에 한 단어씩 입력하세요. 빈 줄은 무시됩니다.",
+    "vocabularyBatchInputRequired": "조회할 단어를 한 개 이상 입력해주세요.",
+    "vocabularyBatchOriginalTextLabel": "원본 입력",
+    "vocabularyBatchNotFoundTitle": "일치하는 어휘를 찾지 못했습니다.",
+    "vocabularyBatchInvalidInputTitle": "배치 조회에 사용할 수 없는 입력입니다.",
+    "vocabularyBatchErrorTitle": "조회 실패",
+    "vocabularyBatchUnknownError": "이 항목을 조회하는 중 알 수 없는 오류가 발생했습니다.",
     "vocabularyEmptyState": "일치하는 어휘를 찾지 못했습니다.",
     "vocabularyResultTitle": "어휘 결과",
     "vocabularyWordLabel": "단어",
@@ -536,7 +547,9 @@
     "vocabularyMeaningsLabel": "의미",
     "vocabularyPartOfSpeechLabel": "품사",
     "vocabularyCommonLabel": "일상 표현",
-    "vocabularyUncommonLabel": "비일상 표현"
+    "vocabularyUncommonLabel": "비일상 표현",
+    "vocabularyStandbyTitle": "어휘 검색",
+    "vocabularyStandbyDescription": "단어를 입력하고 검색을 누르면 결과가 여기에 표시됩니다."
   },
   "notFound": {
     "title": "404",

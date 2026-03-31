@@ -6,6 +6,17 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import VocabularyLookup from "./VocabularyLookup";
 
+vi.mock("react-i18next", () => ({
+  useTranslation: () => ({
+    t: (key: string, fallback?: string) => {
+      if (key === "promotionCodes.copyCode") return "Copy";
+      if (key === "common.copied") return "Copied!";
+      if (key === "common.copyFailed") return "Copy failed";
+      return typeof fallback === "string" ? fallback : key;
+    },
+  }),
+}));
+
 function renderLookup(element: ReactElement) {
   const container = document.createElement("div");
   document.body.appendChild(container);
@@ -44,6 +55,8 @@ function createLookup() {
       partOfSpeechLabel="Part of Speech"
       commonLabel="Common"
       uncommonLabel="Uncommon"
+      standbyTitle="Standby Title"
+      standbyDescription="Standby Description"
     />
   );
 }
@@ -81,13 +94,67 @@ async function clickButton(label: string) {
   });
 }
 
+async function clickCopyControl(sectionId: string) {
+  const button = document.querySelector(
+    `[data-testid="vocabulary-copy-${sectionId}"]`,
+  );
+
+  expect(button).not.toBeNull();
+  expect(button?.getAttribute("aria-label")).toBe("Copy");
+
+  await act(async () => {
+    button?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+  });
+}
+
+function hoverSection(sectionId: string) {
+  const section = document.querySelector(
+    `[data-testid="vocabulary-section-${sectionId}"]`,
+  );
+
+  expect(section).not.toBeNull();
+
+  act(() => {
+    section?.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
+  });
+}
+
+function leaveSection(sectionId: string) {
+  const section = document.querySelector(
+    `[data-testid="vocabulary-section-${sectionId}"]`,
+  );
+
+  expect(section).not.toBeNull();
+
+  act(() => {
+    section?.dispatchEvent(new MouseEvent("mouseout", { bubbles: true }));
+  });
+}
+
+function getMeaningRow(index: number) {
+  const row = document.querySelector(
+    `[data-testid="vocabulary-meaning-${index}"]`,
+  );
+
+  expect(row).not.toBeNull();
+  return row as HTMLElement;
+}
+
 describe("VocabularyLookup", () => {
   let rendered: ReturnType<typeof renderLookup> | null = null;
   let fetchMock: ReturnType<typeof vi.fn>;
+  let writeTextMock: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
     fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
+    writeTextMock = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(globalThis.navigator, "clipboard", {
+      configurable: true,
+      value: {
+        writeText: writeTextMock,
+      },
+    });
     (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT =
       true;
   });
@@ -137,6 +204,7 @@ describe("VocabularyLookup", () => {
     expect(document.body.textContent).toContain("cat");
     expect(document.body.textContent).toContain("noun");
     expect(document.body.textContent).toContain("Common");
+    expect(document.querySelector('[data-testid^="vocabulary-copy-"]')).toBeNull();
   });
 
   it("renders an empty state when the entry is null", async () => {
@@ -208,5 +276,274 @@ describe("VocabularyLookup", () => {
 
     expect(textarea.value).toBe("");
     expect(document.body.textContent).not.toContain("Vocabulary Result");
+  });
+
+  it("mounts the hovered section copy button and unmounts it on leave", async () => {
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        original_text: "猫",
+        entry: {
+          word: "猫",
+          reading: "ねこ",
+          romanized: "neko",
+          meanings: ["cat"],
+          part_of_speech: ["noun"],
+          is_common: true,
+        },
+      }),
+    });
+
+    rendered = renderLookup(createLookup());
+    const textarea = getTextarea();
+
+    act(() => {
+      setTextareaValue(textarea, "猫");
+    });
+
+    await clickButton("Lookup");
+
+    expect(document.querySelector('[data-testid="vocabulary-copy-word"]')).toBeNull();
+
+    hoverSection("word");
+    expect(document.querySelector('[data-testid="vocabulary-copy-word"]')).not.toBeNull();
+    expect(
+      document.querySelector('[data-testid="vocabulary-copy-word"]')?.getAttribute("aria-label"),
+    ).toBe("Copy");
+    expect(document.querySelector('[data-testid="vocabulary-copy-reading"]')).toBeNull();
+
+    leaveSection("word");
+    expect(document.querySelector('[data-testid="vocabulary-copy-word"]')).toBeNull();
+  });
+
+  it("copies scalar field content for a hovered section", async () => {
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        original_text: "猫",
+        entry: {
+          word: "猫",
+          reading: "ねこ",
+          romanized: "neko",
+          meanings: ["cat"],
+          part_of_speech: ["noun"],
+          is_common: true,
+        },
+      }),
+    });
+
+    rendered = renderLookup(createLookup());
+    const textarea = getTextarea();
+
+    act(() => {
+      setTextareaValue(textarea, "猫");
+    });
+
+    await clickButton("Lookup");
+
+    hoverSection("word");
+    await clickCopyControl("word");
+
+    expect(writeTextMock).toHaveBeenCalledWith("猫");
+    expect(document.body.textContent).toContain("Copied!");
+  });
+
+  it("copies serialized list content for meanings and part of speech", async () => {
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        original_text: "猫",
+        entry: {
+          word: "猫",
+          reading: "ねこ",
+          romanized: "neko",
+          meanings: ["cat", "feline"],
+          part_of_speech: ["noun", "animal"],
+          is_common: true,
+        },
+      }),
+    });
+
+    rendered = renderLookup(createLookup());
+    const textarea = getTextarea();
+
+    act(() => {
+      setTextareaValue(textarea, "猫");
+    });
+
+    await clickButton("Lookup");
+
+    hoverSection("meanings");
+    await clickCopyControl("meanings");
+    expect(writeTextMock).toHaveBeenLastCalledWith("cat\nfeline");
+
+    leaveSection("meanings");
+    hoverSection("part-of-speech");
+    await clickCopyControl("part-of-speech");
+    expect(writeTextMock).toHaveBeenLastCalledWith("noun, animal");
+  });
+
+  it("copies only the clicked meaning row", async () => {
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        original_text: "上げる",
+        entry: {
+          word: "上げる",
+          reading: "あげる",
+          romanized: "ageru",
+          meanings: ["to raise", "to pick up"],
+          part_of_speech: ["verb"],
+          is_common: true,
+        },
+      }),
+    });
+
+    rendered = renderLookup(createLookup());
+    const textarea = getTextarea();
+
+    act(() => {
+      setTextareaValue(textarea, "上げる");
+    });
+
+    await clickButton("Lookup");
+
+    const meaningRow = getMeaningRow(0);
+
+    await act(async () => {
+      meaningRow.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    expect(writeTextMock).toHaveBeenCalledWith("to raise");
+  });
+
+  it("keeps the meanings section copy control for copying the full list", async () => {
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        original_text: "上げる",
+        entry: {
+          word: "上げる",
+          reading: "あげる",
+          romanized: "ageru",
+          meanings: ["to raise", "to set up", "to wake"],
+          part_of_speech: ["verb"],
+          is_common: true,
+        },
+      }),
+    });
+
+    rendered = renderLookup(createLookup());
+    const textarea = getTextarea();
+
+    act(() => {
+      setTextareaValue(textarea, "上げる");
+    });
+
+    await clickButton("Lookup");
+
+    hoverSection("meanings");
+    await clickCopyControl("meanings");
+
+    expect(writeTextMock).toHaveBeenCalledWith("to raise\nto set up\nto wake");
+  });
+
+  it("renders meanings as separate interactive rows", async () => {
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        original_text: "上げる",
+        entry: {
+          word: "上げる",
+          reading: "あげる",
+          romanized: "ageru",
+          meanings: ["to raise", "to raise up", "to wake"],
+          part_of_speech: ["verb"],
+          is_common: true,
+        },
+      }),
+    });
+
+    rendered = renderLookup(createLookup());
+    const textarea = getTextarea();
+
+    act(() => {
+      setTextareaValue(textarea, "上げる");
+    });
+
+    await clickButton("Lookup");
+
+    const rows = document.querySelectorAll('[data-testid^="vocabulary-meaning-"]');
+    expect(rows).toHaveLength(3);
+    expect(getMeaningRow(0).textContent).toContain("to raise");
+    expect(getMeaningRow(1).textContent).toContain("to raise up");
+    expect(getMeaningRow(2).textContent).toContain("to wake");
+  });
+
+  it("copies a meaning on keyboard activation", async () => {
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        original_text: "上げる",
+        entry: {
+          word: "上げる",
+          reading: "あげる",
+          romanized: "ageru",
+          meanings: ["to raise", "to wake"],
+          part_of_speech: ["verb"],
+          is_common: true,
+        },
+      }),
+    });
+
+    rendered = renderLookup(createLookup());
+    const textarea = getTextarea();
+
+    act(() => {
+      setTextareaValue(textarea, "上げる");
+    });
+
+    await clickButton("Lookup");
+
+    const meaningRow = getMeaningRow(1);
+
+    await act(async () => {
+      meaningRow.dispatchEvent(
+        new KeyboardEvent("keydown", { key: "Enter", bubbles: true }),
+      );
+    });
+
+    expect(writeTextMock).toHaveBeenCalledWith("to wake");
+  });
+
+  it("does not render hidden nullable sections or their copy buttons", async () => {
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        original_text: "test",
+        entry: {
+          word: null,
+          reading: null,
+          romanized: null,
+          meanings: ["meaning"],
+          part_of_speech: ["noun"],
+          is_common: false,
+        },
+      }),
+    });
+
+    rendered = renderLookup(createLookup());
+    const textarea = getTextarea();
+
+    act(() => {
+      setTextareaValue(textarea, "test");
+    });
+
+    await clickButton("Lookup");
+
+    expect(document.querySelector('[data-testid="vocabulary-section-word"]')).toBeNull();
+    expect(document.querySelector('[data-testid="vocabulary-section-reading"]')).toBeNull();
+    expect(document.querySelector('[data-testid="vocabulary-section-romanized"]')).toBeNull();
+    expect(document.querySelector('[data-testid="vocabulary-copy-word"]')).toBeNull();
   });
 });

@@ -528,6 +528,17 @@
     "removeFuriganaRemoveBracketsOption": "Remove brackets at the same time.",
     "translateAction": "Translate",
     "vocabularyAction": "Lookup Vocabulary",
+    "vocabularyModeSingle": "Single",
+    "vocabularyModeBatch": "Batch",
+    "vocabularyBatchAction": "Lookup Multiple Vocabulary Items",
+    "vocabularyBatchInputLabel": "Vocabulary Items",
+    "vocabularyBatchInputHelpText": "Enter one word per line. Blank lines will be ignored.",
+    "vocabularyBatchInputRequired": "Enter at least one word to look up.",
+    "vocabularyBatchOriginalTextLabel": "Original Text",
+    "vocabularyBatchNotFoundTitle": "No vocabulary entry found.",
+    "vocabularyBatchInvalidInputTitle": "This input is not valid for batch lookup.",
+    "vocabularyBatchErrorTitle": "Lookup failed",
+    "vocabularyBatchUnknownError": "An unexpected error occurred while looking up this item.",
     "vocabularyEmptyState": "No vocabulary entry found.",
     "vocabularyResultTitle": "Vocabulary Result",
     "vocabularyWordLabel": "Word",
@@ -536,7 +547,9 @@
     "vocabularyMeaningsLabel": "Meanings",
     "vocabularyPartOfSpeechLabel": "Part of Speech",
     "vocabularyCommonLabel": "Common",
-    "vocabularyUncommonLabel": "Uncommon"
+    "vocabularyUncommonLabel": "Uncommon",
+    "vocabularyStandbyTitle": "Vocabulary Search",
+    "vocabularyStandbyDescription": "Enter a word and click search, and the result will appear here."
   },
   "notFound": {
     "title": "404",

@@ -4,21 +4,13 @@ import { FormEvent, useState } from "react";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
-import Card from "@mui/material/Card";
-import CardContent from "@mui/material/CardContent";
-import Chip from "@mui/material/Chip";
 import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
+import Card from "@mui/material/Card";
+import CardContent from "@mui/material/CardContent";
 import Typography from "@mui/material/Typography";
-
-type VocabularyEntry = {
-  word: string | null;
-  reading: string | null;
-  romanized: string | null;
-  meanings: string[];
-  part_of_speech: string[];
-  is_common: boolean;
-};
+import SearchIcon from "@mui/icons-material/Search";
+import VocabularyResultCard, { VocabularyEntry } from "./VocabularyResultCard";
 
 type VocabularyLookupResponse = {
   original_text: string;
@@ -42,6 +34,8 @@ export default function VocabularyLookup({
   partOfSpeechLabel,
   commonLabel,
   uncommonLabel,
+  standbyTitle,
+  standbyDescription,
 }: {
   apiPath: string;
   submitLabel: string;
@@ -59,6 +53,8 @@ export default function VocabularyLookup({
   partOfSpeechLabel: string;
   commonLabel: string;
   uncommonLabel: string;
+  standbyTitle: string;
+  standbyDescription: string;
 }) {
   const [input, setInput] = useState("");
   const [result, setResult] = useState<VocabularyLookupResponse | null>(null);
@@ -105,76 +101,51 @@ export default function VocabularyLookup({
     setError("");
   }
 
-  function renderField(label: string, value: string | null) {
-    if (!value) return null;
-
-    return (
-      <Stack spacing={0.5}>
-        <Typography variant="caption" color="text.secondary">
-          {label}
-        </Typography>
-        <Typography>{value}</Typography>
-      </Stack>
-    );
-  }
-
   function renderResult() {
-    if (!result) return null;
+    if (!result) {
+      return (
+        <Card
+          variant="outlined"
+          sx={{
+            height: "100%",
+            minHeight: 250,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            bgcolor: "background.default",
+          }}
+        >
+          <CardContent>
+            <Stack spacing={1.5} alignItems="center" color="text.secondary">
+              <SearchIcon sx={{ fontSize: 40, opacity: 0.5 }} />
+              <Typography variant="subtitle1" fontWeight={600} align="center">
+                {standbyTitle}
+              </Typography>
+              <Typography variant="body2" align="center" sx={{ maxWidth: 300 }}>
+                {standbyDescription}
+              </Typography>
+            </Stack>
+          </CardContent>
+        </Card>
+      );
+    }
 
     if (!result.entry) {
       return <Alert severity="info">{emptyStateLabel}</Alert>;
     }
 
     return (
-      <Card variant="outlined">
-        <CardContent>
-          <Stack spacing={2}>
-            <Stack
-              direction={{ xs: "column", sm: "row" }}
-              spacing={1}
-              justifyContent="space-between"
-              alignItems={{ xs: "flex-start", sm: "center" }}
-            >
-              <Typography variant="h6">{resultTitle}</Typography>
-              <Chip
-                size="small"
-                color={result.entry.is_common ? "success" : "default"}
-                label={result.entry.is_common ? commonLabel : uncommonLabel}
-              />
-            </Stack>
-
-            {renderField(wordLabel, result.entry.word)}
-            {renderField(readingLabel, result.entry.reading)}
-            {renderField(romanizedLabel, result.entry.romanized)}
-
-            {result.entry.meanings.length > 0 ? (
-              <Stack spacing={0.5}>
-                <Typography variant="caption" color="text.secondary">
-                  {meaningsLabel}
-                </Typography>
-                <Stack spacing={0.5}>
-                  {result.entry.meanings.map((meaning) => (
-                    <Typography key={meaning}>{meaning}</Typography>
-                  ))}
-                </Stack>
-              </Stack>
-            ) : null}
-
-            {result.entry.part_of_speech.length > 0 ? (
-              <Stack spacing={0.5}>
-                <Typography variant="caption" color="text.secondary">
-                  {partOfSpeechLabel}
-                </Typography>
-                <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
-                  {result.entry.part_of_speech.map((value) => (
-                    <Chip key={value} size="small" variant="outlined" label={value} />
-                  ))}
-                </Stack>
-              </Stack>
-            ) : null}
-          </Stack>
-        </CardContent>
-      </Card>
+      <VocabularyResultCard
+        entry={result.entry}
+        resultTitle={resultTitle}
+        wordLabel={wordLabel}
+        readingLabel={readingLabel}
+        romanizedLabel={romanizedLabel}
+        meaningsLabel={meaningsLabel}
+        partOfSpeechLabel={partOfSpeechLabel}
+        commonLabel={commonLabel}
+        uncommonLabel={uncommonLabel}
+      />
     );
   }
 
@@ -203,9 +174,7 @@ export default function VocabularyLookup({
           {error ? <Alert severity="error">{error}</Alert> : null}
         </Stack>
 
-        <Box sx={{ flex: 1, width: "100%" }}>
-          {renderResult()}
-        </Box>
+        <Box sx={{ flex: 1, width: "100%" }}>{renderResult()}</Box>
       </Stack>
     </Box>
   );

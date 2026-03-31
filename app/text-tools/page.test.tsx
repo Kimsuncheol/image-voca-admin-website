@@ -35,6 +35,21 @@ vi.mock("react-i18next", () => ({
           "Remove brackets at the same time.",
         "textTools.translateAction": "Translate",
         "textTools.vocabularyAction": "Lookup Vocabulary",
+        "textTools.vocabularyModeSingle": "Single",
+        "textTools.vocabularyModeBatch": "Batch",
+        "textTools.vocabularyBatchAction": "Lookup Multiple Vocabulary Items",
+        "textTools.vocabularyBatchInputLabel": "Vocabulary Items",
+        "textTools.vocabularyBatchInputHelpText":
+          "Enter one word per line. Blank lines will be ignored.",
+        "textTools.vocabularyBatchInputRequired":
+          "Enter at least one word to look up.",
+        "textTools.vocabularyBatchOriginalTextLabel": "Original Text",
+        "textTools.vocabularyBatchNotFoundTitle": "No vocabulary entry found.",
+        "textTools.vocabularyBatchInvalidInputTitle":
+          "This input is not valid for batch lookup.",
+        "textTools.vocabularyBatchErrorTitle": "Lookup failed",
+        "textTools.vocabularyBatchUnknownError":
+          "An unexpected error occurred while looking up this item.",
         "textTools.vocabularyEmptyState": "No vocabulary entry found.",
         "textTools.vocabularyResultTitle": "Vocabulary Result",
         "textTools.vocabularyWordLabel": "Word",
@@ -82,6 +97,12 @@ vi.mock("./ParenthesesForm", () => ({
 vi.mock("./VocabularyLookup", () => ({
   default: ({ apiPath, submitLabel }: { apiPath: string; submitLabel: string }) => (
     <div data-testid="mock-vocabulary-lookup">{`${submitLabel}:${apiPath}`}</div>
+  ),
+}));
+
+vi.mock("./VocabularyBatchLookup", () => ({
+  default: ({ apiPath, submitLabel }: { apiPath: string; submitLabel: string }) => (
+    <div data-testid="mock-vocabulary-batch-lookup">{`${submitLabel}:${apiPath}`}</div>
   ),
 }));
 
@@ -202,13 +223,26 @@ describe("TextToolsPage", () => {
     );
   });
 
-  it("renders the vocabulary lookup component when the vocabulary tab is selected", () => {
+  it("renders vocabulary sub-modes and defaults to single lookup", () => {
     rendered = renderPage(<TextToolsPage />);
 
     clickTab("Vocabulary");
 
+    expect(document.body.textContent).toContain("Single");
+    expect(document.body.textContent).toContain("Batch");
     expect(document.body.textContent).toContain(
       "Lookup Vocabulary:/api/text/vocabulary",
+    );
+  });
+
+  it("renders the batch vocabulary lookup component when batch is selected", () => {
+    rendered = renderPage(<TextToolsPage />);
+
+    clickTab("Vocabulary");
+    clickButton("Batch");
+
+    expect(document.body.textContent).toContain(
+      "Lookup Multiple Vocabulary Items:/api/text/vocabulary/batch",
     );
   });
 });
