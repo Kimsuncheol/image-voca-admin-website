@@ -272,18 +272,6 @@ export default function AddVocaPage() {
   const singleListSubcollection = isSingleList
     ? getSingleListSubcollectionByCourseId(selectedCourse)
     : null;
-  const uploadOptionState = getUploadOptionState({
-    selectedCourse,
-    imageGenerationEnabled: canUseImageGeneration,
-    enrichGenerationEnabled: canUseExampleTranslationGeneration,
-  });
-  const {
-    isImageGenerationEnabled,
-    isExampleAndTranslationGenerationEnabled,
-    isFuriganaEnabled,
-    shouldShowModal: shouldShowUploadOptionsModal,
-    defaultOptions: defaultUploadOptions,
-  } = uploadOptionState;
   // const showImageGenerator = shouldIncludeImageUrl(selectedCourse);
   // const imageGenerationCourseId = isSupportedImageGenerationCourseId(
   //   selectedCourse,
@@ -308,6 +296,25 @@ export default function AddVocaPage() {
   const readyItems = currentItems.filter((item): item is ReadyQueueItem =>
     Boolean(item.dayName && item.data && item.data.words.length > 0),
   );
+  const uploadOptionState = getUploadOptionState({
+    selectedCourse,
+    imageGenerationEnabled: canUseImageGeneration,
+    enrichGenerationEnabled: canUseExampleTranslationGeneration,
+    uploadWords:
+      schemaType === "jlpt" || schemaType === "prefix" || schemaType === "postfix"
+        ? readyItems.flatMap((item) => item.data.words) as
+            | JlptWordInput[]
+            | PrefixWordInput[]
+            | PostfixWordInput[]
+        : undefined,
+  });
+  const {
+    isImageGenerationEnabled,
+    isExampleAndTranslationGenerationEnabled,
+    isFuriganaEnabled,
+    shouldShowModal: shouldShowUploadOptionsModal,
+    defaultOptions: defaultUploadOptions,
+  } = uploadOptionState;
 
   // ── Overwrite dialog helpers ───────────────────────────────────────
 
