@@ -353,7 +353,7 @@ export function isCourseWordFieldMissing(
       case "meaning":
         return !hasTrimmedText(jlpt.meaningEnglish) || !hasTrimmedText(jlpt.meaningKorean);
       case "pronunciation":
-        return !hasTrimmedText(jlpt.pronunciation) || !hasTrimmedText(jlpt.pronunciationRoman);
+        return !hasTrimmedText(jlpt.pronunciation);
       case "example":
         return !hasTrimmedText(jlpt.example);
       case "furigana":
@@ -377,7 +377,7 @@ export function isCourseWordFieldMissing(
     switch (field) {
       case "primaryText": return !hasTrimmedText(p.prefix);
       case "meaning": return !hasTrimmedText(p.meaningEnglish) || !hasTrimmedText(p.meaningKorean);
-      case "pronunciation": return !hasTrimmedText(p.pronunciation) || !hasTrimmedText(p.pronunciationRoman);
+      case "pronunciation": return !hasTrimmedText(p.pronunciation);
       case "example": return !hasTrimmedText(p.example);
       case "furigana": return false;
       case "translation": return !hasTrimmedText(p.translationEnglish) || !hasTrimmedText(p.translationKorean);
@@ -393,7 +393,7 @@ export function isCourseWordFieldMissing(
     switch (field) {
       case "primaryText": return !hasTrimmedText(p.postfix);
       case "meaning": return !hasTrimmedText(p.meaningEnglish) || !hasTrimmedText(p.meaningKorean);
-      case "pronunciation": return !hasTrimmedText(p.pronunciation) || !hasTrimmedText(p.pronunciationRoman);
+      case "pronunciation": return !hasTrimmedText(p.pronunciation);
       case "example": return !hasTrimmedText(p.example);
       case "furigana": return false;
       case "translation": return !hasTrimmedText(p.translationEnglish) || !hasTrimmedText(p.translationKorean);

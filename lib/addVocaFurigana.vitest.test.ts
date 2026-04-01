@@ -70,7 +70,6 @@ describe("applyFuriganaToJapaneseUploadWords", () => {
     expect(addFuriganaTextsRobustMock).toHaveBeenNthCalledWith(
       2,
       ["猫が好きです"],
-      undefined,
     );
   });
 

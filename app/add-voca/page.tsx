@@ -63,7 +63,6 @@ import {
   getCourseById,
   getSingleListSubcollectionByCourseId,
   isFamousQuoteCourse,
-  isJlptCourse,
   isPrefixCourse,
   isPostfixCourse,
   isSingleListCourse,
@@ -267,7 +266,6 @@ export default function AddVocaPage() {
   const schemaType: SchemaType =
     getCourseById(selectedCourse)?.schema ?? "standard";
   const isFamousQuote = isFamousQuoteCourse(selectedCourse);
-  const isJlpt = isJlptCourse(selectedCourse);
   const isPrefix = isPrefixCourse(selectedCourse);
   const isPostfix = isPostfixCourse(selectedCourse);
   const isSingleList = isSingleListCourse(selectedCourse);

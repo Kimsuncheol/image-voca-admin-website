@@ -1,5 +1,4 @@
-import assert from "node:assert/strict";
-import test from "node:test";
+import { expect, test } from "vitest";
 
 import { getUploadOptionState } from "./addVocaUploadOptions.ts";
 
@@ -10,7 +9,7 @@ test("shows modal with all options enabled when image and enrich generation are 
     enrichGenerationEnabled: true,
   });
 
-  assert.deepEqual(result, {
+  expect(result).toEqual({
     isImageGenerationEnabled: true,
     isExampleAndTranslationGenerationEnabled: true,
     isFuriganaEnabled: false,
@@ -31,7 +30,7 @@ test("shows modal with only image generation enabled when enrich generation is u
     enrichGenerationEnabled: false,
   });
 
-  assert.deepEqual(result, {
+  expect(result).toEqual({
     isImageGenerationEnabled: true,
     isExampleAndTranslationGenerationEnabled: false,
     isFuriganaEnabled: false,
@@ -52,7 +51,7 @@ test("shows modal with only example and translation generation enabled when imag
     enrichGenerationEnabled: true,
   });
 
-  assert.deepEqual(result, {
+  expect(result).toEqual({
     isImageGenerationEnabled: false,
     isExampleAndTranslationGenerationEnabled: true,
     isFuriganaEnabled: false,
@@ -73,7 +72,7 @@ test("skips the modal when no generation features are available", () => {
     enrichGenerationEnabled: false,
   });
 
-  assert.deepEqual(result, {
+  expect(result).toEqual({
     isImageGenerationEnabled: false,
     isExampleAndTranslationGenerationEnabled: false,
     isFuriganaEnabled: false,
@@ -94,7 +93,7 @@ test("treats image generation as unavailable for unsupported courses even when t
     enrichGenerationEnabled: false,
   });
 
-  assert.deepEqual(result, {
+  expect(result).toEqual({
     isImageGenerationEnabled: false,
     isExampleAndTranslationGenerationEnabled: false,
     isFuriganaEnabled: false,
@@ -115,7 +114,7 @@ test("enables furigana-only modal options for JLPT uploads", () => {
     enrichGenerationEnabled: true,
   });
 
-  assert.deepEqual(result, {
+  expect(result).toEqual({
     isImageGenerationEnabled: false,
     isExampleAndTranslationGenerationEnabled: false,
     isFuriganaEnabled: true,
@@ -141,7 +140,7 @@ test("enables furigana-only modal options for prefix and postfix uploads", () =>
     enrichGenerationEnabled: true,
   });
 
-  assert.deepEqual(prefixResult, {
+  expect(prefixResult).toEqual({
     isImageGenerationEnabled: false,
     isExampleAndTranslationGenerationEnabled: false,
     isFuriganaEnabled: true,
@@ -153,5 +152,5 @@ test("enables furigana-only modal options for prefix and postfix uploads", () =>
       furigana: false,
     },
   });
-  assert.deepEqual(postfixResult, prefixResult);
+  expect(postfixResult).toEqual(prefixResult);
 });

@@ -6,31 +6,32 @@ import type {
 import { addFuriganaTextsRobust } from "./addFurigana.ts";
 
 export type FuriganaUploadSchema = "jlpt" | "prefix" | "postfix";
-export type FuriganaUploadWord =
-  | JlptWordInput
-  | PrefixWordInput
-  | PostfixWordInput;
+type FuriganaUploadWordMap = {
+  jlpt: JlptWordInput;
+  prefix: PrefixWordInput;
+  postfix: PostfixWordInput;
+};
 
-function getPrimaryText(
-  word: FuriganaUploadWord,
-  schemaType: FuriganaUploadSchema,
+function getPrimaryText<T extends FuriganaUploadSchema>(
+  word: FuriganaUploadWordMap[T],
+  schemaType: T,
 ): string {
   switch (schemaType) {
     case "jlpt":
-      return word.word;
+      return (word as JlptWordInput).word;
     case "prefix":
-      return word.prefix;
+      return (word as PrefixWordInput).prefix;
     case "postfix":
-      return word.postfix;
+      return (word as PostfixWordInput).postfix;
   }
 }
 
 export async function applyFuriganaToJapaneseUploadWords<
-  T extends FuriganaUploadWord,
+  T extends FuriganaUploadSchema,
 >(
-  words: T[],
-  schemaType: FuriganaUploadSchema,
-): Promise<T[]> {
+  words: FuriganaUploadWordMap[T][],
+  schemaType: T,
+): Promise<FuriganaUploadWordMap[T][]> {
   if (words.length === 0) return words;
 
   const pronunciationResults = await addFuriganaTextsRobust(

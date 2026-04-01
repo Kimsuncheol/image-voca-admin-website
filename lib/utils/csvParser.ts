@@ -42,12 +42,11 @@ const JLPT_HEADERS = [
   'meaning(english)',
   'meaning(korean)',
   'pronunciation',
-  'pronunciation(roman)',
   'example',
   'translation(english)',
   'translation(korean)',
 ] as const;
-const JLPT_OPTIONAL_HEADERS = ['imageurl', 'example(roman)'] as const;
+const JLPT_OPTIONAL_HEADERS = ['imageurl'] as const;
 const COLLOCATION_HEADERS = ['collocation', 'meaning', 'explanation', 'example', 'translation'] as const;
 const FAMOUS_QUOTE_HEADERS = ['quote', 'author', 'translation'] as const;
 const FAMOUS_QUOTE_OPTIONAL_HEADERS = ['language'] as const;

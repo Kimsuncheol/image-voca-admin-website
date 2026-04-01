@@ -90,9 +90,9 @@ describe("WordTable", () => {
             meaningEnglish: "cat",
             meaningKorean: "고양이",
             pronunciation: "ねこ",
-            pronunciationRoman: "neko",
+            pronunciationRoman: "",
             example: "猫がいる。",
-            exampleRoman: "neko ga iru.",
+            exampleRoman: "",
             translationEnglish: "There is a cat.",
             translationKorean: "고양이가 있다.",
             imageUrl: "https://example.com/jlpt.png",
@@ -109,14 +109,12 @@ describe("WordTable", () => {
 
     expect(markup).toContain("Meaning (English)");
     expect(markup).toContain("Meaning (Korean)");
-    expect(markup).toContain("Pronunciation (Roman)");
-    expect(markup).toContain("Example (Roman)");
     expect(markup).toContain("Translation (English)");
     expect(markup).toContain("Translation (Korean)");
     expect(markup).toContain("Image");
     expect(markup).toContain("猫");
-    expect(markup).toContain("neko");
-    expect(markup).toContain("neko ga iru.");
+    expect(markup).toContain("ねこ");
+    expect(markup).toContain("猫がいる。");
     expect(markup).toContain("https://example.com/jlpt.png");
   });
 

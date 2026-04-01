@@ -38,7 +38,7 @@ interface ContextMenuState {
 }
 
 function getColField(col: number): WordFinderActionField | null {
-  return col === 2 ? "translation" : null;
+  return col === 3 ? "translation" : null;
 }
 
 interface WordFinderTableProps {
@@ -132,12 +132,13 @@ export default function WordFinderTable({
   const [selectionAnchor, setSelectionAnchor] = useState<CellPos | null>(null);
   const [selectionExtent, setSelectionExtent] = useState<CellPos | null>(null);
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
-  // cols: 0=primaryText, 1=meaning, 2=translation, 3="" (image), 4=location, 5="" (status)
+  // cols: 0=primaryText, 1=meaning, 2=pronunciation, 3=translation, 4="" (image), 5=location, 6="" (status)
   const cellGrid = useMemo(
     () =>
       results.map((r) => [
         r.primaryText,
         r.meaning || r.secondaryText || "",
+        r.pronunciation || "",
         r.translation ?? "",
         "",
         formatWordFinderLocation(r, ""),
@@ -292,6 +293,7 @@ export default function WordFinderTable({
           <TableRow>
             <TableCell>{t("words.primaryText")}</TableCell>
             <TableCell>{t("words.secondaryText")}</TableCell>
+            <TableCell>{t("courses.pronunciation")}</TableCell>
             <TableCell>{t("words.translationLabel")}</TableCell>
             <TableCell>{t("courses.image", "Image")}</TableCell>
             <TableCell>{t("words.location")}</TableCell>
@@ -341,6 +343,15 @@ export default function WordFinderTable({
                 onContextMenu={(e) => handleCellContextMenu(e, rowIdx, 2)}
               >
                 <Typography variant="body2">
+                  {result.pronunciation || t("words.none")}
+                </Typography>
+              </TableCell>
+              <TableCell
+                sx={{ minWidth: 220, ...selectableCellSx(rowIdx, 3) }}
+                onClick={(e) => handleCellClick(e, rowIdx, 3)}
+                onContextMenu={(e) => handleCellContextMenu(e, rowIdx, 3)}
+              >
+                <Typography variant="body2">
                   {result.translation || t("words.none")}
                 </Typography>
               </TableCell>
@@ -369,9 +380,9 @@ export default function WordFinderTable({
                 )}
               </TableCell>
               <TableCell
-                sx={{ minWidth: 180, ...selectableCellSx(rowIdx, 4) }}
-                onClick={(e) => handleCellClick(e, rowIdx, 4)}
-                onContextMenu={(e) => handleCellContextMenu(e, rowIdx, 4)}
+                sx={{ minWidth: 180, ...selectableCellSx(rowIdx, 5) }}
+                onClick={(e) => handleCellClick(e, rowIdx, 5)}
+                onContextMenu={(e) => handleCellContextMenu(e, rowIdx, 5)}
               >
                 <Typography variant="body2">
                   {formatWordFinderLocation(result, t("words.noDay"))}

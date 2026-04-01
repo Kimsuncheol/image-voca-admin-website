@@ -128,4 +128,84 @@ describe("wordFinderCourseAdapter derivatives", () => {
       ),
     ).toBe(false);
   });
+
+  it("treats JLPT, prefix, and postfix pronunciation as present when only pronunciation exists", () => {
+    expect(
+      isCourseWordFieldMissing(
+        {
+          id: "jlpt-1",
+          word: "猫",
+          meaningEnglish: "cat",
+          meaningKorean: "고양이",
+          pronunciation: "ねこ",
+          pronunciationRoman: "",
+          example: "",
+          exampleRoman: "",
+          translationEnglish: "",
+          translationKorean: "",
+        },
+        { isCollocation: false, isJlpt: true },
+        "pronunciation",
+      ),
+    ).toBe(false);
+
+    expect(
+      isCourseWordFieldMissing(
+        {
+          id: "prefix-1",
+          prefix: "再",
+          meaningEnglish: "again",
+          meaningKorean: "다시",
+          pronunciation: "さい",
+          pronunciationRoman: "",
+          example: "",
+          exampleRoman: "",
+          translationEnglish: "",
+          translationKorean: "",
+        },
+        { isCollocation: false, isPrefix: true },
+        "pronunciation",
+      ),
+    ).toBe(false);
+
+    expect(
+      isCourseWordFieldMissing(
+        {
+          id: "postfix-1",
+          postfix: "的",
+          meaningEnglish: "-like",
+          meaningKorean: "-적",
+          pronunciation: "てき",
+          pronunciationRoman: "",
+          example: "",
+          exampleRoman: "",
+          translationEnglish: "",
+          translationKorean: "",
+        },
+        { isCollocation: false, isPostfix: true },
+        "pronunciation",
+      ),
+    ).toBe(false);
+  });
+
+  it("still treats pronunciation as missing when the pronunciation field is empty", () => {
+    expect(
+      isCourseWordFieldMissing(
+        {
+          id: "jlpt-1",
+          word: "猫",
+          meaningEnglish: "cat",
+          meaningKorean: "고양이",
+          pronunciation: "",
+          pronunciationRoman: "neko",
+          example: "",
+          exampleRoman: "",
+          translationEnglish: "",
+          translationKorean: "",
+        },
+        { isCollocation: false, isJlpt: true },
+        "pronunciation",
+      ),
+    ).toBe(true);
+  });
 });

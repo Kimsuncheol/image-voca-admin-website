@@ -34,6 +34,7 @@ vi.mock("react-i18next", () => ({
         "words.primaryText": "Primary Text",
         "words.secondaryText": "Secondary Text",
         "words.translationLabel": "Translation",
+        "courses.pronunciation": "Pronunciation",
         "courses.image": "Image",
         "words.location": "Location",
         "words.status": "Status",
@@ -167,6 +168,8 @@ describe("WordFinderTable", () => {
     );
 
     expect(markup).toContain("https://example.com/jlpt.png");
+    expect(markup).toContain("Pronunciation");
+    expect(markup).toContain("ねこ");
     expect(markup).toContain("Has image");
     expect(markup).toContain("Has example");
   });
@@ -203,6 +206,7 @@ describe("WordFinderTable", () => {
     );
 
     expect(markup).toContain("再-");
+    expect(markup).toContain("さい");
     // prefix has no imageUrl — status column should show Missing image chip
     expect(markup).toContain("Missing image");
     // schemaVariant prefix — still type "standard" so pronunciation chip renders
@@ -241,8 +245,38 @@ describe("WordFinderTable", () => {
     );
 
     expect(markup).toContain("-的");
+    expect(markup).toContain("てき");
     expect(markup).toContain("Missing image");
     expect(markup).toContain("Has pronunciation");
+  });
+
+  it("renders none in the pronunciation column when a row has no pronunciation", () => {
+    const markup = renderToStaticMarkup(
+      <WordFinderTable
+        results={[
+          createResult({
+            id: "quote-1",
+            courseId: "FAMOUS_QUOTE",
+            courseLabel: "Famous Quote",
+            coursePath: "famous_quotes",
+            sourceHref: "/courses/FAMOUS_QUOTE",
+            dayId: null,
+            schemaVariant: "famousQuote",
+            type: "famousQuote",
+            primaryText: "Stay hungry, stay foolish.",
+            secondaryText: "Steve Jobs",
+            meaning: null,
+            translation: "늘 갈망하고 우직하게 나아가라.",
+            example: null,
+            pronunciation: null,
+            imageUrl: null,
+          }),
+        ]}
+      />,
+    );
+
+    expect(markup).toContain("Pronunciation");
+    expect(markup).toContain("None");
   });
 
   it("renders derivative status only for supported standard English rows", () => {
