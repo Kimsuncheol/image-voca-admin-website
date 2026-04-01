@@ -20,6 +20,7 @@ import type {
   WordFinderType,
 } from "../types/wordFinder.ts";
 import { hasDerivativeEntries } from "./derivativeGeneration.ts";
+import { hasParentheticalFurigana } from "./furigana.ts";
 
 interface AdaptCourseWordToWordFinderResultArgs {
   word: Word;
@@ -355,6 +356,8 @@ export function isCourseWordFieldMissing(
         return !hasTrimmedText(jlpt.pronunciation) || !hasTrimmedText(jlpt.pronunciationRoman);
       case "example":
         return !hasTrimmedText(jlpt.example);
+      case "furigana":
+        return hasTrimmedText(jlpt.example) && !hasParentheticalFurigana(jlpt.example);
       case "translation":
         return (
           !hasTrimmedText(jlpt.translationEnglish) ||
@@ -376,6 +379,7 @@ export function isCourseWordFieldMissing(
       case "meaning": return !hasTrimmedText(p.meaningEnglish) || !hasTrimmedText(p.meaningKorean);
       case "pronunciation": return !hasTrimmedText(p.pronunciation) || !hasTrimmedText(p.pronunciationRoman);
       case "example": return !hasTrimmedText(p.example);
+      case "furigana": return false;
       case "translation": return !hasTrimmedText(p.translationEnglish) || !hasTrimmedText(p.translationKorean);
       case "image":
       case "derivative":
@@ -391,6 +395,7 @@ export function isCourseWordFieldMissing(
       case "meaning": return !hasTrimmedText(p.meaningEnglish) || !hasTrimmedText(p.meaningKorean);
       case "pronunciation": return !hasTrimmedText(p.pronunciation) || !hasTrimmedText(p.pronunciationRoman);
       case "example": return !hasTrimmedText(p.example);
+      case "furigana": return false;
       case "translation": return !hasTrimmedText(p.translationEnglish) || !hasTrimmedText(p.translationKorean);
       case "image":
       case "derivative":
@@ -410,6 +415,8 @@ export function isCourseWordFieldMissing(
       return !hasTrimmedText(standard.pronunciation);
     case "example":
       return !hasTrimmedText(standard.example);
+    case "furigana":
+      return false;
     case "translation":
       return !hasTrimmedText(standard.translation);
     case "derivative":
@@ -441,6 +448,7 @@ export function getCourseWordMissingFields(
     "meaning",
     "pronunciation",
     "example",
+    "furigana",
     "translation",
     "derivative",
     "image",

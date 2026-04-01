@@ -93,6 +93,14 @@ test("JLPT exampleHasKorean selects the dedicated correction bulk action", () =>
   assert.equal(getCourseDayBulkAction("exampleHasKorean", false), null);
 });
 
+test("JLPT furigana selects the dedicated add-furigana bulk action", () => {
+  assert.deepEqual(getCourseDayBulkAction("furigana", true), {
+    kind: "add-furigana",
+    field: "example",
+  });
+  assert.equal(getCourseDayBulkAction("furigana", false), null);
+});
+
 test("JLPT example batch request prefers Korean over English", () => {
   const items = createJlptExampleBatchCorrectionItems([
     createResult({

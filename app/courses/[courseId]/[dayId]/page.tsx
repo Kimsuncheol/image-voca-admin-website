@@ -70,6 +70,7 @@ import {
   createJlptExampleBatchCorrectionItems,
   extractCourseDayGenerateWordFieldUpdates,
   getCourseDayBulkAction,
+  hasTrimmedText,
   mapCourseDayGeneratedImages,
   planCourseDayBulkGeneration,
   type CourseDayBulkAction,
@@ -82,6 +83,8 @@ import {
   applyCourseWordResolvedUpdates,
   isCourseWordFieldMissing,
 } from "@/lib/wordFinderCourseAdapter";
+import { addFuriganaTextsRobust } from "@/lib/addFurigana";
+import { hasParentheticalFurigana } from "@/lib/furigana";
 import { useAdminAIAccess } from "@/lib/hooks/useAdminAccess";
 import { formatPersistedPronunciation, getIpaUSUKBatch } from "@/lib/utils/ipaLookup";
 import { containsKorean } from "@/lib/utils/korean";
@@ -139,6 +142,7 @@ function getMissingFieldOptions(
   }
 
   if (isJlpt) {
+    options.push({ value: "furigana", label: t("courses.missingFurigana") });
     options.push({ value: "exampleHasKorean", label: t("courses.exampleHasKorean") });
   }
 
@@ -149,6 +153,10 @@ function getBulkActionLabel(
   action: CourseDayBulkAction,
   t: (key: string, options?: Record<string, unknown>) => string,
 ): string {
+  if (action.kind === "add-furigana") {
+    return t("words.addFuriganaAction");
+  }
+
   if (action.kind === "jlpt-example-correction") {
     return t("courses.correctExamplesWithDeepL");
   }
@@ -197,6 +205,10 @@ function getBulkDisabledReason(
   }
 
   if (action.kind === "derivative-preview") {
+    return null;
+  }
+
+  if (action.kind === "add-furigana") {
     return null;
   }
 
@@ -313,7 +325,7 @@ export default function DayWordsPage({
   const [missingField, setMissingField] = useState<CourseDayMissingField>("all");
   const [exitingWordIds, setExitingWordIds] = useState<Set<string>>(new Set());
   const [bulkLoadingField, setBulkLoadingField] =
-    useState<CourseDayBulkGeneratableField | CourseDayBulkPreviewField | null>(null);
+    useState<CourseDayBulkGeneratableField | CourseDayBulkPreviewField | "furigana" | null>(null);
   const [jlptExampleCorrectionLoading, setJlptExampleCorrectionLoading] =
     useState(false);
   const [bulkFeedback, setBulkFeedback] = useState<BulkFeedback | null>(null);
@@ -987,6 +999,80 @@ export default function DayWordsPage({
     t,
   ]);
 
+  const handleAddFuriganaBulk = useCallback(async () => {
+    if (bulkAction?.kind !== "add-furigana" || bulkLoadingField || bulkDisabledReason) {
+      return;
+    }
+
+    const eligible = filteredResults.filter(
+      (result) =>
+        result.schemaVariant === "jlpt" &&
+        hasTrimmedText(result.example) &&
+        !hasParentheticalFurigana(result.example),
+    );
+
+    if (eligible.length === 0) {
+      setBulkFeedback({
+        severity: "warning",
+        message: t("courses.bulkGenerateNoEligible"),
+      });
+      return;
+    }
+
+    setBulkLoadingField("furigana");
+    setBulkFeedback(null);
+
+    try {
+      const results = await addFuriganaTextsRobust(
+        eligible.map((result) => result.example!),
+      );
+
+      let updated = 0;
+      let failed = 0;
+
+      for (const [index, outcome] of results.entries()) {
+        const result = eligible[index];
+        if (!result) continue;
+
+        if (!outcome.ok) {
+          failed += 1;
+          continue;
+        }
+
+        try {
+          const example = outcome.text;
+          await persistResolvedUpdates(result, { example });
+          applyResolvedUpdatesToState(result.id, { example });
+          updated += 1;
+        } catch {
+          failed += 1;
+        }
+      }
+
+      setBulkFeedback(
+        formatBulkSummary(t, { updated, skipped: [], failed }),
+      );
+    } catch (bulkError) {
+      setBulkFeedback({
+        severity: "error",
+        message:
+          bulkError instanceof Error
+            ? bulkError.message
+            : t("words.generateActionError"),
+      });
+    } finally {
+      setBulkLoadingField(null);
+    }
+  }, [
+    applyResolvedUpdatesToState,
+    bulkAction,
+    bulkDisabledReason,
+    bulkLoadingField,
+    filteredResults,
+    persistResolvedUpdates,
+    t,
+  ]);
+
   useEffect(() => {
     if (!shouldRedirectToCourseRoot) return;
     router.replace(`/courses/${courseId}`);
@@ -1111,6 +1197,11 @@ export default function DayWordsPage({
                   return;
                 }
 
+                if (bulkAction.kind === "add-furigana") {
+                  void handleAddFuriganaBulk();
+                  return;
+                }
+
                 void handleJlptExampleCorrection();
               }}
               sx={{ borderRadius: "20px" }}
@@ -1120,9 +1211,11 @@ export default function DayWordsPage({
                 filteredResults.length === 0
               }
               startIcon={
-                (bulkAction.kind === "generate" && bulkLoadingField === bulkAction.field) ||
-                (bulkAction.kind === "derivative-preview" &&
+                ((bulkAction.kind === "generate" ||
+                  bulkAction.kind === "derivative-preview") &&
                   bulkLoadingField === bulkAction.field) ||
+                (bulkAction.kind === "add-furigana" &&
+                  bulkLoadingField === "furigana") ||
                 (bulkAction.kind === "jlpt-example-correction" &&
                   jlptExampleCorrectionLoading) ? (
                   <CircularProgress size={16} color="inherit" />

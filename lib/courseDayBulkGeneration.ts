@@ -26,6 +26,7 @@ export type CourseDayBulkPlannableField =
 export type CourseDayBulkAction =
   | { kind: "generate"; field: CourseDayBulkGeneratableField }
   | { kind: "derivative-preview"; field: CourseDayBulkPreviewField }
+  | { kind: "add-furigana"; field: "example" }
   | { kind: "jlpt-example-correction" };
 
 export type CourseDayBulkSkipReason = "missingMeaning" | "multiWord";
@@ -63,6 +64,10 @@ export function getCourseDayBulkAction(
   isJlpt: boolean,
   supportsDerivatives = false,
 ): CourseDayBulkAction | null {
+  if (isJlpt && field === "furigana") {
+    return { kind: "add-furigana", field: "example" };
+  }
+
   if (isCourseDayBulkGeneratableField(field)) {
     if (!isJlpt || field === "pronunciation" || field === "image") {
       return { kind: "generate", field };

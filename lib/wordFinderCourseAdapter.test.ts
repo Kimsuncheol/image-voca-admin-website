@@ -220,6 +220,60 @@ test("course missing-field helper preserves existing type gating", () => {
   );
 });
 
+test("JLPT furigana missing-field detection only targets examples without parentheses markup", () => {
+  const baseWord = {
+    id: "jlpt-1",
+    word: "猫",
+    meaningEnglish: "cat",
+    meaningKorean: "고양이",
+    pronunciation: "ねこ",
+    pronunciationRoman: "neko",
+    exampleRoman: "",
+    translationEnglish: "I like cats.",
+    translationKorean: "고양이를 좋아합니다.",
+  };
+
+  assert.equal(
+    isCourseWordFieldMissing(
+      { ...baseWord, example: "猫が好きです" },
+      { isCollocation: false, isJlpt: true },
+      "furigana",
+    ),
+    true,
+  );
+  assert.equal(
+    isCourseWordFieldMissing(
+      { ...baseWord, example: "猫(ねこ)が好きです" },
+      { isCollocation: false, isJlpt: true },
+      "furigana",
+    ),
+    false,
+  );
+  assert.equal(
+    isCourseWordFieldMissing(
+      { ...baseWord, example: "" },
+      { isCollocation: false, isJlpt: true },
+      "furigana",
+    ),
+    false,
+  );
+  assert.equal(
+    isCourseWordFieldMissing(
+      {
+        id: "std-1",
+        word: "wander",
+        meaning: "to move around",
+        pronunciation: "wan-der",
+        example: "Wander around.",
+        translation: "돌아다니다.",
+      },
+      { isCollocation: false },
+      "furigana",
+    ),
+    false,
+  );
+});
+
 test("resolved updates map back onto course table rows", () => {
   const standardUpdates = applyCourseWordResolvedUpdates(
     {

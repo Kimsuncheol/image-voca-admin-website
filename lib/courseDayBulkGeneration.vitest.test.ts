@@ -39,6 +39,14 @@ describe("courseDayBulkGeneration derivatives", () => {
     expect(getCourseDayBulkAction("derivative", false, false)).toBeNull();
   });
 
+  it("selects add-furigana only for JLPT pages", () => {
+    expect(getCourseDayBulkAction("furigana", true)).toEqual({
+      kind: "add-furigana",
+      field: "example",
+    });
+    expect(getCourseDayBulkAction("furigana", false)).toBeNull();
+  });
+
   it("derivative bulk planning skips multi-word rows and rows without meaning", () => {
     const plan = planCourseDayBulkGeneration(
       [

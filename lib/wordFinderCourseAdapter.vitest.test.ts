@@ -4,6 +4,7 @@ import {
   adaptCourseWordToWordFinderResult,
   getCourseWordMissingFields,
   getWordTableMissingActionField,
+  isCourseWordFieldMissing,
 } from "./wordFinderCourseAdapter";
 
 describe("wordFinderCourseAdapter derivatives", () => {
@@ -86,5 +87,45 @@ describe("wordFinderCourseAdapter derivatives", () => {
 
     expect(supportedActions).toContain("derivative");
     expect(unsupportedActions).not.toContain("derivative");
+  });
+
+  it("treats JLPT examples without parentheses markup as missing furigana", () => {
+    expect(
+      isCourseWordFieldMissing(
+        {
+          id: "jlpt-1",
+          word: "猫",
+          meaningEnglish: "cat",
+          meaningKorean: "고양이",
+          pronunciation: "ねこ",
+          pronunciationRoman: "neko",
+          example: "猫が好きです",
+          exampleRoman: "",
+          translationEnglish: "I like cats.",
+          translationKorean: "고양이를 좋아합니다.",
+        },
+        { isCollocation: false, isJlpt: true },
+        "furigana",
+      ),
+    ).toBe(true);
+
+    expect(
+      isCourseWordFieldMissing(
+        {
+          id: "jlpt-2",
+          word: "猫",
+          meaningEnglish: "cat",
+          meaningKorean: "고양이",
+          pronunciation: "ねこ",
+          pronunciationRoman: "neko",
+          example: "猫(ねこ)が好きです",
+          exampleRoman: "",
+          translationEnglish: "I like cats.",
+          translationKorean: "고양이를 좋아합니다.",
+        },
+        { isCollocation: false, isJlpt: true },
+        "furigana",
+      ),
+    ).toBe(false);
   });
 });
