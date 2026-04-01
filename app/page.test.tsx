@@ -24,8 +24,6 @@ vi.mock("react-i18next", () => ({
         "dashboard.textTools": "Text Tools",
         "dashboard.textToolsDesc":
           "Parentheses, romanization, furigana, and translation utilities",
-        "dashboard.naverDictApi": "Naver Dict API",
-        "dashboard.naverDictApiDesc": "Test /dict/types and /dict/search",
         "dashboard.settings": "Settings",
         "dashboard.settingsDesc": "Configure AI models for generation",
       };
@@ -57,14 +55,6 @@ vi.mock("@/components/dashboard/NavCard", () => ({
 }));
 
 describe("Dashboard page", () => {
-  it("includes the Naver Dict API card", () => {
-    const markup = renderToStaticMarkup(<Home />);
-
-    expect(markup).toContain("Naver Dict API");
-    expect(markup).toContain("Test /dict/types and /dict/search");
-    expect(markup).toContain("/naver-dict");
-  });
-
   it("includes the Text Tools card", () => {
     const markup = renderToStaticMarkup(<Home />);
 

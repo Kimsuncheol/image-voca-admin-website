@@ -66,10 +66,6 @@ function hasTrimmedText(value: string | null | undefined): value is string {
   return typeof value === "string" && value.trim().length > 0;
 }
 
-function buildMeaningLookupKey(word: string): string {
-  return normalizeVocabularyWord(word);
-}
-
 function buildInitialSelectionMap(
   items: DerivativePreviewItemResult[],
 ): DerivativeSelectionMap {
@@ -286,7 +282,7 @@ export default function DerivativeEditDialog({
     setMeaningGenerationMessage(null);
 
     try {
-      const response = await fetch("/api/admin/naver-dict/meaning", {
+      const response = await fetch("/api/admin/derivatives/meaning", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ word }),

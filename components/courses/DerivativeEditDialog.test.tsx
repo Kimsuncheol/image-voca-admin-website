@@ -427,7 +427,7 @@ describe("DerivativeEditDialog", () => {
       findButtonByAriaLabel("Generate meanings: careful")?.click();
     });
 
-    expect(fetchMock).toHaveBeenCalledWith("/api/admin/naver-dict/meaning", {
+    expect(fetchMock).toHaveBeenCalledWith("/api/admin/derivatives/meaning", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ word: "careful" }),
@@ -613,7 +613,7 @@ describe("DerivativeEditDialog", () => {
       findButtonByAriaLabel("Generate meanings: usable")?.click();
     });
 
-    expect(fetchMock).toHaveBeenCalledWith("/api/admin/naver-dict/meaning", {
+    expect(fetchMock).toHaveBeenCalledWith("/api/admin/derivatives/meaning", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ word: "usable" }),
