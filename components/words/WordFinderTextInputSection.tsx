@@ -8,7 +8,7 @@ import { useTranslation } from "react-i18next";
 interface WordFinderTextInputSectionProps {
   fieldLabel: string;
   textValue: string;
-  actionLoading: "generate" | "upload" | "shared" | null;
+  actionLoading: "generate" | "upload" | "shared" | "furigana" | null;
   onTextChange: (value: string) => void;
   onApply: () => void;
 }

@@ -57,11 +57,38 @@ function createFormWithOption() {
       outputLabel="Output"
       inputRequiredMsg="Input is required"
       networkErrorMsg="Network error"
-      booleanOption={{
-        key: "remove_brackets",
-        label: "Remove brackets at the same time.",
-        defaultValue: true,
-      }}
+      checkboxOptions={[
+        {
+          key: "remove_brackets",
+          label: "Remove brackets at the same time.",
+          defaultValue: true,
+          buildPayload: (checked) => ({ remove_brackets: checked }),
+        },
+      ]}
+    />
+  );
+}
+
+function createFormWithHiraganaModeOption() {
+  return (
+    <ParenthesesForm
+      apiPath="/api/text/test"
+      submitLabel="Submit"
+      loadingLabel="Loading"
+      resetLabel="Reset"
+      inputLabel="Input"
+      outputLabel="Output"
+      inputRequiredMsg="Input is required"
+      networkErrorMsg="Network error"
+      checkboxOptions={[
+        {
+          key: "hiragana_only",
+          label: "Hiragana only",
+          defaultValue: false,
+          buildPayload: (checked) =>
+            checked ? { mode: "hiragana_only" } : {},
+        },
+      ]}
     />
   );
 }
@@ -286,5 +313,68 @@ describe("ParenthesesForm", () => {
     clickButton("Reset");
 
     expect(checkbox.checked).toBe(true);
+  });
+
+  it("omits mode when the hiragana-only option is left unchecked", async () => {
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({ result_text: "ねこ" }),
+    });
+
+    rendered = renderForm(createFormWithHiraganaModeOption());
+    const { input } = getTextareas();
+
+    act(() => {
+      setTextareaValue(input, "猫");
+    });
+
+    await submitForm();
+
+    expect(fetchMock).toHaveBeenCalledWith("/api/text/test", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text: "猫" }),
+    });
+  });
+
+  it("adds hiragana_only mode when the option is checked", async () => {
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({ result_text: "ねこ" }),
+    });
+
+    rendered = renderForm(createFormWithHiraganaModeOption());
+    const { input } = getTextareas();
+    const checkbox = getCheckbox("Hiragana only");
+
+    act(() => {
+      checkbox.click();
+      setTextareaValue(input, "猫");
+    });
+
+    await submitForm();
+
+    expect(fetchMock).toHaveBeenCalledWith("/api/text/test", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text: "猫", mode: "hiragana_only" }),
+    });
+  });
+
+  it("restores the hiragana-only option default on reset", async () => {
+    rendered = renderForm(createFormWithHiraganaModeOption());
+    const checkbox = getCheckbox("Hiragana only");
+
+    expect(checkbox.checked).toBe(false);
+
+    act(() => {
+      checkbox.click();
+    });
+
+    expect(checkbox.checked).toBe(true);
+
+    clickButton("Reset");
+
+    expect(checkbox.checked).toBe(false);
   });
 });

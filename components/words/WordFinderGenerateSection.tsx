@@ -13,7 +13,7 @@ import type { WordFinderActionField, WordFinderResult } from "@/types/wordFinder
 interface WordFinderGenerateSectionProps {
   field: WordFinderActionField;
   result: WordFinderResult;
-  actionLoading: "generate" | "upload" | "shared" | null;
+  actionLoading: "generate" | "upload" | "shared" | "furigana" | null;
   generateDisabledReason: string | null;
   generateActionLabel: string;
   settings: AISettings;

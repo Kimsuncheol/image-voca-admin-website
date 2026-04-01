@@ -11,7 +11,7 @@ import type { DropzoneInputProps, DropzoneRootProps } from "react-dropzone";
 
 interface WordFinderImageUploadSectionProps {
   result: { primaryText: string; dayId?: string | null };
-  actionLoading: "generate" | "upload" | "shared" | null;
+  actionLoading: "generate" | "upload" | "shared" | "furigana" | null;
   droppedFile: File | null;
   dropPreview: string | null;
   isDragActive: boolean;

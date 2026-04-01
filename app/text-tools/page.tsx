@@ -147,14 +147,27 @@ export default function TextToolsPage() {
                 ? t("textTools.addFuriganaAction")
                 : t("textTools.removeFuriganaAction")
             }
-            booleanOption={
+            checkboxOptions={
               furiganaAction === "remove"
-                ? {
-                    key: "remove_brackets",
-                    label: t("textTools.removeFuriganaRemoveBracketsOption"),
-                    defaultValue: true,
-                  }
-                : undefined
+                ? [
+                    {
+                      key: "remove_brackets",
+                      label: t("textTools.removeFuriganaRemoveBracketsOption"),
+                      defaultValue: true,
+                      buildPayload: (checked: boolean) => ({
+                        remove_brackets: checked,
+                      }),
+                    },
+                  ]
+                : [
+                    {
+                      key: "hiragana_only",
+                      label: t("textTools.addFuriganaHiraganaOnlyOption"),
+                      defaultValue: false,
+                      buildPayload: (checked: boolean) =>
+                        checked ? { mode: "hiragana_only" } : {},
+                    },
+                  ]
             }
             {...sharedFormProps}
           />

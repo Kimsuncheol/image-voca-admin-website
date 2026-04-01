@@ -30,6 +30,7 @@ vi.mock("react-i18next", () => ({
         "textTools.removeAction": "Remove Parentheses",
         "textTools.romanizeAction": "Romanize",
         "textTools.addFuriganaAction": "Add Furigana",
+        "textTools.addFuriganaHiraganaOnlyOption": "Hiragana only",
         "textTools.removeFuriganaAction": "Remove Furigana",
         "textTools.removeFuriganaRemoveBracketsOption":
           "Remove brackets at the same time.",
@@ -85,15 +86,15 @@ vi.mock("./ParenthesesForm", () => ({
   default: ({
     apiPath,
     submitLabel,
-    booleanOption,
+    checkboxOptions,
   }: {
     apiPath: string;
     submitLabel: string;
-    booleanOption?: { label: string };
+    checkboxOptions?: Array<{ label: string }>;
   }) => (
     <div data-testid="mock-form">
       {`${submitLabel}:${apiPath}`}
-      {booleanOption ? <span>{booleanOption.label}</span> : null}
+      {checkboxOptions?.map((option) => <span key={option.label}>{option.label}</span>)}
     </div>
   ),
 }));
@@ -188,6 +189,7 @@ describe("TextToolsPage", () => {
     expect(document.body.textContent).toContain(
       "Add Furigana:/api/text/add-furigana",
     );
+    expect(document.body.textContent).toContain("Hiragana only");
   });
 
   it("shows the remove-brackets option for remove furigana", () => {
@@ -202,6 +204,7 @@ describe("TextToolsPage", () => {
     expect(document.body.textContent).toContain(
       "Remove brackets at the same time.",
     );
+    expect(document.body.textContent).not.toContain("Hiragana only");
   });
 
   it("updates the active form when a chip action is selected", () => {

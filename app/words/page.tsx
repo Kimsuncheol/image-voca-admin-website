@@ -225,6 +225,17 @@ function WordsPageContent({
     [t],
   );
 
+  const handleAddFuriganaClick = useCallback(
+    (
+      result: WordFinderResult,
+      field: Extract<WordFinderActionField, "pronunciation" | "example">,
+    ) => {
+      setActiveResultKey(getWordFinderResultKey(result));
+      setActiveField(field);
+    },
+    [],
+  );
+
   const handleModalClose = useCallback(() => {
     setActiveField(null);
     setActiveResultKey("");
@@ -369,6 +380,7 @@ function WordsPageContent({
           <WordFinderTable
             results={results}
             onMissingFieldClick={handleMissingFieldClick}
+            onAddFuriganaClick={handleAddFuriganaClick}
           />
         </Stack>
       )}

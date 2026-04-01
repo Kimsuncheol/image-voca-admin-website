@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
@@ -11,11 +11,18 @@ import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import { useTranslation } from "react-i18next";
 
-type BooleanOptionConfig = {
+type CheckboxOptionConfig = {
   key: string;
   label: string;
   defaultValue: boolean;
+  buildPayload: (checked: boolean) => Record<string, unknown>;
 };
+
+function getDefaultCheckboxValues(checkboxOptions?: CheckboxOptionConfig[]) {
+  return Object.fromEntries(
+    (checkboxOptions ?? []).map((option) => [option.key, option.defaultValue]),
+  ) as Record<string, boolean>;
+}
 
 export default function ParenthesesForm({
   apiPath,
@@ -26,7 +33,7 @@ export default function ParenthesesForm({
   outputLabel,
   inputRequiredMsg,
   networkErrorMsg,
-  booleanOption,
+  checkboxOptions,
 }: {
   apiPath: string;
   submitLabel: string;
@@ -36,20 +43,24 @@ export default function ParenthesesForm({
   outputLabel: string;
   inputRequiredMsg: string;
   networkErrorMsg: string;
-  booleanOption?: BooleanOptionConfig;
+  checkboxOptions?: CheckboxOptionConfig[];
 }) {
   const { t } = useTranslation();
   const [input, setInput] = useState("");
   const [output, setOutput] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [booleanOptionValue, setBooleanOptionValue] = useState(
-    booleanOption?.defaultValue ?? false,
+  const [checkboxValues, setCheckboxValues] = useState<Record<string, boolean>>(
+    getDefaultCheckboxValues(checkboxOptions),
   );
   const [copySnackbar, setCopySnackbar] = useState<{ open: boolean; success: boolean }>({
     open: false,
     success: true,
   });
+
+  useEffect(() => {
+    setCheckboxValues(getDefaultCheckboxValues(checkboxOptions));
+  }, [checkboxOptions]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -64,13 +75,20 @@ export default function ParenthesesForm({
     setOutput("");
 
     try {
+      const payload = {
+        text: input,
+        ...Object.assign(
+          {},
+          ...(checkboxOptions ?? []).map((option) =>
+            option.buildPayload(checkboxValues[option.key] ?? option.defaultValue),
+          ),
+        ),
+      };
+
       const response = await fetch(apiPath, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          text: input,
-          ...(booleanOption ? { [booleanOption.key]: booleanOptionValue } : {}),
-        }),
+        body: JSON.stringify(payload),
       });
 
       const data = (await response.json()) as {
@@ -95,7 +113,7 @@ export default function ParenthesesForm({
     setInput("");
     setOutput("");
     setError("");
-    setBooleanOptionValue(booleanOption?.defaultValue ?? false);
+    setCheckboxValues(getDefaultCheckboxValues(checkboxOptions));
   }
 
   async function handleCopy() {
@@ -119,17 +137,23 @@ export default function ParenthesesForm({
           fullWidth
         />
 
-        {booleanOption ? (
+        {(checkboxOptions ?? []).map((option) => (
           <FormControlLabel
+            key={option.key}
             control={
               <Checkbox
-                checked={booleanOptionValue}
-                onChange={(event) => setBooleanOptionValue(event.target.checked)}
+                checked={checkboxValues[option.key] ?? option.defaultValue}
+                onChange={(event) =>
+                  setCheckboxValues((current) => ({
+                    ...current,
+                    [option.key]: event.target.checked,
+                  }))
+                }
               />
             }
-            label={booleanOption.label}
+            label={option.label}
           />
-        ) : null}
+        ))}
 
         <Stack direction="row" spacing={2}>
           <Button type="submit" variant="contained" disabled={loading}>

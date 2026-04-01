@@ -24,6 +24,8 @@ import { supportsDerivativeGenerationForResult } from "@/lib/derivativeGeneratio
 import type { WordFinderResult } from "@/types/wordFinder";
 import type { WordFinderActionField } from "@/types/wordFinder";
 
+type FuriganaActionField = Extract<WordFinderActionField, "pronunciation" | "example">;
+
 interface CellPos {
   row: number;
   col: number;
@@ -45,6 +47,37 @@ interface WordFinderTableProps {
     result: WordFinderResult,
     field: WordFinderActionField,
   ) => void;
+  onAddFuriganaClick?: (
+    result: WordFinderResult,
+    field: FuriganaActionField,
+  ) => void;
+}
+
+function isJapaneseFuriganaResult(result: WordFinderResult): boolean {
+  return (
+    result.schemaVariant === "jlpt" ||
+    result.schemaVariant === "prefix" ||
+    result.schemaVariant === "postfix"
+  );
+}
+
+function getContextMenuAddFuriganaField(
+  result: WordFinderResult | undefined,
+  col: number,
+): FuriganaActionField | null {
+  if (!result || !isJapaneseFuriganaResult(result)) {
+    return null;
+  }
+
+  if (col === 0 && result.primaryText.trim()) {
+    return "pronunciation";
+  }
+
+  if (col === 1 && result.example?.trim()) {
+    return "example";
+  }
+
+  return null;
 }
 
 function getTypeLabel(
@@ -92,6 +125,7 @@ function renderStatusChip(
 export default function WordFinderTable({
   results,
   onMissingFieldClick,
+  onAddFuriganaClick,
 }: WordFinderTableProps) {
   const { t } = useTranslation();
   const router = useRouter();
@@ -207,7 +241,18 @@ export default function WordFinderTable({
     onMissingFieldClick(result, field);
   }, [contextMenu, results, onMissingFieldClick]);
 
+  const handleContextMenuAddFurigana = useCallback(() => {
+    if (!contextMenu || !onAddFuriganaClick) return;
+    const result = results[contextMenu.row];
+    const field = getContextMenuAddFuriganaField(result, contextMenu.col);
+    if (!result || !field) return;
+    onAddFuriganaClick(result, field);
+  }, [contextMenu, onAddFuriganaClick, results]);
+
   const contextMenuField = contextMenu ? getColField(contextMenu.col) : null;
+  const contextMenuAddFuriganaField = contextMenu
+    ? getContextMenuAddFuriganaField(results[contextMenu.row], contextMenu.col)
+    : null;
 
   return (
     <>
@@ -352,7 +397,7 @@ export default function WordFinderTable({
                         : t("words.missingPronunciation"),
                       Boolean(result.pronunciation),
                       onMissingFieldClick,
-                      true,
+                      isJapaneseFuriganaResult(result),
                     )
                   )}
                   {result.type !== "famousQuote" && (
@@ -361,7 +406,8 @@ export default function WordFinderTable({
                       "example",
                       result.example ? t("words.hasExample") : t("words.missingExample"),
                       Boolean(result.example),
-                      result.schemaVariant === "jlpt" ? undefined : onMissingFieldClick,
+                      onMissingFieldClick,
+                      isJapaneseFuriganaResult(result),
                     )
                   )}
                   {renderStatusChip(
@@ -395,6 +441,11 @@ export default function WordFinderTable({
       anchorPosition={contextMenu?.anchorPosition ?? null}
       onClose={() => setContextMenu(null)}
       onCopy={handleContextMenuCopy}
+      onAddFurigana={
+        contextMenuAddFuriganaField && onAddFuriganaClick
+          ? handleContextMenuAddFurigana
+          : null
+      }
       onGenerate={
         contextMenuField && onMissingFieldClick ? handleContextMenuGenerate : null
       }

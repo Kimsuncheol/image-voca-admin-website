@@ -27,6 +27,7 @@ import {
   updateWordField,
   updateWordImageUrl,
 } from "@/lib/firebase/firestore";
+import { addFuriganaText } from "@/lib/addFurigana";
 import { uploadWordImage } from "@/lib/firebase/storage";
 import { getPersistedPronunciation } from "@/lib/utils/ipaLookup";
 import { useAdminAIAccess } from "@/lib/hooks/useAdminAccess";
@@ -83,7 +84,7 @@ export default function WordFinderMissingFieldDialog({
     exampleTranslationBlockedBySettings,
   } = useAdminAIAccess();
 
-  const [actionLoading, setActionLoading] = useState<"generate" | "upload" | "shared" | null>(
+  const [actionLoading, setActionLoading] = useState<"generate" | "upload" | "shared" | "furigana" | null>(
     null,
   );
   const [error, setError] = useState("");
@@ -103,6 +104,26 @@ export default function WordFinderMissingFieldDialog({
 
   const sharedActionLabel = field ? getSharedButtonLabel(field, t) : "";
   const generateActionLabel = field ? getGenerateButtonLabel(field, t) : "";
+  const addFuriganaSource = useMemo(() => {
+    if (!field || !result) return null;
+    if (
+      result.schemaVariant !== "jlpt" &&
+      result.schemaVariant !== "prefix" &&
+      result.schemaVariant !== "postfix"
+    ) {
+      return null;
+    }
+
+    if (field === "pronunciation") {
+      return hasTrimmedText(result.primaryText) ? result.primaryText : null;
+    }
+
+    if (field === "example") {
+      return hasTrimmedText(result.example) ? result.example : null;
+    }
+
+    return null;
+  }, [field, result]);
 
   const generateDisabledReason = useMemo(() => {
     if (!field || !result) return null;
@@ -449,6 +470,30 @@ export default function WordFinderMissingFieldDialog({
     }
   }, [field, generateDisabledReason, handleResolved, result, settings, t]);
 
+  const handleAddFurigana = useCallback(async () => {
+    if (!field || !result || !addFuriganaSource) return;
+
+    setActionLoading("furigana");
+    setError("");
+
+    try {
+      const nextValue = await addFuriganaText(
+        addFuriganaSource,
+        field === "pronunciation" ? { mode: "hiragana_only" } : undefined,
+      );
+
+      await handleResolved({ [field]: nextValue });
+    } catch (furiganaError) {
+      setError(
+        furiganaError instanceof Error
+          ? furiganaError.message
+          : t("words.generateActionError"),
+      );
+    } finally {
+      setActionLoading(null);
+    }
+  }, [addFuriganaSource, field, handleResolved, result, t]);
+
   const handleApplyText = useCallback(async () => {
     if (!field || !result || !textValue.trim()) return;
     setActionLoading("generate");
@@ -644,6 +689,28 @@ export default function WordFinderMissingFieldDialog({
           settings={settings}
           onGenerate={handleGenerate}
         />
+
+        {addFuriganaSource && (
+          <Stack spacing={1}>
+            <Typography variant="subtitle2">
+              {t("words.addFuriganaAction")}
+            </Typography>
+            <Button
+              variant="outlined"
+              onClick={handleAddFurigana}
+              disabled={Boolean(actionLoading)}
+              startIcon={
+                actionLoading === "furigana" ? (
+                  <CircularProgress size={16} color="inherit" />
+                ) : (
+                  <ContentCopyIcon />
+                )
+              }
+            >
+              {t("words.addFuriganaAction")}
+            </Button>
+          </Stack>
+        )}
 
         {/* Text input section (example / translation) */}
         {(field === "example" || field === "translation") && (

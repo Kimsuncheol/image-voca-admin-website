@@ -23,6 +23,7 @@ import { useTranslation } from "react-i18next";
 import CellContextMenu from "@/components/shared/CellContextMenu";
 import InlineEditableText from "@/components/shared/InlineEditableText";
 import WordFinderMissingFieldDialog from "@/components/words/WordFinderMissingFieldDialog";
+import { addFuriganaText } from "@/lib/addFurigana";
 import {
   updateSingleListWordDerivatives,
   updateSingleListWordImageUrl,
@@ -54,6 +55,8 @@ import type {
   WordFinderActionField,
   WordFinderResultFieldUpdates,
 } from "@/types/wordFinder";
+
+type FuriganaActionField = Extract<WordFinderActionField, "pronunciation" | "example">;
 
 function hasTrimmedText(value: string | null | undefined): value is string {
   return typeof value === "string" && value.trim().length > 0;
@@ -124,6 +127,37 @@ function getWordTableColEditField(col: number, word: Word): CourseInlineEditable
     if (col === 0) return "primaryText";
     if (col === 1) return "meaning";
   }
+  return null;
+}
+
+function getWordTableAddFuriganaField(
+  col: number,
+  word: Word,
+): FuriganaActionField | null {
+  if (!(isJlptWord(word) || isPrefixWord(word) || isPostfixWord(word))) {
+    return null;
+  }
+
+  if (col === 3) return "pronunciation";
+  if (col === 4) return "example";
+  return null;
+}
+
+function getWordTableAddFuriganaSource(
+  word: Word,
+  field: FuriganaActionField,
+): string | null {
+  if (field === "pronunciation") {
+    if (isJlptWord(word)) return hasTrimmedText(word.word) ? word.word : null;
+    if (isPrefixWord(word)) return hasTrimmedText(word.prefix) ? word.prefix : null;
+    if (isPostfixWord(word)) return hasTrimmedText(word.postfix) ? word.postfix : null;
+    return null;
+  }
+
+  if (isJlptWord(word) || isPrefixWord(word) || isPostfixWord(word)) {
+    return hasTrimmedText(word.example) ? word.example : null;
+  }
+
   return null;
 }
 
@@ -379,17 +413,6 @@ function filterJapanese(text: string): string {
     .trim();
 }
 
-function extractRomanInBrackets(text: string): string {
-  const regex = /\(([^)]+)\)|\[([^\]]+)\]/g;
-  const parts: string[] = [];
-  let match: RegExpExecArray | null;
-  while ((match = regex.exec(text)) !== null) {
-    const inner = (match[1] ?? match[2]).trim();
-    if (inner) parts.push(inner);
-  }
-  return parts.join(" ").trim();
-}
-
 export default function WordTable({
   words,
   isCollocation,
@@ -453,6 +476,7 @@ export default function WordTable({
         | "collocation"
         | "meaningEnglish"
         | "meaningKorean"
+        | "pronunciation"
         | "example"
         | "exampleRoman"
         | "translation"
@@ -942,6 +966,15 @@ export default function WordTable({
     [contextMenu, contextMenuWord],
   );
 
+  const contextMenuAddFuriganaField = useMemo(() => {
+    if (!contextMenu || !contextMenuWord) return null;
+
+    const field = getWordTableAddFuriganaField(contextMenu.col, contextMenuWord);
+    if (!field) return null;
+
+    return getWordTableAddFuriganaSource(contextMenuWord, field) ? field : null;
+  }, [contextMenu, contextMenuWord]);
+
   const isCellSelected = useCallback(
     (row: number, col: number): boolean => {
       if (!selectionAnchor || !selectionExtent) return false;
@@ -1098,6 +1131,50 @@ export default function WordTable({
     onWordFieldsUpdated,
     persistTextField,
     storageMode,
+    t,
+    words,
+  ]);
+
+  const handleContextMenuAddFurigana = useCallback(async () => {
+    if (!contextMenu) return;
+
+    const word = words[contextMenu.row];
+    if (!word) return;
+
+    const mergedWord = { ...word, ...localWordUpdates[word.id] } as Word;
+    const field = getWordTableAddFuriganaField(contextMenu.col, mergedWord);
+    if (!field) return;
+
+    const sourceText = getWordTableAddFuriganaSource(mergedWord, field);
+    if (!sourceText) return;
+
+    try {
+      const nextValue = await addFuriganaText(
+        sourceText,
+        field === "pronunciation" ? { mode: "hiragana_only" } : undefined,
+      );
+
+      await persistTextField(word.id, field, nextValue);
+
+      setLocalWordUpdates((prev) => ({
+        ...prev,
+        [word.id]: {
+          ...prev[word.id],
+          [field]: nextValue,
+        },
+      }));
+
+      onWordFieldsUpdated?.(word.id, { [field]: nextValue });
+    } catch (error) {
+      window.alert(
+        error instanceof Error ? error.message : t("words.generateActionError"),
+      );
+    }
+  }, [
+    contextMenu,
+    localWordUpdates,
+    onWordFieldsUpdated,
+    persistTextField,
     t,
     words,
   ]);
@@ -1765,6 +1842,9 @@ export default function WordTable({
         onTranslate={contextMenuCanTranslate ? handleContextMenuTranslate : null}
         translateLabel={
           contextMenuCanTranslate ? "correct it with DeepL" : undefined
+        }
+        onAddFurigana={
+          contextMenuAddFuriganaField ? handleContextMenuAddFurigana : null
         }
         onGenerate={contextMenuField ? handleContextMenuGenerate : null}
       />

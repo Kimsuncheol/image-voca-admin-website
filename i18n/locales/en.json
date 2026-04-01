@@ -307,6 +307,8 @@
     "uploadActionError": "Image upload failed.",
     "sharedLookupError": "Failed to load shared values from other courses.",
     "sharedApplyError": "Failed to apply the shared value.",
+    "addFuriganaAction": "Add furigana",
+    "addFuriganaUnavailable": "This entry does not have text that can be converted with furigana here.",
     "selectSharedCandidate": "Select one shared value before applying it.",
     "noSharedMatches": "No reusable value was found in other courses.",
     "derivativePreviewTitle": "Confirm adjective derivatives",
@@ -318,6 +320,7 @@
     "imagePreviewAlt": "Preview image for {{text}}",
     "contextMenuCopy": "Copy",
     "contextMenuEdit": "Edit",
+    "contextMenuAddFurigana": "Add furigana",
     "contextMenuGenerate": "Generate"
   },
   "users": {
@@ -524,6 +527,7 @@
     "networkError": "Network error. Please try again.",
     "romanizeAction": "Romanize",
     "addFuriganaAction": "Add Furigana",
+    "addFuriganaHiraganaOnlyOption": "Hiragana only",
     "removeFuriganaAction": "Remove Furigana",
     "removeFuriganaRemoveBracketsOption": "Remove brackets at the same time.",
     "translateAction": "Translate",
