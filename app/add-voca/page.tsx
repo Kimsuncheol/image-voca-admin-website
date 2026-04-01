@@ -69,7 +69,12 @@ import {
   isSingleListCourse,
   type CourseId,
 } from "@/types/course";
-import type { JlptWordInput, StandardWordInput } from "@/lib/schemas/vocaSchemas";
+import type {
+  JlptWordInput,
+  PostfixWordInput,
+  PrefixWordInput,
+  StandardWordInput,
+} from "@/lib/schemas/vocaSchemas";
 import type { SchemaType } from "@/lib/utils/csvParser";
 import type {
   DerivativePreviewItemResult,
@@ -99,9 +104,10 @@ import { assignDeterministicUploadIdsForItems } from "@/lib/uploadWordIds";
 import { prepareStandardWordsForUpload } from "@/services/standardWordUpload";
 import { useAdminAIAccess } from "@/lib/hooks/useAdminAccess";
 import {
-  getStandardUploadOptionState,
+  getUploadOptionState,
   type UploadOptions,
 } from "@/lib/addVocaUploadOptions";
+import { applyFuriganaToJapaneseUploadWords } from "@/lib/addVocaFurigana";
 import { validateUploadCourse } from "@/lib/addVocaUploadPreflight";
 
 // ── Feature components ────────────────────────────────────────────────
@@ -177,7 +183,7 @@ export default function AddVocaPage() {
   const [statusText, setStatusText] = useState("");
   const [uploadOptionsOpen, setUploadOptionsOpen] = useState(false);
   const [uploadOptions, setUploadOptions] = useState<UploadOptions>(
-    { images: false, examples: false, translations: false },
+    { images: false, examples: false, translations: false, furigana: false },
   );
   const [derivativePreviewOpen, setDerivativePreviewOpen] = useState(false);
   const [derivativePreviewLoading, setDerivativePreviewLoading] =
@@ -200,7 +206,7 @@ export default function AddVocaPage() {
   const uploadingRef = useRef(false);
   const pendingDerivativeItemsRef = useRef<ReadyStandardQueueItem[]>([]);
   const pendingUploadOptionsRef = useRef<UploadOptions>(
-    { images: false, examples: false, translations: false },
+    { images: false, examples: false, translations: false, furigana: false },
   );
 
   // ── Browser unload guard ───────────────────────────────────────────
@@ -268,7 +274,7 @@ export default function AddVocaPage() {
   const singleListSubcollection = isSingleList
     ? getSingleListSubcollectionByCourseId(selectedCourse)
     : null;
-  const standardUploadOptionState = getStandardUploadOptionState({
+  const uploadOptionState = getUploadOptionState({
     selectedCourse,
     imageGenerationEnabled: canUseImageGeneration,
     enrichGenerationEnabled: canUseExampleTranslationGeneration,
@@ -276,17 +282,10 @@ export default function AddVocaPage() {
   const {
     isImageGenerationEnabled,
     isExampleAndTranslationGenerationEnabled,
-  } = standardUploadOptionState;
-  const shouldShowUploadOptionsModal = isJlpt
-    ? isImageGenerationEnabled
-    : standardUploadOptionState.shouldShowModal;
-  const defaultUploadOptions = isJlpt
-    ? {
-        images: isImageGenerationEnabled,
-        examples: false,
-        translations: false,
-      }
-    : standardUploadOptionState.defaultOptions;
+    isFuriganaEnabled,
+    shouldShowModal: shouldShowUploadOptionsModal,
+    defaultOptions: defaultUploadOptions,
+  } = uploadOptionState;
   // const showImageGenerator = shouldIncludeImageUrl(selectedCourse);
   // const imageGenerationCourseId = isSupportedImageGenerationCourseId(
   //   selectedCourse,
@@ -448,7 +447,8 @@ export default function AddVocaPage() {
         let words = item.data!.words;
 
         if (schemaType === "jlpt") {
-          const wordsNeedingPronunciation = (words as JlptWordInput[])
+          let jlptWords = words as JlptWordInput[];
+          const wordsNeedingPronunciation = jlptWords
             .filter(
               (w) =>
                 w.word.trim().length > 0 &&
@@ -483,7 +483,7 @@ export default function AddVocaPage() {
                   ]),
                 );
 
-                words = (words as JlptWordInput[]).map((w) => {
+                jlptWords = jlptWords.map((w) => {
                   const resolved = pronunciationMap.get(w.word);
                   if (!resolved) return w;
                   return {
@@ -508,7 +508,7 @@ export default function AddVocaPage() {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                   courseId: selectedCourse,
-                  words,
+                  words: jlptWords,
                 }),
               });
 
@@ -517,17 +517,55 @@ export default function AddVocaPage() {
                   words: JlptWordInput[];
                   failures?: { word: string; error: string }[];
                 };
-                words = result.words;
+                jlptWords = result.words;
               }
             } catch (e) {
               console.error("[Image Generation] Failed (non-fatal):", e);
             }
           }
 
+          if (options.furigana) {
+            setStatusText(
+              t("addVoca.statusFurigana", "Adding furigana"),
+            );
+            jlptWords = await applyFuriganaToJapaneseUploadWords(
+              jlptWords,
+              "jlpt",
+            );
+          }
+
           words = prepareStandardWordsForUpload(
-            words as JlptWordInput[],
+            jlptWords,
             selectedCourse,
           );
+        } else if (schemaType === "prefix") {
+          let prefixWords = words as PrefixWordInput[];
+
+          if (options.furigana) {
+            setStatusText(
+              t("addVoca.statusFurigana", "Adding furigana"),
+            );
+            prefixWords = await applyFuriganaToJapaneseUploadWords(
+              prefixWords,
+              "prefix",
+            );
+          }
+
+          words = prefixWords;
+        } else if (schemaType === "postfix") {
+          let postfixWords = words as PostfixWordInput[];
+
+          if (options.furigana) {
+            setStatusText(
+              t("addVoca.statusFurigana", "Adding furigana"),
+            );
+            postfixWords = await applyFuriganaToJapaneseUploadWords(
+              postfixWords,
+              "postfix",
+            );
+          }
+
+          words = postfixWords;
         } else if (schemaType === "standard") {
           const wordsNeedingIpa = (words as StandardWordInput[])
             .filter((w) => !w.pronunciation && !w.word.includes(" "))
@@ -857,11 +895,14 @@ export default function AddVocaPage() {
       return;
     }
 
-    const isStandardUploadFlow =
-      (schemaType === "standard" || schemaType === "jlpt") &&
+    const isOptionBasedUploadFlow =
+      (schemaType === "standard" ||
+        schemaType === "jlpt" ||
+        schemaType === "prefix" ||
+        schemaType === "postfix") &&
       (tabIndex === 0 || tabIndex === 1);
 
-    if (isStandardUploadFlow) {
+    if (isOptionBasedUploadFlow) {
       setUploadOptions(defaultUploadOptions);
 
       if (!shouldShowUploadOptionsModal) {
@@ -1080,6 +1121,7 @@ export default function AddVocaPage() {
         isExampleAndTranslationGenerationEnabled={
           isExampleAndTranslationGenerationEnabled
         }
+        isFuriganaEnabled={isFuriganaEnabled}
         onClose={() => setUploadOptionsOpen(false)}
         onConfirm={handleUploadOptionsConfirm}
       />

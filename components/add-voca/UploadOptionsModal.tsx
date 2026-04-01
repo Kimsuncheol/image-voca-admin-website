@@ -19,6 +19,7 @@ interface UploadOptionsModalProps {
   selectedOptions: UploadOptions;
   isImageGenerationEnabled: boolean;
   isExampleAndTranslationGenerationEnabled: boolean;
+  isFuriganaEnabled: boolean;
   onClose: () => void;
   onConfirm: (options: UploadOptions) => void;
 }
@@ -28,6 +29,7 @@ export default function UploadOptionsModal({
   selectedOptions,
   isImageGenerationEnabled,
   isExampleAndTranslationGenerationEnabled,
+  isFuriganaEnabled,
   onClose,
   onConfirm,
 }: UploadOptionsModalProps) {
@@ -46,6 +48,7 @@ export default function UploadOptionsModal({
     translations: isExampleAndTranslationGenerationEnabled
       ? options.translations
       : false,
+    furigana: isFuriganaEnabled ? options.furigana : false,
   });
 
   return (
@@ -109,6 +112,17 @@ export default function UploadOptionsModal({
                   />
                 }
                 label={t("addVoca.generateTranslations", "Generate translations")}
+              />
+            )}
+            {isFuriganaEnabled && (
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={draftOptions.furigana}
+                    onChange={() => toggle("furigana")}
+                  />
+                }
+                label={t("addVoca.addFurigana", "Add furigana")}
               />
             )}
           </FormGroup>
