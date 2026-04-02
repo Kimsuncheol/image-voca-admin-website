@@ -35,6 +35,8 @@
     "promotionCodesDesc": "Generate and manage promotion codes",
     "textTools": "Text Tools",
     "textToolsDesc": "Parentheses, romanization, furigana, and translation utilities",
+    "manga": "Manga",
+    "mangaDesc": "Generate manga panel descriptions and images from a prompt",
     "settings": "Settings",
     "settingsDesc": "Configure AI models for generation"
   },
@@ -560,5 +562,16 @@
     "signOut": "Sign Out",
     "copied": "Copied!",
     "copyFailed": "Copy failed"
+  },
+  "manga": {
+    "title": "Manga",
+    "desc": "Generate manga panel descriptions and images from a prompt",
+    "promptLabel": "Prompt",
+    "promptPlaceholder": "A samurai walks through a rainy village",
+    "panelCountLabel": "Panel Count",
+    "generateButton": "Generate Panels",
+    "generating": "Generating...",
+    "panelN": "Panel {{n}}",
+    "errorGeneric": "Failed to generate panels. Please try again."
   }
 }

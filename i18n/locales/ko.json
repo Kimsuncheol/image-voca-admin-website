@@ -35,6 +35,8 @@
     "promotionCodesDesc": "프로모션 코드 생성 및 관리",
     "textTools": "텍스트 도구",
     "textToolsDesc": "괄호, 로마자 변환, 후리가나, 번역 도구",
+    "manga": "만화",
+    "mangaDesc": "프롬프트로 만화 패널 설명과 이미지를 생성합니다",
     "settings": "설정",
     "settingsDesc": "생성에 사용할 AI 모델 설정"
   },
@@ -560,5 +562,16 @@
     "signOut": "로그아웃",
     "copied": "복사됨!",
     "copyFailed": "복사 실패"
+  },
+  "manga": {
+    "title": "만화",
+    "desc": "프롬프트로 만화 패널 설명과 이미지를 생성합니다",
+    "promptLabel": "프롬프트",
+    "promptPlaceholder": "비 오는 마을을 걷는 사무라이",
+    "panelCountLabel": "패널 수",
+    "generateButton": "패널 생성",
+    "generating": "생성 중...",
+    "panelN": "패널 {{n}}",
+    "errorGeneric": "패널 생성에 실패했습니다. 다시 시도해주세요."
   }
 }

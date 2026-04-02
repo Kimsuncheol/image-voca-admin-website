@@ -1,0 +1,18 @@
+import { NextRequest, NextResponse } from "next/server";
+import { buildTextApiUrl } from "@/lib/server/textApi";
+
+export async function POST(req: NextRequest) {
+  const body = (await req.json()) as unknown;
+
+  const upstream = await fetch(
+    buildTextApiUrl("/text/manga/generate-panels"),
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }
+  );
+
+  const data = (await upstream.json()) as unknown;
+  return NextResponse.json(data, { status: upstream.status });
+}

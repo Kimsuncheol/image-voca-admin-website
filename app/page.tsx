@@ -27,6 +27,7 @@ import PeopleIcon from "@mui/icons-material/People";
 import OndemandVideoIcon from "@mui/icons-material/OndemandVideo";
 import LocalOfferIcon from "@mui/icons-material/LocalOffer";
 import AutoFixHighIcon from "@mui/icons-material/AutoFixHigh";
+import AutoStoriesIcon from "@mui/icons-material/AutoStories";
 import SettingsIcon from "@mui/icons-material/Settings";
 import { useTranslation } from "react-i18next";
 
@@ -84,6 +85,12 @@ export default function Home() {
       description: t("dashboard.textToolsDesc"),
       icon: <AutoFixHighIcon />,
       href: "/text-tools",
+    },
+    {
+      title: t("manga.title"),
+      description: t("manga.desc"),
+      icon: <AutoStoriesIcon />,
+      href: "/manga",
     },
     {
       title: t("dashboard.settings"),
