@@ -250,6 +250,12 @@ function OrderedItemRow({ item }: { item: OrderedItem }) {
   );
 }
 
+const singleLineWordTextSx = {
+  whiteSpace: "nowrap",
+  overflowWrap: "normal",
+  wordBreak: "keep-all",
+};
+
 function ExampleCell({
   text,
   onClick,
@@ -791,6 +797,7 @@ export default function WordTable({
         emptyLabel?: string;
         fontWeight?: number;
         textVariant?: "body1" | "body2";
+        singleLine?: boolean;
       },
     ) => {
       const editable = resolveCourseInlineEditField({
@@ -807,7 +814,11 @@ export default function WordTable({
 
       if (!editable) {
         return (
-          <Typography variant={options?.textVariant ?? "body1"} fontWeight={options?.fontWeight}>
+          <Typography
+            variant={options?.textVariant ?? "body1"}
+            fontWeight={options?.fontWeight}
+            sx={options?.singleLine ? singleLineWordTextSx : undefined}
+          >
             {value}
           </Typography>
         );
@@ -823,6 +834,7 @@ export default function WordTable({
           error={isEditing ? editingCell.error : ""}
           textVariant={options?.textVariant}
           fontWeight={options?.fontWeight}
+          sx={options?.singleLine ? singleLineWordTextSx : undefined}
           onActivate={() => activateInlineEdit(word, field)}
           onDraftChange={updateInlineDraft}
           onCommit={() => {
@@ -1371,6 +1383,7 @@ export default function WordTable({
                     >
                       {renderEditableTextCell(mergedWord, "primaryText", mergedWord.collocation, {
                         emptyLabel: t("courses.missingCollocationValue"),
+                        singleLine: true,
                       })}
                     </TableCell>
                     <TableCell
@@ -1483,6 +1496,7 @@ export default function WordTable({
                       {renderEditableTextCell(mergedWord, "primaryText", mergedWord.word, {
                         emptyLabel: t("courses.missingWordValue"),
                         fontWeight: 500,
+                        singleLine: true,
                       })}
                     </TableCell>
                     <TableCell
@@ -1621,7 +1635,7 @@ export default function WordTable({
                   ) : isPrefixWord(mergedWord) ? (
                   <>
                     <TableCell {...selectableCellProps(rowIdx, 0)}>
-                      {renderEditableTextCell(mergedWord, "primaryText", mergedWord.prefix, { emptyLabel: t("courses.missingWordValue"), fontWeight: 500 })}
+                      {renderEditableTextCell(mergedWord, "primaryText", mergedWord.prefix, { emptyLabel: t("courses.missingWordValue"), fontWeight: 500, singleLine: true })}
                     </TableCell>
                     <TableCell {...selectableCellProps(rowIdx, 1)}>
                       {renderEditableTextCell(mergedWord, "meaningEnglish", mergedWord.meaningEnglish, { emptyLabel: t("courses.missingMeaningValue") })}
@@ -1645,7 +1659,7 @@ export default function WordTable({
                   ) : isPostfixWord(mergedWord) ? (
                   <>
                     <TableCell {...selectableCellProps(rowIdx, 0)}>
-                      {renderEditableTextCell(mergedWord, "primaryText", mergedWord.postfix, { emptyLabel: t("courses.missingWordValue"), fontWeight: 500 })}
+                      {renderEditableTextCell(mergedWord, "primaryText", mergedWord.postfix, { emptyLabel: t("courses.missingWordValue"), fontWeight: 500, singleLine: true })}
                     </TableCell>
                     <TableCell {...selectableCellProps(rowIdx, 1)}>
                       {renderEditableTextCell(mergedWord, "meaningEnglish", mergedWord.meaningEnglish, { emptyLabel: t("courses.missingMeaningValue") })}
@@ -1695,6 +1709,7 @@ export default function WordTable({
                       {renderEditableTextCell(mergedWord, "primaryText", mergedWord.word, {
                         emptyLabel: t("courses.missingWordValue"),
                         fontWeight: 500,
+                        singleLine: true,
                       })}
                     </TableCell>
                     <TableCell {...selectableCellProps(rowIdx, 1)}>

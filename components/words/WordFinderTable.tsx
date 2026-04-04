@@ -26,6 +26,12 @@ import type { WordFinderActionField } from "@/types/wordFinder";
 
 type FuriganaActionField = Extract<WordFinderActionField, "pronunciation" | "example">;
 
+const singleLineWordTextSx = {
+  whiteSpace: "nowrap",
+  overflowWrap: "normal",
+  wordBreak: "keep-all",
+};
+
 interface CellPos {
   row: number;
   col: number;
@@ -334,7 +340,9 @@ export default function WordFinderTable({
                 onContextMenu={(e) => handleCellContextMenu(e, rowIdx, 0)}
               >
                 <Stack spacing={0.75}>
-                  <Typography fontWeight={600}>{result.primaryText || t("words.none")}</Typography>
+                  <Typography fontWeight={600} sx={singleLineWordTextSx}>
+                    {result.primaryText || t("words.none")}
+                  </Typography>
                   <Chip
                     label={getTypeLabel(result.type, t)}
                     size="small"

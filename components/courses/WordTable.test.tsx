@@ -35,9 +35,25 @@ vi.mock("react-i18next", () => ({
 }));
 
 vi.mock("@/components/shared/InlineEditableText", () => ({
-  default: ({ value, emptyLabel }: { value?: string; emptyLabel?: string }) => (
-    <span>{value || emptyLabel || ""}</span>
-  ),
+  default: ({
+    value,
+    emptyLabel,
+    sx,
+  }: {
+    value?: string;
+    emptyLabel?: string;
+    sx?: Array<Record<string, string>> | Record<string, string>;
+  }) => {
+    const styles = Array.isArray(sx) ? sx : sx ? [sx] : [];
+    const hasNoWrapStyle = styles.some(
+      (style) =>
+        style.whiteSpace === "nowrap" &&
+        style.overflowWrap === "normal" &&
+        style.wordBreak === "keep-all",
+    );
+
+    return <span data-nowrap={hasNoWrapStyle ? "true" : "false"}>{value || emptyLabel || ""}</span>;
+  },
 }));
 
 vi.mock("@/lib/firebase/firestore", () => ({
@@ -78,6 +94,7 @@ describe("WordTable", () => {
     assert.ok(markup.includes("Image"));
     assert.ok(markup.includes("https://example.com/collocation.png"));
     expect(markup).toContain("take off");
+    expect(markup).toContain('data-nowrap="true">take off<');
   });
 
   it("renders JLPT-specific columns and values", () => {
@@ -116,6 +133,7 @@ describe("WordTable", () => {
     expect(markup).toContain("ねこ");
     expect(markup).toContain("猫がいる。");
     expect(markup).toContain("https://example.com/jlpt.png");
+    expect(markup).toContain('data-nowrap="true">猫<');
   });
 
   it("renders derivative content and a generate affordance for supported standard rows", () => {
@@ -177,5 +195,6 @@ describe("WordTable", () => {
 
     expect(markup).toContain("Synonym");
     expect(markup).toContain("concentration");
+    expect(markup).toContain('data-nowrap="true">focus<');
   });
 });

@@ -40,6 +40,25 @@ vi.mock("react-i18next", () => ({
   }),
 }));
 
+vi.mock("@mui/material/Typography", () => ({
+  default: ({
+    children,
+    className,
+    sx,
+  }: {
+    children?: ReactElement["props"]["children"];
+    className?: string;
+    sx?: Record<string, string>;
+  }) => (
+    <p
+      className={["MuiTypography-root", className].filter(Boolean).join(" ")}
+      data-sx={sx ? JSON.stringify(sx) : undefined}
+    >
+      {children}
+    </p>
+  ),
+}));
+
 vi.mock("@/components/shared/CellContextMenu", () => ({
   default: ({
     anchorPosition,
@@ -107,6 +126,17 @@ function getCell(text: string) {
   );
   expect(cell).not.toBeUndefined();
   return cell as HTMLTableCellElement;
+}
+
+function expectSingleLineWordStyles(element: Element) {
+  const sx = element.getAttribute("data-sx");
+  expect(sx).not.toBeNull();
+
+  expect(JSON.parse(sx ?? "{}")).toMatchObject({
+    whiteSpace: "nowrap",
+    overflowWrap: "normal",
+    wordBreak: "keep-all",
+  });
 }
 
 async function openContextMenu(cell: HTMLTableCellElement) {
@@ -245,5 +275,38 @@ describe("WordFinderTable add furigana actions", () => {
         node.textContent?.includes("Add furigana"),
       ),
     ).toBeUndefined();
+  });
+
+  it("renders the primary word text with single-line styles while keeping the type chip", () => {
+    rendered = renderTable(
+      <WordFinderTable
+        results={[
+          createResult({
+            id: "std-2",
+            courseId: "TOEIC",
+            courseLabel: "TOEIC",
+            coursePath: "courses/TOEIC",
+            dayId: "Day1",
+            sourceHref: "/courses/TOEIC/Day1#std-2",
+            schemaVariant: "standard",
+            primaryText: "take a very long phrase with spaces",
+            secondaryText: "to understand",
+            meaning: "to understand",
+            pronunciation: "take in",
+            example: "We take in new ideas slowly.",
+            translation: "이해하다",
+          }),
+        ]}
+      />,
+    );
+
+    const cell = getCell("take a very long phrase with spaces");
+    const wordText = Array.from(cell.querySelectorAll(".MuiTypography-root")).find((node) =>
+      node.textContent?.includes("take a very long phrase with spaces"),
+    );
+
+    expect(wordText).not.toBeUndefined();
+    expectSingleLineWordStyles(wordText as Element);
+    expect(cell.textContent).toContain("Standard");
   });
 });
