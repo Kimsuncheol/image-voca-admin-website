@@ -33,8 +33,6 @@
  */
 
 import { useState, useEffect, use } from "react";
-import InboxIcon from "@mui/icons-material/Inbox";
-import Stack from "@mui/material/Stack";
 import { useRouter } from "next/navigation";
 import Typography from "@mui/material/Typography";
 import Box from "@mui/material/Box";
@@ -69,6 +67,14 @@ import { dayGridTemplateColumns } from "@/components/courses/dayGridConfig";
 import WordTable from "@/components/courses/WordTable";
 import FamousQuoteLoadingSkeleton from "@/components/courses/FamousQuoteLoadingSkeleton";
 import CourseLoadingView from "@/components/courses/CourseLoadingView";
+
+function SimpleEmptyState({ text }: { text: string }) {
+  return (
+    <Typography color="text.secondary">
+      {text}
+    </Typography>
+  );
+}
 
 export default function CourseDaysPage({
   params,
@@ -344,29 +350,7 @@ export default function CourseDaysPage({
       {isJlptGroupRoot ? null : /* ── Flat course (FAMOUS_QUOTE): inline quote table ───────────── */
       isFlat && course ? (
         quotes.length === 0 && !resolvedError ? (
-          <Stack
-            alignItems="center"
-            justifyContent="center"
-            spacing={1.5}
-            sx={{
-              py: 8,
-              px: 3,
-              borderRadius: 3,
-              border: "1px dashed",
-              borderColor: "divider",
-              backgroundColor: "action.hover",
-            }}
-          >
-            <InboxIcon sx={{ fontSize: 56, color: "text.disabled", opacity: 0.6 }} />
-            <Stack alignItems="center" spacing={0.5}>
-              <Typography variant="h6" color="text.secondary" fontWeight={600}>
-                {t("courses.noData")}
-              </Typography>
-              <Typography variant="body2" color="text.disabled">
-                {t("courses.noDataHint")}
-              </Typography>
-            </Stack>
-          </Stack>
+          <SimpleEmptyState text={t("courses.noData")} />
         ) : (
           <WordTable
             words={quotes}
@@ -378,29 +362,7 @@ export default function CourseDaysPage({
         )
       ) : isSingleList && course ? (
         singleListWords.length === 0 && !resolvedError ? (
-          <Stack
-            alignItems="center"
-            justifyContent="center"
-            spacing={1.5}
-            sx={{
-              py: 8,
-              px: 3,
-              borderRadius: 3,
-              border: "1px dashed",
-              borderColor: "divider",
-              backgroundColor: "action.hover",
-            }}
-          >
-            <InboxIcon sx={{ fontSize: 56, color: "text.disabled", opacity: 0.6 }} />
-            <Stack alignItems="center" spacing={0.5}>
-              <Typography variant="h6" color="text.secondary" fontWeight={600}>
-                {t("courses.noData")}
-              </Typography>
-              <Typography variant="body2" color="text.disabled">
-                {t("courses.noDataHint")}
-              </Typography>
-            </Stack>
-          </Stack>
+          <SimpleEmptyState text={t("courses.noData")} />
         ) : (
           <WordTable
             words={singleListWords}
@@ -413,30 +375,7 @@ export default function CourseDaysPage({
         )
       ) : /* ── Standard course: day-card grid ────────────────────────── */
       days.length === 0 && !resolvedError ? (
-        // Empty state: no days uploaded yet for this course
-        <Stack
-          alignItems="center"
-          justifyContent="center"
-          spacing={1.5}
-          sx={{
-            py: 8,
-            px: 3,
-            borderRadius: 3,
-            border: "1px dashed",
-            borderColor: "divider",
-            backgroundColor: "action.hover",
-          }}
-        >
-          <InboxIcon sx={{ fontSize: 56, color: "text.disabled", opacity: 0.6 }} />
-          <Stack alignItems="center" spacing={0.5}>
-            <Typography variant="h6" color="text.secondary" fontWeight={600}>
-              {t("courses.noData")}
-            </Typography>
-            <Typography variant="body2" color="text.disabled">
-              {t("courses.noDataHint")}
-            </Typography>
-          </Stack>
-        </Stack>
+        <SimpleEmptyState text={t("courses.noData")} />
       ) : (
         <Box
           sx={{

@@ -1037,6 +1037,7 @@ export default function AddVocaPage() {
           items={csvItems}
           onItemsChange={setCsvItems}
           schemaType={schemaType}
+          courseId={selectedCourse}
           hideDayInput={isFamousQuote || isPrefix || isPostfix}
           hiddenDayName={singleListSubcollection ?? undefined}
           courseLabel={selectedCourseLabel}
@@ -1052,6 +1053,7 @@ export default function AddVocaPage() {
           items={urlItems}
           onItemsChange={setUrlItems}
           schemaType={schemaType}
+          courseId={selectedCourse}
           hideDayInput={isFamousQuote || isPrefix || isPostfix}
           hiddenDayName={singleListSubcollection ?? undefined}
           courseLabel={selectedCourseLabel}

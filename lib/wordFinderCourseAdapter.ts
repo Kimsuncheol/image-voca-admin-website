@@ -38,7 +38,7 @@ interface AdaptCourseWordToWordFinderResultArgs {
 export type CourseWordResolvedUpdates = Partial<
   Pick<
     StandardWord,
-    "pronunciation" | "example" | "translation" | "imageUrl" | "derivative"
+    "synonym" | "pronunciation" | "example" | "translation" | "imageUrl" | "derivative"
   > &
     Pick<
       JlptWord,
@@ -267,6 +267,7 @@ export function adaptCourseWordToWordFinderResult(
     primaryText: standard.word,
     secondaryText: standard.meaning || null,
     meaning: standard.meaning || null,
+    synonym: standard.synonym || null,
     translation: standard.translation || null,
     example: standard.example || null,
     pronunciation: standard.pronunciation || null,

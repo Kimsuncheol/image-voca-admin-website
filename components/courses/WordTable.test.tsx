@@ -152,4 +152,30 @@ describe("WordTable", () => {
     expect(markup).toContain("Generate derivatives");
     expect(markup).toContain("useful");
   });
+
+  it("renders a synonym column for TOEFL / IELTS standard rows", () => {
+    const markup = renderToStaticMarkup(
+      <WordTable
+        words={[
+          {
+            id: "toefl-1",
+            word: "focus",
+            meaning: "attention",
+            synonym: "concentration",
+            pronunciation: "foh-kus",
+            example: "Focus on the main argument.",
+            translation: "집중",
+          },
+        ]}
+        isCollocation={false}
+        showImageUrl={false}
+        courseId="TOEFL_IELTS"
+        coursePath="courses/TOEFL_IELTS"
+        dayId="Day3"
+      />,
+    );
+
+    expect(markup).toContain("Synonym");
+    expect(markup).toContain("concentration");
+  });
 });

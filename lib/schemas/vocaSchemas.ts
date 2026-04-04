@@ -4,6 +4,7 @@ export const standardWordSchema = z.object({
   id: z.string().optional(),
   word: z.string().min(1),
   meaning: z.string().min(1),
+  synonym: z.string().optional(),
   pronunciation: z.string().optional().default(''),
   example: z.string().optional().default(''),
   translation: z.string().optional().default(''),

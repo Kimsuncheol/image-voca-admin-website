@@ -87,6 +87,33 @@ test("prepareStandardWordsForUpload preserves derivative arrays", () => {
   ]);
 });
 
+test("prepareStandardWordsForUpload preserves TOEFL synonym values", () => {
+  const toeflWords: StandardWordInput[] = [
+    {
+      word: "focus",
+      meaning: "attention",
+      synonym: "concentration",
+      pronunciation: "",
+      example: "",
+      translation: "",
+    },
+  ];
+
+  const result = prepareStandardWordsForUpload(toeflWords, "TOEFL_IELTS");
+
+  assert.deepEqual(result, [
+    {
+      word: "focus",
+      meaning: "attention",
+      synonym: "concentration",
+      pronunciation: "",
+      example: "",
+      translation: "",
+      imageUrl: "",
+    },
+  ]);
+});
+
 test("prepareStandardWordsForUpload preserves generated imageUrl values", () => {
   const wordsWithImage: StandardWordInput[] = [
     {

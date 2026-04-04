@@ -15,8 +15,14 @@ import {
 } from '@/lib/schemas/vocaSchemas';
 import { textMatchesLanguage, quoteMatchesLanguage } from '@/lib/utils/quoteLanguage';
 import type { FamousQuoteLanguage } from '@/types/famousQuote';
+import type { CourseId } from '@/types/course';
 
 export type SchemaType = 'standard' | 'jlpt' | 'collocation' | 'famousQuote' | 'prefix' | 'postfix';
+
+export interface ParseSchemaOptions {
+  schemaType?: SchemaType;
+  courseId?: CourseId | '';
+}
 
 export interface ParseResult {
   words: (
@@ -37,6 +43,7 @@ export interface ParseResult {
 }
 
 const STANDARD_HEADERS = ['word', 'meaning', 'pronunciation', 'example', 'translation'] as const;
+const STANDARD_OPTIONAL_HEADERS = ['synonym'] as const;
 const JLPT_HEADERS = [
   'word',
   'meaning(english)',
@@ -64,6 +71,27 @@ const POSTFIX_HEADERS = ['postfix', ...PREFIX_POSTFIX_HEADERS] as const;
 const PREFIX_POSTFIX_OPTIONAL_HEADERS = ['example(roman)'] as const;
 const STANDARD_THIRD_HEADER_SET = new Set(['pronunciation', 'pronounciation']);
 const STANDARD_FOURTH_HEADER_SET = new Set(['example', 'example sentence']);
+
+function resolveParseOptions(
+  schemaTypeOrOptions?: SchemaType | ParseSchemaOptions,
+  courseId?: CourseId | '',
+): ParseSchemaOptions {
+  if (typeof schemaTypeOrOptions === 'string') {
+    return {
+      schemaType: schemaTypeOrOptions,
+      courseId,
+    };
+  }
+
+  return {
+    schemaType: schemaTypeOrOptions?.schemaType,
+    courseId: schemaTypeOrOptions?.courseId ?? courseId,
+  };
+}
+
+function isToeflIeltsStandardCourse(courseId?: CourseId | ''): boolean {
+  return courseId === 'TOEFL_IELTS';
+}
 
 /** Exported alias for normalizeRow — required by FR-9. */
 export function extractVocaFields(
@@ -206,6 +234,7 @@ function normalizeRow(row: Record<string, unknown>, schemaType: SchemaType): Rec
   const explanationAliases = ['explanation', '_3']; // _3 is explanation for collocation, pronunciation for word
   const exampleAliases = ['example', 'example sentence', '_4'];
   const translationAliases = ['translation', '_5'];
+  const synonymAliases = ['synonym'];
 
   const isCollocation = schemaType === 'collocation';
 
@@ -221,6 +250,7 @@ function normalizeRow(row: Record<string, unknown>, schemaType: SchemaType): Rec
     else if (isCollocation && explanationAliases.includes(cleanKey)) normalized['explanation'] = cleanValue;
     else if (exampleAliases.includes(cleanKey)) normalized['example'] = cleanValue;
     else if (translationAliases.includes(cleanKey)) normalized['translation'] = cleanValue;
+    else if (!isCollocation && synonymAliases.includes(cleanKey)) normalized['synonym'] = cleanValue;
     else normalized[cleanKey] = cleanValue; // Fallback
   }
 
@@ -234,6 +264,7 @@ function normalizeRow(row: Record<string, unknown>, schemaType: SchemaType): Rec
   } else {
     normalized['word'] = normalized['word'] ?? '';
     normalized['meaning'] = normalized['meaning'] ?? '';
+    normalized['synonym'] = normalized['synonym'] ?? '';
     normalized['pronunciation'] = normalized['pronunciation'] ?? '';
     normalized['example'] = normalized['example'] ?? '';
     normalized['translation'] = normalized['translation'] ?? '';
@@ -246,6 +277,7 @@ function detectAndParse(
   data: Record<string, unknown>[],
   rawHeaders: string[],
   forceSchemaType?: SchemaType,
+  _courseId?: CourseId | '',
 ): ParseResult {
   const headers = rawHeaders.map((h) => h.trim().toLowerCase());
   // forceSchemaType (from the selected course) takes priority over header-based detection.
@@ -432,6 +464,7 @@ function isExactHeaderSet(
   headers: string[],
   expectedHeaders: string[],
   schemaType?: SchemaType,
+  courseId?: CourseId | '',
 ): boolean {
   if (schemaType === 'jlpt') {
     const allowedHeaders = new Set([...expectedHeaders, ...JLPT_OPTIONAL_HEADERS]);
@@ -451,6 +484,14 @@ function isExactHeaderSet(
 
   if (schemaType === 'famousQuote') {
     const allowedHeaders = new Set([...expectedHeaders, ...FAMOUS_QUOTE_OPTIONAL_HEADERS]);
+    const headerSet = new Set(headers);
+    if (headers.length < expectedHeaders.length) return false;
+    if (!expectedHeaders.every((h) => headerSet.has(h))) return false;
+    return headers.every((header) => allowedHeaders.has(header));
+  }
+
+  if (schemaType === 'standard' && isToeflIeltsStandardCourse(courseId)) {
+    const allowedHeaders = new Set([...expectedHeaders, ...STANDARD_OPTIONAL_HEADERS]);
     const headerSet = new Set(headers);
     if (headers.length < expectedHeaders.length) return false;
     if (!expectedHeaders.every((h) => headerSet.has(h))) return false;
@@ -520,6 +561,7 @@ const KNOWN_FIELDS = new Set([
   'word', 'collocation', 'prefix', 'postfix', 'meaning',
   'meaning(english)', 'meaning english', 'meaning(korean)', 'meaning korean',
   'pronunciation', 'pronounciation',
+  'synonym',
   'pronunciation(roman)', 'pronunciation roman', 'roman',
   'explanation', 'example', 'example sentence', 'example(roman)', 'example roman', 'translation',
   'translation(english)', 'translation english', 'translation(korean)', 'translation korean',
@@ -530,11 +572,22 @@ const KNOWN_FIELDS = new Set([
  * Public alias for processParsedArray — accepts a raw 2-D array of strings (e.g.
  * from the Google Sheets API values endpoint) and returns a ParseResult.
  */
-export function parseRowArrays(data: string[][], schemaType?: SchemaType): ParseResult {
-  return processParsedArray(data, schemaType);
+export function parseRowArrays(
+  data: string[][],
+  schemaTypeOrOptions?: SchemaType | ParseSchemaOptions,
+  courseId?: CourseId | '',
+): ParseResult {
+  return processParsedArray(data, schemaTypeOrOptions, courseId);
 }
 
-function processParsedArray(data: string[][], schemaType?: SchemaType): ParseResult {
+function processParsedArray(
+  data: string[][],
+  schemaTypeOrOptions?: SchemaType | ParseSchemaOptions,
+  courseId?: CourseId | '',
+): ParseResult {
+  const options = resolveParseOptions(schemaTypeOrOptions, courseId);
+  const schemaType = options.schemaType;
+  const targetCourseId = options.courseId;
   if (data.length === 0) return { words: [], schemaType: 'standard', isCollocation: false, errors: [], detectedHeaders: [] };
 
   // Ignore leading blank rows so strict header checks evaluate the first real row.
@@ -591,7 +644,7 @@ function processParsedArray(data: string[][], schemaType?: SchemaType): ParseRes
         firstRowNorm,
       );
     }
-    if (!isExactHeaderSet(firstRowNorm, expectedHeaders, targetSchemaType)) {
+    if (!isExactHeaderSet(firstRowNorm, expectedHeaders, targetSchemaType, targetCourseId)) {
       return buildBlockingResult(
         targetSchemaType,
         'HEADER_MISMATCH',
@@ -665,10 +718,17 @@ function processParsedArray(data: string[][], schemaType?: SchemaType): ParseRes
       return obj;
     });
 
-  return detectAndParse(objects, headers, schemaType);
+  return detectAndParse(objects, headers, schemaType, targetCourseId);
 }
 
-export async function parseCsvFile(file: File, schemaType?: SchemaType): Promise<ParseResult> {
+export async function parseCsvFile(
+  file: File,
+  schemaTypeOrOptions?: SchemaType | ParseSchemaOptions,
+  courseId?: CourseId | '',
+): Promise<ParseResult> {
+  const options = resolveParseOptions(schemaTypeOrOptions, courseId);
+  const schemaType = options.schemaType;
+  const targetCourseId = options.courseId;
   try {
     // Read text first to sniff the delimiter — the same logic used in parseCsvString.
     // .csv files exported from Google Sheets / Excel are often tab-separated despite
@@ -690,7 +750,7 @@ export async function parseCsvFile(file: File, schemaType?: SchemaType): Promise
         skipEmptyLines: true,
         delimiter,
         complete(results) {
-          resolve(processParsedArray(results.data as string[][], schemaType));
+          resolve(processParsedArray(results.data as string[][], schemaType, targetCourseId));
         },
         error(err) {
           resolve({ words: [], schemaType: schemaType ?? 'standard', isCollocation: schemaType === 'collocation', errors: [err.message], detectedHeaders: [] });

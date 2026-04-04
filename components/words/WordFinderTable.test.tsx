@@ -174,6 +174,26 @@ describe("WordFinderTable", () => {
     expect(markup).toContain("Has example");
   });
 
+  it("renders a synonym column for TOEFL / IELTS standard results", () => {
+    const markup = renderToStaticMarkup(
+      <WordFinderTable
+        results={[
+          createResult({
+            id: "toefl-1",
+            courseId: "TOEFL_IELTS",
+            courseLabel: "TOEFL / IELTS",
+            coursePath: "courses/TOEFL_IELTS",
+            sourceHref: "/courses/TOEFL_IELTS/Day3",
+            synonym: "concentration",
+          }),
+        ]}
+      />,
+    );
+
+    expect(markup).toContain("Synonym");
+    expect(markup).toContain("concentration");
+  });
+
   it("renders a prefix result without errors and shows Missing image", () => {
     const markup = renderToStaticMarkup(
       <WordFinderTable

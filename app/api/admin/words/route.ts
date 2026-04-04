@@ -72,6 +72,7 @@ function createStandardResult(
     primaryText: word,
     secondaryText: meaning,
     meaning,
+    synonym: normalizeNullableWordFinderText(data.synonym),
     translation: normalizeNullableWordFinderText(data.translation),
     example: normalizeNullableWordFinderText(data.example),
     pronunciation: normalizeNullableWordFinderText(data.pronunciation),

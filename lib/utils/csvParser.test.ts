@@ -3,6 +3,37 @@ import { describe, expect, it } from "vitest";
 import { parseRowArrays } from "./csvParser";
 
 describe("csvParser language validation", () => {
+  it("accepts the optional synonym header for TOEFL / IELTS standard uploads", () => {
+    const result = parseRowArrays(
+      [
+        ["word", "meaning", "synonym", "pronunciation", "example", "translation"],
+        ["focus", "attention", "concentration", "", "Focus on your goal.", "집중하다"],
+      ],
+      { schemaType: "standard", courseId: "TOEFL_IELTS" },
+    );
+
+    expect(result.blockingError).toBeUndefined();
+    expect(result.errors).toEqual([]);
+    expect(result.words[0]).toMatchObject({
+      word: "focus",
+      synonym: "concentration",
+      translation: "집중하다",
+    });
+  });
+
+  it("rejects synonym headers for non-TOEFL standard uploads", () => {
+    const result = parseRowArrays(
+      [
+        ["word", "meaning", "synonym", "pronunciation", "example", "translation"],
+        ["focus", "attention", "concentration", "", "Focus on your goal.", "집중하다"],
+      ],
+      { schemaType: "standard", courseId: "CSAT" },
+    );
+
+    expect(result.blockingError).toBe("HEADER_MISMATCH");
+    expect(result.words).toEqual([]);
+  });
+
   it("accepts standard rows with English word and example", () => {
     const result = parseRowArrays(
       [

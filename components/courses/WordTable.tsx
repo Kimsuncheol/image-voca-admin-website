@@ -62,11 +62,24 @@ function hasTrimmedText(value: string | null | undefined): value is string {
   return typeof value === "string" && value.trim().length > 0;
 }
 
+function formatDerivativeCellValue(
+  derivative?: Array<{ word: string; meaning: string }>,
+): string {
+  if (!Array.isArray(derivative) || derivative.length === 0) {
+    return "";
+  }
+
+  return derivative
+    .map((item) => `${item.word}: ${item.meaning}`)
+    .join("\n");
+}
+
 function getWordTableColField(
   col: number,
   word: Word,
   showImageUrl?: boolean,
   supportsDerivatives?: boolean,
+  hasSynonymColumn = false,
 ): WordFinderActionField | null {
   if (isPrefixWord(word) || isPostfixWord(word)) {
     if (col === 3) return "pronunciation";
@@ -91,13 +104,19 @@ function getWordTableColField(
     return col === 2 ? "translation" : null;
   }
   // Standard
-  if (col === 2) return "pronunciation";
-  if (col === 3) return "example";
-  if (col === 4) return "translation";
-  if (showImageUrl && col === 5) return "image";
+  const pronunciationCol = hasSynonymColumn ? 3 : 2;
+  const exampleCol = pronunciationCol + 1;
+  const translationCol = exampleCol + 1;
+  const imageCol = translationCol + 1;
+  const derivativeCol = imageCol + (showImageUrl ? 1 : 0);
+
+  if (col === pronunciationCol) return "pronunciation";
+  if (col === exampleCol) return "example";
+  if (col === translationCol) return "translation";
+  if (showImageUrl && col === imageCol) return "image";
   if (
     supportsDerivatives &&
-    ((showImageUrl && col === 6) || (!showImageUrl && col === 5))
+    col === derivativeCol
   ) {
     return "derivative";
   }
@@ -463,6 +482,14 @@ export default function WordTable({
       !isPrefix &&
       !isPostfix &&
       supportsDerivativeCourse(courseId),
+  );
+  const hasSynonymColumn = Boolean(
+    courseId === "TOEFL_IELTS" &&
+      !isCollocation &&
+      !isJlpt &&
+      !isFamousQuote &&
+      !isPrefix &&
+      !isPostfix,
   );
 
   const persistTextField = useCallback(
@@ -913,9 +940,29 @@ export default function WordTable({
         return [m.quote, m.author, m.translation, m.language ?? ''];
       }
       const s = m as StandardWord;
-      return [s.word, s.meaning, s.pronunciation, s.example, s.translation, ""];
+      const derivativeCell = formatDerivativeCellValue(s.derivative);
+      return hasSynonymColumn
+        ? [
+            s.word,
+            s.meaning,
+            s.synonym ?? "",
+            s.pronunciation,
+            s.example,
+            s.translation,
+            ...(showImageUrl ? [""] : []),
+            derivativeCell,
+          ]
+        : [
+            s.word,
+            s.meaning,
+            s.pronunciation,
+            s.example,
+            s.translation,
+            ...(showImageUrl ? [""] : []),
+            derivativeCell,
+          ];
     });
-  }, [words, localWordUpdates, isJlpt, isCollocation, isFamousQuote, isPrefix, isPostfix]);
+  }, [words, localWordUpdates, isJlpt, isCollocation, isFamousQuote, isPrefix, isPostfix, hasSynonymColumn, showImageUrl]);
 
   const contextMenuWord = useMemo(() => {
     if (!contextMenu) return null;
@@ -932,6 +979,7 @@ export default function WordTable({
         contextMenuWord,
         showImageUrl,
         supportsDerivatives,
+        hasSynonymColumn,
       );
       if (
         field === "derivative" &&
@@ -947,6 +995,7 @@ export default function WordTable({
       isMissingField,
       showImageUrl,
       supportsDerivatives,
+      hasSynonymColumn,
     ],
   );
 
@@ -1039,6 +1088,7 @@ export default function WordTable({
       mergedWord,
       showImageUrl,
       supportsDerivatives,
+      hasSynonymColumn,
     );
     if (!field) return;
     if (field === "derivative" && !isMissingField(mergedWord, "derivative")) return;
@@ -1055,6 +1105,7 @@ export default function WordTable({
     openFieldModal,
     showImageUrl,
     supportsDerivatives,
+    hasSynonymColumn,
   ]);
 
   const handleContextMenuEdit = useCallback(() => {
@@ -1284,6 +1335,9 @@ export default function WordTable({
                 <>
                   <TableCell>{t("courses.word")}</TableCell>
                   <TableCell>{t("courses.meaning")}</TableCell>
+                  {hasSynonymColumn && (
+                    <TableCell>{t("courses.synonym", "Synonym")}</TableCell>
+                  )}
                   <TableCell>{t("courses.pronunciation")}</TableCell>
                   <TableCell>{t("courses.example")}</TableCell>
                   <TableCell>{t("courses.translation")}</TableCell>
@@ -1648,11 +1702,18 @@ export default function WordTable({
                         emptyLabel: t("courses.missingMeaningValue"),
                       })}
                     </TableCell>
+                    {hasSynonymColumn && (
+                      <TableCell {...selectableCellProps(rowIdx, 2)}>
+                        <Typography variant="body2">
+                          {mergedWord.synonym || t("words.none")}
+                        </Typography>
+                      </TableCell>
+                    )}
                     <TableCell
-                      aria-selected={isCellSelected(rowIdx, 2)}
+                      aria-selected={isCellSelected(rowIdx, hasSynonymColumn ? 3 : 2)}
                       onClick={() => openFieldModal(word.id, "pronunciation")}
-                      onContextMenu={(e) => handleCellContextMenu(e, rowIdx, 2)}
-                      sx={selectableCellSx(rowIdx, 2)}
+                      onContextMenu={(e) => handleCellContextMenu(e, rowIdx, hasSynonymColumn ? 3 : 2)}
+                      sx={selectableCellSx(rowIdx, hasSynonymColumn ? 3 : 2)}
                     >
                       {!isMissingField(mergedWord, "pronunciation") ? (
                         getResolvedTextField(word.id, "pronunciation") || mergedWord.pronunciation
@@ -1665,9 +1726,9 @@ export default function WordTable({
                     {!isMissingField(mergedWord, "example") ? (
                       <ExampleCell
                         text={getResolvedTextField(word.id, "example") || mergedWord.example}
-                        onClick={(e) => handleCellClick(e, rowIdx, 3)}
-                        onContextMenu={(e) => handleCellContextMenu(e, rowIdx, 3)}
-                        selected={isCellSelected(rowIdx, 3)}
+                        onClick={(e) => handleCellClick(e, rowIdx, hasSynonymColumn ? 4 : 3)}
+                        onContextMenu={(e) => handleCellContextMenu(e, rowIdx, hasSynonymColumn ? 4 : 3)}
+                        selected={isCellSelected(rowIdx, hasSynonymColumn ? 4 : 3)}
                       />
                     ) : (
                       <MissingFieldTrigger
@@ -1681,9 +1742,9 @@ export default function WordTable({
                         text={
                           getResolvedTextField(word.id, "translation") || mergedWord.translation
                         }
-                        onClick={(e) => handleCellClick(e, rowIdx, 4)}
-                        onContextMenu={(e) => handleCellContextMenu(e, rowIdx, 4)}
-                        selected={isCellSelected(rowIdx, 4)}
+                        onClick={(e) => handleCellClick(e, rowIdx, hasSynonymColumn ? 5 : 4)}
+                        onContextMenu={(e) => handleCellContextMenu(e, rowIdx, hasSynonymColumn ? 5 : 4)}
+                        selected={isCellSelected(rowIdx, hasSynonymColumn ? 5 : 4)}
                       />
                     ) : (
                       <MissingFieldTrigger
@@ -1765,7 +1826,15 @@ export default function WordTable({
                         });
                       return (
                         <TableCell
-                          onContextMenu={(e) => handleCellContextMenu(e, rowIdx, showImageUrl ? 6 : 5)}
+                          onContextMenu={(e) =>
+                            handleCellContextMenu(
+                              e,
+                              rowIdx,
+                              hasSynonymColumn
+                                ? (showImageUrl ? 7 : 6)
+                                : (showImageUrl ? 6 : 5),
+                            )
+                          }
                           onClick={
                             supportsDerivatives
                               ? () => {

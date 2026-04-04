@@ -14,6 +14,7 @@ describe("wordFinderCourseAdapter derivatives", () => {
         id: "word-1",
         word: "use",
         meaning: "purpose",
+        synonym: "function",
         pronunciation: "",
         example: "",
         translation: "",
@@ -29,6 +30,7 @@ describe("wordFinderCourseAdapter derivatives", () => {
     expect(result.derivative).toEqual([
       { word: "useful", meaning: "helpful or practical" },
     ]);
+    expect(result.synonym).toBe("function");
   });
 
   it("includes derivative as a missing field only for supported standard rows", () => {

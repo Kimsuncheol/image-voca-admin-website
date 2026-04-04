@@ -7,6 +7,7 @@ export interface StandardWord {
   id: string;
   word: string;
   meaning: string;
+  synonym?: string;
   pronunciation: string;
   example: string;
   translation: string;

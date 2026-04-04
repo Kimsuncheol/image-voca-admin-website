@@ -15,6 +15,7 @@ test("adapter maps standard word rows for modal usage", () => {
       id: "word-1",
       word: "wander",
       meaning: "to move around",
+      synonym: "roam",
       pronunciation: "",
       example: "",
       translation: "",
@@ -31,6 +32,7 @@ test("adapter maps standard word rows for modal usage", () => {
   assert.equal(result.primaryText, "wander");
   assert.equal(result.dayId, "Day1");
   assert.equal(result.meaning, "to move around");
+  assert.equal(result.synonym, "roam");
 });
 
 test("adapter maps collocation and famous-quote rows for modal usage", () => {

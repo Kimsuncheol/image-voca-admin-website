@@ -27,6 +27,7 @@ import {
   type ParseResult,
   type SchemaType,
 } from "@/lib/utils/csvParser";
+import type { CourseId } from "@/types/course";
 
 interface UploadModalProps {
   open: boolean;
@@ -51,6 +52,7 @@ interface UploadModalProps {
   hiddenDayName?: string;
   /** Selected course label used to validate the uploaded filename. */
   courseLabel?: string;
+  courseId?: CourseId | "";
 }
 
 const dayFieldSx = {
@@ -84,6 +86,7 @@ export default function UploadModal({
   hideDayInput = false,
   hiddenDayName,
   courseLabel,
+  courseId,
 }: UploadModalProps) {
   const { t } = useTranslation();
   const getHiddenDayName = useCallback(
@@ -107,12 +110,15 @@ export default function UploadModal({
           !!courseLabel && !filenameMatchesCourse(file.name, courseLabel),
         );
         setSelectedFile(file);
-        const result = await parseCsvFile(file, schemaType);
+        const result = await parseCsvFile(file, {
+          schemaType,
+          courseId,
+        });
         console.log("[UploadModal] parsed words:", result.words);
         setParseResult(result);
       }
     },
-    [schemaType, courseLabel],
+    [schemaType, courseId, courseLabel],
   );
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({

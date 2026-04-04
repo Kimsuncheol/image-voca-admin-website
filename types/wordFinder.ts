@@ -31,6 +31,7 @@ export interface WordFinderResult {
   primaryText: string;
   secondaryText: string | null;
   meaning: string | null;
+  synonym?: string | null;
   meaningEnglish?: string | null;
   meaningKorean?: string | null;
   translation: string | null;

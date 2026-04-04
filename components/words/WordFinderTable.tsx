@@ -37,8 +37,22 @@ interface ContextMenuState {
   col: number;
 }
 
-function getColField(col: number): WordFinderActionField | null {
-  return col === 3 ? "translation" : null;
+function shouldShowSynonymColumn(results: WordFinderResult[]): boolean {
+  return results.some(
+    (result) =>
+      result.courseId === "TOEFL_IELTS" && result.schemaVariant === "standard",
+  );
+}
+
+function isToeflSynonymResult(result: WordFinderResult): boolean {
+  return result.courseId === "TOEFL_IELTS" && result.schemaVariant === "standard";
+}
+
+function getColField(
+  col: number,
+  hasSynonymColumn: boolean,
+): WordFinderActionField | null {
+  return col === (hasSynonymColumn ? 4 : 3) ? "translation" : null;
 }
 
 interface WordFinderTableProps {
@@ -132,19 +146,23 @@ export default function WordFinderTable({
   const [selectionAnchor, setSelectionAnchor] = useState<CellPos | null>(null);
   const [selectionExtent, setSelectionExtent] = useState<CellPos | null>(null);
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
-  // cols: 0=primaryText, 1=meaning, 2=pronunciation, 3=translation, 4="" (image), 5=location, 6="" (status)
+  const hasSynonymColumn = useMemo(() => shouldShowSynonymColumn(results), [results]);
+  const translationCol = hasSynonymColumn ? 4 : 3;
+  const locationCol = translationCol + 2;
+  // cols: 0=primaryText, 1=meaning, 2=synonym?, 3=pronunciation, 4=translation, 5="" (image), 6=location, 7="" (status)
   const cellGrid = useMemo(
     () =>
       results.map((r) => [
         r.primaryText,
         r.meaning || r.secondaryText || "",
+        ...(hasSynonymColumn ? [isToeflSynonymResult(r) ? r.synonym ?? "" : ""] : []),
         r.pronunciation || "",
         r.translation ?? "",
         "",
         formatWordFinderLocation(r, ""),
         "",
       ]),
-    [results],
+    [results, hasSynonymColumn],
   );
 
   const isCellSelected = useCallback(
@@ -235,12 +253,12 @@ export default function WordFinderTable({
 
   const handleContextMenuGenerate = useCallback(() => {
     if (!contextMenu || !onMissingFieldClick) return;
-    const field = getColField(contextMenu.col);
+    const field = getColField(contextMenu.col, hasSynonymColumn);
     if (!field) return;
     const result = results[contextMenu.row];
     if (!result) return;
     onMissingFieldClick(result, field);
-  }, [contextMenu, results, onMissingFieldClick]);
+  }, [contextMenu, results, onMissingFieldClick, hasSynonymColumn]);
 
   const handleContextMenuAddFurigana = useCallback(() => {
     if (!contextMenu || !onAddFuriganaClick) return;
@@ -250,7 +268,7 @@ export default function WordFinderTable({
     onAddFuriganaClick(result, field);
   }, [contextMenu, onAddFuriganaClick, results]);
 
-  const contextMenuField = contextMenu ? getColField(contextMenu.col) : null;
+  const contextMenuField = contextMenu ? getColField(contextMenu.col, hasSynonymColumn) : null;
   const contextMenuAddFuriganaField = contextMenu
     ? getContextMenuAddFuriganaField(results[contextMenu.row], contextMenu.col)
     : null;
@@ -293,6 +311,9 @@ export default function WordFinderTable({
           <TableRow>
             <TableCell>{t("words.primaryText")}</TableCell>
             <TableCell>{t("words.secondaryText")}</TableCell>
+            {hasSynonymColumn && (
+              <TableCell>{t("courses.synonym", "Synonym")}</TableCell>
+            )}
             <TableCell>{t("courses.pronunciation")}</TableCell>
             <TableCell>{t("words.translationLabel")}</TableCell>
             <TableCell>{t("courses.image", "Image")}</TableCell>
@@ -337,19 +358,32 @@ export default function WordFinderTable({
                   )}
                 </Stack>
               </TableCell>
+              {hasSynonymColumn && (
+                <TableCell
+                  sx={{ minWidth: 180, ...selectableCellSx(rowIdx, 2) }}
+                  onClick={(e) => handleCellClick(e, rowIdx, 2)}
+                  onContextMenu={(e) => handleCellContextMenu(e, rowIdx, 2)}
+                >
+                  <Typography variant="body2">
+                    {isToeflSynonymResult(result)
+                      ? result.synonym || t("words.none")
+                      : ""}
+                  </Typography>
+                </TableCell>
+              )}
               <TableCell
-                sx={{ minWidth: 220, ...selectableCellSx(rowIdx, 2) }}
-                onClick={(e) => handleCellClick(e, rowIdx, 2)}
-                onContextMenu={(e) => handleCellContextMenu(e, rowIdx, 2)}
+                sx={{ minWidth: 220, ...selectableCellSx(rowIdx, hasSynonymColumn ? 3 : 2) }}
+                onClick={(e) => handleCellClick(e, rowIdx, hasSynonymColumn ? 3 : 2)}
+                onContextMenu={(e) => handleCellContextMenu(e, rowIdx, hasSynonymColumn ? 3 : 2)}
               >
                 <Typography variant="body2">
                   {result.pronunciation || t("words.none")}
                 </Typography>
               </TableCell>
               <TableCell
-                sx={{ minWidth: 220, ...selectableCellSx(rowIdx, 3) }}
-                onClick={(e) => handleCellClick(e, rowIdx, 3)}
-                onContextMenu={(e) => handleCellContextMenu(e, rowIdx, 3)}
+                sx={{ minWidth: 220, ...selectableCellSx(rowIdx, translationCol) }}
+                onClick={(e) => handleCellClick(e, rowIdx, translationCol)}
+                onContextMenu={(e) => handleCellContextMenu(e, rowIdx, translationCol)}
               >
                 <Typography variant="body2">
                   {result.translation || t("words.none")}
@@ -380,9 +414,9 @@ export default function WordFinderTable({
                 )}
               </TableCell>
               <TableCell
-                sx={{ minWidth: 180, ...selectableCellSx(rowIdx, 5) }}
-                onClick={(e) => handleCellClick(e, rowIdx, 5)}
-                onContextMenu={(e) => handleCellContextMenu(e, rowIdx, 5)}
+                sx={{ minWidth: 180, ...selectableCellSx(rowIdx, locationCol) }}
+                onClick={(e) => handleCellClick(e, rowIdx, locationCol)}
+                onContextMenu={(e) => handleCellContextMenu(e, rowIdx, locationCol)}
               >
                 <Typography variant="body2">
                   {formatWordFinderLocation(result, t("words.noDay"))}

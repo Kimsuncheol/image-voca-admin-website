@@ -34,6 +34,7 @@ import {
   shouldTreatSheetParseAsValidationError,
 } from "@/lib/utils/sheetsApi";
 import type { ParseResult, SchemaType } from "@/lib/utils/csvParser";
+import type { CourseId } from "@/types/course";
 import UploadModal from "./UploadModal";
 
 // ─── 서브 컴포넌트 ─────────────────────────────────────────────────────────
@@ -64,6 +65,7 @@ interface UrlUploadTabProps {
   hideDayInput?: boolean;
   hiddenDayName?: string;
   courseLabel?: string;
+  courseId?: CourseId | "";
 }
 
 // ─── 컴포넌트 ──────────────────────────────────────────────────────────────
@@ -73,6 +75,7 @@ export default function UrlUploadTab({
   schemaType,
   hideDayInput,
   hiddenDayName,
+  courseId,
 }: UrlUploadTabProps) {
   // Google Sheets OAuth 훅
   const {
@@ -129,7 +132,10 @@ export default function UrlUploadTab({
     setUrlValidationError(null);
     setFetchingUrl(true);
     try {
-      const data = await fetchSheetWithToken(urlInput, token, schemaType);
+      const data = await fetchSheetWithToken(urlInput, token, {
+        schemaType,
+        courseId,
+      });
       // 검증 에러가 있으면 항목 추가 없이 에러만 표시
       if (shouldTreatSheetParseAsValidationError(data)) {
         setUrlValidationError(data);
@@ -255,6 +261,7 @@ export default function UrlUploadTab({
         initialDayName={activeIndex >= 0 ? items[activeIndex]?.dayName : ""}
         initialData={activeIndex >= 0 ? items[activeIndex]?.data : null}
         schemaType={schemaType}
+        courseId={courseId}
         hideDayInput={hideDayInput}
         hiddenDayName={hiddenDayName}
         existingDayNames={items

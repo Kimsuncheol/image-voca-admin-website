@@ -25,6 +25,7 @@ import { getFamousQuotes } from '@/lib/firebase/firestore';
 import FileListItem from './FileListItem';
 import UploadModal from './UploadModal';
 import { type ParseResult, type SchemaType } from '@/lib/utils/csvParser';
+import type { CourseId } from '@/types/course';
 
 export interface CsvItem {
   id: string;
@@ -43,6 +44,7 @@ interface CsvUploadTabProps {
   hiddenDayName?: string;
   coursePath?: string;
   courseLabel?: string;
+  courseId?: CourseId | "";
 }
 
 const sectionSx = {
@@ -66,6 +68,7 @@ export default function CsvUploadTab({
   hiddenDayName,
   coursePath,
   courseLabel,
+  courseId,
 }: CsvUploadTabProps) {
   const { t } = useTranslation();
   const [modalOpen, setModalOpen] = useState(false);
@@ -273,6 +276,7 @@ export default function CsvUploadTab({
         hideDayInput={hideDayInput}
         hiddenDayName={hiddenDayName}
         courseLabel={courseLabel}
+        courseId={courseId}
         existingDayNames={items
           .filter((_, i) => i !== activeIndex)
           .map((i) => i.dayName)
