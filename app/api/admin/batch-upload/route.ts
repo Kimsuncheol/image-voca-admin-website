@@ -45,6 +45,7 @@ interface BatchUploadRequestBody {
   coursePath: string;
   days: DayPayload[];
   storageMode?: "day" | "flat" | "singleList";
+  preserveExistingImages?: boolean;
 }
 
 interface BatchUploadCollectionSnapshot {
@@ -53,7 +54,11 @@ interface BatchUploadCollectionSnapshot {
 
 interface BatchUploadDaySnapshot {
   empty: boolean;
-  docs: Array<{ ref: unknown }>;
+  docs: Array<{
+    id: string;
+    ref: unknown;
+    data: () => Record<string, unknown> | undefined;
+  }>;
 }
 
 interface BatchUploadCollectionRef {
@@ -142,6 +147,55 @@ function parseNamedWordPayload(raw: unknown): NamedWordPayload | null {
   };
 }
 
+function hasNonEmptyImageUrl(value: unknown): value is string {
+  return typeof value === "string" && value.trim().length > 0;
+}
+
+function getWordIdentity(data: Record<string, unknown>): string | null {
+  const candidates = [data.word, data.collocation, data.prefix, data.postfix];
+  for (const candidate of candidates) {
+    if (typeof candidate === "string" && candidate.trim().length > 0) {
+      return candidate.trim().toLowerCase();
+    }
+  }
+
+  return null;
+}
+
+function mergePreservedImageUrls(
+  words: NamedWordPayload[],
+  existingDataById: Map<string, Record<string, unknown>>,
+): NamedWordPayload[] {
+  return words.map((word) => {
+    if (hasNonEmptyImageUrl(word.data.imageUrl)) {
+      return word;
+    }
+
+    const existingData = existingDataById.get(word.id);
+    if (!existingData || !hasNonEmptyImageUrl(existingData.imageUrl)) {
+      return word;
+    }
+
+    const incomingIdentity = getWordIdentity(word.data);
+    const existingIdentity = getWordIdentity(existingData);
+    if (
+      incomingIdentity &&
+      existingIdentity &&
+      incomingIdentity !== existingIdentity
+    ) {
+      return word;
+    }
+
+    return {
+      ...word,
+      data: {
+        ...word.data,
+        imageUrl: existingData.imageUrl,
+      },
+    };
+  });
+}
+
 async function authorizeRequest(
   request: NextRequest,
   dependencies: BatchUploadDependencies,
@@ -215,6 +269,7 @@ async function writeDayWords(
   words: unknown[],
   dependencies: BatchUploadDependencies,
   batchLimit: number,
+  preserveExistingImages: boolean,
 ): Promise<number> {
   const parsedWords = words.map((word) => parseNamedWordPayload(word));
   if (parsedWords.some((word) => word === null)) {
@@ -233,6 +288,15 @@ async function writeDayWords(
   const dayCollection = dependencies.adminDb.doc(coursePath).collection(subcollectionName);
 
   const existingSnap = await dayCollection.get();
+  const wordsToWrite = preserveExistingImages
+    ? mergePreservedImageUrls(
+        namedWords,
+        new Map(
+          existingSnap.docs.map((docSnap) => [docSnap.id, docSnap.data() ?? {}]),
+        ),
+      )
+    : namedWords;
+
   if (!existingSnap.empty) {
     for (let i = 0; i < existingSnap.docs.length; i += batchLimit) {
       const deleteBatch = dependencies.adminDb.batch();
@@ -245,13 +309,13 @@ async function writeDayWords(
 
   for (let i = 0; i < namedWords.length; i += batchLimit) {
     const writeBatch = dependencies.adminDb.batch();
-    namedWords.slice(i, i + batchLimit).forEach((word) => {
+    wordsToWrite.slice(i, i + batchLimit).forEach((word) => {
       writeBatch.set(dayCollection.doc(word.id), word.data);
     });
     await writeBatch.commit();
   }
 
-  return namedWords.length;
+  return wordsToWrite.length;
 }
 
 export function createBatchUploadHandler(
@@ -264,8 +328,9 @@ export function createBatchUploadHandler(
     let coursePath: string;
     let days: DayPayload[];
     let storageMode: "day" | "flat" | "singleList";
+    let preserveExistingImages: boolean;
     try {
-      ({ coursePath, days, storageMode = "day" } =
+      ({ coursePath, days, storageMode = "day", preserveExistingImages = false } =
         (await request.json()) as BatchUploadRequestBody);
     } catch {
       return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
@@ -338,6 +403,7 @@ export function createBatchUploadHandler(
               words,
               dependencies,
               batchLimit,
+              preserveExistingImages,
             );
 
         if (storageMode === "day") {

@@ -14,12 +14,14 @@ test("shows modal with all options enabled when image and enrich generation are 
     isImageGenerationEnabled: true,
     isExampleAndTranslationGenerationEnabled: true,
     isFuriganaEnabled: false,
+    isPreserveExistingImagesEnabled: true,
     shouldShowModal: true,
     defaultOptions: {
       images: true,
       examples: true,
       translations: true,
       furigana: false,
+      preserveExistingImages: true,
     },
   });
 });
@@ -36,12 +38,14 @@ test("shows modal with only image generation enabled when enrich generation is u
     isImageGenerationEnabled: true,
     isExampleAndTranslationGenerationEnabled: false,
     isFuriganaEnabled: false,
+    isPreserveExistingImagesEnabled: true,
     shouldShowModal: true,
     defaultOptions: {
       images: true,
       examples: false,
       translations: false,
       furigana: false,
+      preserveExistingImages: true,
     },
   });
 });
@@ -58,17 +62,19 @@ test("shows modal with only example and translation generation enabled when imag
     isImageGenerationEnabled: false,
     isExampleAndTranslationGenerationEnabled: true,
     isFuriganaEnabled: false,
+    isPreserveExistingImagesEnabled: false,
     shouldShowModal: true,
     defaultOptions: {
       images: false,
       examples: true,
       translations: true,
       furigana: false,
+      preserveExistingImages: false,
     },
   });
 });
 
-test("skips the modal when no generation features are available", () => {
+test("shows the modal for image-capable courses even when preserve-existing-images is the only option", () => {
   const result = getUploadOptionState({
     selectedCourse: "CSAT",
     imageGenerationEnabled: false,
@@ -80,12 +86,14 @@ test("skips the modal when no generation features are available", () => {
     isImageGenerationEnabled: false,
     isExampleAndTranslationGenerationEnabled: false,
     isFuriganaEnabled: false,
-    shouldShowModal: false,
+    isPreserveExistingImagesEnabled: true,
+    shouldShowModal: true,
     defaultOptions: {
       images: false,
       examples: false,
       translations: false,
       furigana: false,
+      preserveExistingImages: true,
     },
   });
 });
@@ -102,12 +110,14 @@ test("treats image generation as unavailable for unsupported courses even when t
     isImageGenerationEnabled: false,
     isExampleAndTranslationGenerationEnabled: false,
     isFuriganaEnabled: false,
+    isPreserveExistingImagesEnabled: false,
     shouldShowModal: false,
     defaultOptions: {
       images: false,
       examples: false,
       translations: false,
       furigana: false,
+      preserveExistingImages: false,
     },
   });
 });
@@ -136,12 +146,14 @@ test("enables furigana-only modal options for JLPT uploads when pronunciation is
     isImageGenerationEnabled: false,
     isExampleAndTranslationGenerationEnabled: false,
     isFuriganaEnabled: true,
+    isPreserveExistingImagesEnabled: false,
     shouldShowModal: true,
     defaultOptions: {
       images: false,
       examples: false,
       translations: false,
       furigana: false,
+      preserveExistingImages: false,
     },
   });
 });
@@ -188,12 +200,14 @@ test("enables furigana-only modal options when examples lack parenthetical furig
     isImageGenerationEnabled: false,
     isExampleAndTranslationGenerationEnabled: false,
     isFuriganaEnabled: true,
+    isPreserveExistingImagesEnabled: false,
     shouldShowModal: true,
     defaultOptions: {
       images: false,
       examples: false,
       translations: false,
       furigana: false,
+      preserveExistingImages: false,
     },
   });
   expect(postfixResult).toEqual(prefixResult);
@@ -223,12 +237,14 @@ test("disables furigana when JLPT upload rows already have pronunciation and exa
     isImageGenerationEnabled: false,
     isExampleAndTranslationGenerationEnabled: false,
     isFuriganaEnabled: false,
+    isPreserveExistingImagesEnabled: false,
     shouldShowModal: false,
     defaultOptions: {
       images: false,
       examples: false,
       translations: false,
       furigana: false,
+      preserveExistingImages: false,
     },
   });
 });
@@ -257,12 +273,14 @@ test("does not treat an empty example by itself as missing example furigana", ()
     isImageGenerationEnabled: false,
     isExampleAndTranslationGenerationEnabled: false,
     isFuriganaEnabled: false,
+    isPreserveExistingImagesEnabled: false,
     shouldShowModal: false,
     defaultOptions: {
       images: false,
       examples: false,
       translations: false,
       furigana: false,
+      preserveExistingImages: false,
     },
   });
 });
@@ -291,12 +309,14 @@ test("does not treat a hiragana-only example as needing furigana", () => {
     isImageGenerationEnabled: false,
     isExampleAndTranslationGenerationEnabled: false,
     isFuriganaEnabled: false,
+    isPreserveExistingImagesEnabled: false,
     shouldShowModal: false,
     defaultOptions: {
       images: false,
       examples: false,
       translations: false,
       furigana: false,
+      preserveExistingImages: false,
     },
   });
 });
@@ -336,12 +356,14 @@ test("enables furigana when any queued Japanese row needs it", () => {
     isImageGenerationEnabled: false,
     isExampleAndTranslationGenerationEnabled: false,
     isFuriganaEnabled: true,
+    isPreserveExistingImagesEnabled: false,
     shouldShowModal: true,
     defaultOptions: {
       images: false,
       examples: false,
       translations: false,
       furigana: false,
+      preserveExistingImages: false,
     },
   });
 });

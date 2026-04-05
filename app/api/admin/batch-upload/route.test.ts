@@ -129,13 +129,15 @@ function createFakeDependencies() {
               const docs = ensureDay(coursePath, dayName);
               return {
                 empty: docs.size === 0,
-                docs: [...docs.keys()].map((id) => ({
+                docs: [...docs.entries()].map(([id, data]) => ({
+                  id,
                   ref: {
                     kind: "day" as const,
                     coursePath,
                     dayName,
                     id,
                   },
+                  data: () => data as Record<string, unknown>,
                 })),
               };
             },
@@ -324,4 +326,124 @@ test("batch upload writes prefix docs into the fixed prefix subcollection", asyn
     [...(state.dayDocs.get(`${prefixPath}::prefix`)?.keys() ?? [])],
   ).toEqual(["JLPT_PREFIX_prefix_1"]);
   expect(state.courseMeta.get(prefixPath ?? "")).toBeUndefined();
+});
+
+test("batch upload preserves an existing imageUrl on overwrite when the rewritten row keeps the same identity", async () => {
+  const { handler, state } = createFakeDependencies();
+  state.dayDocs.set(
+    "courses/toeic::Day3",
+    new Map([
+      [
+        "TOEIC_Day3_1",
+        {
+          word: "abandon",
+          meaning: "leave",
+          imageUrl: "https://example.com/abandon-old.png",
+        },
+      ],
+    ]),
+  );
+
+  const response = await handler(
+    createRequest({
+      coursePath: "courses/toeic",
+      storageMode: "day",
+      preserveExistingImages: true,
+      days: [
+        {
+          dayName: "Day3",
+          words: [{ id: "TOEIC_Day3_1", word: "abandon", meaning: "leave" }],
+        },
+      ],
+    }),
+  );
+
+  expect(response.status).toBe(200);
+  expect(state.dayDocs.get("courses/toeic::Day3")?.get("TOEIC_Day3_1")).toEqual({
+    word: "abandon",
+    meaning: "leave",
+    imageUrl: "https://example.com/abandon-old.png",
+  });
+});
+
+test("batch upload keeps a newly provided imageUrl instead of preserving the old one", async () => {
+  const { handler, state } = createFakeDependencies();
+  state.dayDocs.set(
+    "courses/toeic::Day3",
+    new Map([
+      [
+        "TOEIC_Day3_1",
+        {
+          word: "abandon",
+          meaning: "leave",
+          imageUrl: "https://example.com/abandon-old.png",
+        },
+      ],
+    ]),
+  );
+
+  const response = await handler(
+    createRequest({
+      coursePath: "courses/toeic",
+      storageMode: "day",
+      preserveExistingImages: true,
+      days: [
+        {
+          dayName: "Day3",
+          words: [
+            {
+              id: "TOEIC_Day3_1",
+              word: "abandon",
+              meaning: "leave",
+              imageUrl: "https://example.com/abandon-new.png",
+            },
+          ],
+        },
+      ],
+    }),
+  );
+
+  expect(response.status).toBe(200);
+  expect(state.dayDocs.get("courses/toeic::Day3")?.get("TOEIC_Day3_1")).toEqual({
+    word: "abandon",
+    meaning: "leave",
+    imageUrl: "https://example.com/abandon-new.png",
+  });
+});
+
+test("batch upload does not copy an old imageUrl onto a different word after row order changes", async () => {
+  const { handler, state } = createFakeDependencies();
+  state.dayDocs.set(
+    "courses/toeic::Day3",
+    new Map([
+      [
+        "TOEIC_Day3_1",
+        {
+          word: "abandon",
+          meaning: "leave",
+          imageUrl: "https://example.com/abandon-old.png",
+        },
+      ],
+    ]),
+  );
+
+  const response = await handler(
+    createRequest({
+      coursePath: "courses/toeic",
+      storageMode: "day",
+      preserveExistingImages: true,
+      days: [
+        {
+          dayName: "Day3",
+          words: [{ id: "TOEIC_Day3_1", word: "brief", meaning: "short" }],
+        },
+      ],
+    }),
+  );
+
+  expect(response.status).toBe(200);
+  expect(state.dayDocs.get("courses/toeic::Day3")?.get("TOEIC_Day3_1")).toEqual({
+    word: "brief",
+    meaning: "short",
+  });
 });

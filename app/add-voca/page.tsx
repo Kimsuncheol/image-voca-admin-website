@@ -182,7 +182,13 @@ export default function AddVocaPage() {
   const [statusText, setStatusText] = useState("");
   const [uploadOptionsOpen, setUploadOptionsOpen] = useState(false);
   const [uploadOptions, setUploadOptions] = useState<UploadOptions>(
-    { images: false, examples: false, translations: false, furigana: false },
+    {
+      images: false,
+      examples: false,
+      translations: false,
+      furigana: false,
+      preserveExistingImages: false,
+    },
   );
   const [derivativePreviewOpen, setDerivativePreviewOpen] = useState(false);
   const [derivativePreviewLoading, setDerivativePreviewLoading] =
@@ -205,7 +211,13 @@ export default function AddVocaPage() {
   const uploadingRef = useRef(false);
   const pendingDerivativeItemsRef = useRef<ReadyStandardQueueItem[]>([]);
   const pendingUploadOptionsRef = useRef<UploadOptions>(
-    { images: false, examples: false, translations: false, furigana: false },
+    {
+      images: false,
+      examples: false,
+      translations: false,
+      furigana: false,
+      preserveExistingImages: false,
+    },
   );
 
   // ── Browser unload guard ───────────────────────────────────────────
@@ -312,6 +324,7 @@ export default function AddVocaPage() {
     isImageGenerationEnabled,
     isExampleAndTranslationGenerationEnabled,
     isFuriganaEnabled,
+    isPreserveExistingImagesEnabled,
     shouldShowModal: shouldShowUploadOptionsModal,
     defaultOptions: defaultUploadOptions,
   } = uploadOptionState;
@@ -741,6 +754,7 @@ export default function AddVocaPage() {
             coursePath: course.path,
             days: daysToUpload,
             storageMode: course.storageMode,
+            preserveExistingImages: options.preserveExistingImages,
           }),
         });
         if (!batchResp.ok) {
@@ -1129,6 +1143,7 @@ export default function AddVocaPage() {
           isExampleAndTranslationGenerationEnabled
         }
         isFuriganaEnabled={isFuriganaEnabled}
+        isPreserveExistingImagesEnabled={isPreserveExistingImagesEnabled}
         onClose={() => setUploadOptionsOpen(false)}
         onConfirm={handleUploadOptionsConfirm}
       />

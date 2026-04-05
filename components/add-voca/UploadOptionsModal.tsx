@@ -20,6 +20,7 @@ interface UploadOptionsModalProps {
   isImageGenerationEnabled: boolean;
   isExampleAndTranslationGenerationEnabled: boolean;
   isFuriganaEnabled: boolean;
+  isPreserveExistingImagesEnabled: boolean;
   onClose: () => void;
   onConfirm: (options: UploadOptions) => void;
 }
@@ -30,6 +31,7 @@ export default function UploadOptionsModal({
   isImageGenerationEnabled,
   isExampleAndTranslationGenerationEnabled,
   isFuriganaEnabled,
+  isPreserveExistingImagesEnabled,
   onClose,
   onConfirm,
 }: UploadOptionsModalProps) {
@@ -49,6 +51,9 @@ export default function UploadOptionsModal({
       ? options.translations
       : false,
     furigana: isFuriganaEnabled ? options.furigana : false,
+    preserveExistingImages: isPreserveExistingImagesEnabled
+      ? options.preserveExistingImages
+      : false,
   });
 
   return (
@@ -76,7 +81,7 @@ export default function UploadOptionsModal({
           <Typography variant="body2" color="text.secondary">
             {t(
               "addVoca.uploadOptionsDescription",
-              "Select any generation steps to run before uploading.",
+              "Select upload steps and overwrite behavior to apply before uploading.",
             )}
           </Typography>
 
@@ -123,6 +128,20 @@ export default function UploadOptionsModal({
                   />
                 }
                 label={t("addVoca.addFurigana", "Add furigana")}
+              />
+            )}
+            {isPreserveExistingImagesEnabled && (
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={draftOptions.preserveExistingImages}
+                    onChange={() => toggle("preserveExistingImages")}
+                  />
+                }
+                label={t(
+                  "addVoca.preserveExistingImages",
+                  "Preserve existing images when overwriting",
+                )}
               />
             )}
           </FormGroup>

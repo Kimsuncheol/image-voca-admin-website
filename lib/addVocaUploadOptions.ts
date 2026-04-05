@@ -17,12 +17,14 @@ export interface UploadOptions {
   examples: boolean;
   translations: boolean;
   furigana: boolean;
+  preserveExistingImages: boolean;
 }
 
 export interface UploadOptionState {
   isImageGenerationEnabled: boolean;
   isExampleAndTranslationGenerationEnabled: boolean;
   isFuriganaEnabled: boolean;
+  isPreserveExistingImagesEnabled: boolean;
   shouldShowModal: boolean;
   defaultOptions: UploadOptions;
 }
@@ -63,6 +65,9 @@ export function getUploadOptionState(params: {
   const isImageGenerationEnabled =
     shouldIncludeImageUrl(params.selectedCourse) &&
     params.imageGenerationEnabled;
+  const isPreserveExistingImagesEnabled = shouldIncludeImageUrl(
+    params.selectedCourse,
+  );
   const isExampleAndTranslationGenerationEnabled =
     params.enrichGenerationEnabled &&
     params.selectedCourse !== "" &&
@@ -77,15 +82,18 @@ export function getUploadOptionState(params: {
     isImageGenerationEnabled,
     isExampleAndTranslationGenerationEnabled,
     isFuriganaEnabled,
+    isPreserveExistingImagesEnabled,
     shouldShowModal:
       isImageGenerationEnabled ||
       isExampleAndTranslationGenerationEnabled ||
-      isFuriganaEnabled,
+      isFuriganaEnabled ||
+      isPreserveExistingImagesEnabled,
     defaultOptions: {
       images: isImageGenerationEnabled,
       examples: isExampleAndTranslationGenerationEnabled,
       translations: isExampleAndTranslationGenerationEnabled,
       furigana: false,
+      preserveExistingImages: isPreserveExistingImagesEnabled,
     },
   };
 }
