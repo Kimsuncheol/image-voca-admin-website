@@ -89,6 +89,7 @@
     "validationHeaderRequired": "A header row is required for this course format.",
     "validationHeaderMismatch": "CSV/Sheet columns do not match the selected course format.",
     "validationCrossHeaderRow": "Detected a header row from a different course format in the data rows.",
+    "validationToeflIeltsSynonymMismatch": "This file appears to use the TOEFL/IELTS format because it includes a synonym column. The synonym column is supported for TOEFL/IELTS, but not for CSAT or TOEIC.",
     "expectedKeys": "Expected keys: {{keys}}",
     "detectedKeys": "Detected keys: {{keys}}",
     "urlFetchError": "Failed to fetch Google Sheet: {{message}}",

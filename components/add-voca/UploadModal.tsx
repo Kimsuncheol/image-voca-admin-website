@@ -69,10 +69,45 @@ const dayFieldSx = {
   },
 };
 
+const STANDARD_HEADERS_WITH_SYNONYM = [
+  "word",
+  "meaning",
+  "pronunciation",
+  "example",
+  "translation",
+  "synonym",
+] as const;
+
 function filenameMatchesCourse(filename: string, courseLabel: string): boolean {
   const lower = filename.toLowerCase();
   const tokens = courseLabel.split(/[\s/]+/).filter((t) => t.length > 1);
   return tokens.some((token) => lower.includes(token.toLowerCase()));
+}
+
+function isCsatOrToeicToeflIeltsHeaderMismatch(
+  courseId: CourseId | "",
+  parseResult: ParseResult | null,
+): boolean {
+  if (
+    (courseId !== "CSAT" && courseId !== "TOEIC") ||
+    parseResult?.blockingError !== "HEADER_MISMATCH"
+  ) {
+    return false;
+  }
+
+  const normalizedHeaders = parseResult.detectedHeaders.map((header) =>
+    header.trim().toLowerCase(),
+  );
+  if (normalizedHeaders.length !== STANDARD_HEADERS_WITH_SYNONYM.length) {
+    return false;
+  }
+
+  const headerSet = new Set(normalizedHeaders);
+  if (headerSet.size !== STANDARD_HEADERS_WITH_SYNONYM.length) {
+    return false;
+  }
+
+  return STANDARD_HEADERS_WITH_SYNONYM.every((header) => headerSet.has(header));
 }
 
 export default function UploadModal({
@@ -191,6 +226,11 @@ export default function UploadModal({
     return t("addVoca.validationCrossHeaderRow");
   };
 
+  const showToeflIeltsSynonymHint = isCsatOrToeicToeflIeltsHeaderMismatch(
+    courseId ?? "",
+    parseResult,
+  );
+
   return (
     <Dialog
       open={open}
@@ -267,6 +307,14 @@ export default function UploadModal({
               <Typography variant="body2">
                 {getBlockingErrorMessage(parseResult.blockingError)}
               </Typography>
+              {showToeflIeltsSynonymHint && (
+                <Typography variant="body2" sx={{ mt: 0.5 }}>
+                  {t(
+                    "addVoca.validationToeflIeltsSynonymMismatch",
+                    "This file appears to use the TOEFL/IELTS format because it includes a synonym column. The synonym column is supported for TOEFL/IELTS, but not for CSAT or TOEIC.",
+                  )}
+                </Typography>
+              )}
               {parseResult.expectedHeaders &&
                 parseResult.expectedHeaders.length > 0 && (
                   <Typography variant="body2" sx={{ mt: 0.5 }}>
@@ -345,6 +393,15 @@ export default function UploadModal({
                       ]
                   : resolvedSchema === "famousQuote"
                     ? ["quote", "author", "translation"]
+                    : courseId === "TOEFL_IELTS"
+                      ? [
+                          "word",
+                          "meaning",
+                          "synonym",
+                          "pronunciation",
+                          "example",
+                          "translation",
+                        ]
                     : [
                         "word",
                         "meaning",

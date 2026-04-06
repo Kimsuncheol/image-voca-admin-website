@@ -89,6 +89,7 @@
     "validationHeaderRequired": "선택한 코스 형식에는 헤더 행이 필요합니다.",
     "validationHeaderMismatch": "CSV/시트 컬럼이 선택한 코스 형식과 일치하지 않습니다.",
     "validationCrossHeaderRow": "데이터 행에서 다른 코스 형식의 헤더 행이 감지되었습니다.",
+    "validationToeflIeltsSynonymMismatch": "이 파일에는 synonym 컬럼이 포함되어 있어 TOEFL/IELTS 형식으로 보입니다. synonym 컬럼은 TOEFL/IELTS에서만 지원되며 CSAT과 TOEIC에서는 사용할 수 없습니다.",
     "expectedKeys": "기대 키: {{keys}}",
     "detectedKeys": "감지된 키: {{keys}}",
     "urlFetchError": "Google 시트를 불러오지 못했습니다: {{message}}",
