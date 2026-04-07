@@ -17,6 +17,7 @@ import { createBatchUploadHandler } from "./route";
 
 type FakeDocRef =
   | { kind: "flat"; collectionPath: string; id: string }
+  | { kind: "collection"; collectionPath: string; id: string }
   | { kind: "day"; coursePath: string; dayName: string; id: string };
 
 function createRequest(body: unknown) {
@@ -34,6 +35,7 @@ function createFakeDependencies() {
   let autoId = 0;
   const dayDocs = new Map<string, Map<string, unknown>>();
   const flatDocs = new Map<string, Map<string, unknown>>();
+  const collectionDocs = new Map<string, Map<string, unknown>>();
   const courseMeta = new Map<string, Record<string, unknown>>();
   let invalidateCalls = 0;
 
@@ -60,6 +62,15 @@ function createFakeDependencies() {
     return docs;
   }
 
+  function ensureCollection(collectionPath: string) {
+    let docs = collectionDocs.get(collectionPath);
+    if (!docs) {
+      docs = new Map();
+      collectionDocs.set(collectionPath, docs);
+    }
+    return docs;
+  }
+
   const adminDb = {
     batch() {
       const operations: Array<{ type: "set" | "delete"; ref: FakeDocRef; data?: unknown }> = [];
@@ -74,6 +85,16 @@ function createFakeDependencies() {
           operations.forEach((operation) => {
             if (operation.ref.kind === "flat") {
               const docs = ensureFlat(operation.ref.collectionPath);
+              if (operation.type === "delete") {
+                docs.delete(operation.ref.id);
+              } else {
+                docs.set(operation.ref.id, operation.data);
+              }
+              return;
+            }
+
+            if (operation.ref.kind === "collection") {
+              const docs = ensureCollection(operation.ref.collectionPath);
               if (operation.type === "delete") {
                 docs.delete(operation.ref.id);
               } else {
@@ -97,16 +118,26 @@ function createFakeDependencies() {
         doc(id?: string) {
           autoId += 1;
           return {
-            kind: "flat" as const,
+            kind: collectionPath === "quotes" ? "flat" as const : "collection" as const,
             collectionPath,
             id: id ?? `auto-${autoId}`,
           };
         },
         async get() {
-          const docs = ensureFlat(collectionPath);
+          const docs =
+            collectionPath === "quotes"
+              ? ensureFlat(collectionPath)
+              : ensureCollection(collectionPath);
           return {
-            docs: [...docs.values()].map((data) => ({
-              data: () => data,
+            empty: docs.size === 0,
+            docs: [...docs.entries()].map(([id, data]) => ({
+              id,
+              ref: {
+                kind: collectionPath === "quotes" ? "flat" as const : "collection" as const,
+                collectionPath,
+                id,
+              },
+              data: () => data as Record<string, unknown>,
             })),
           };
         },
@@ -169,6 +200,7 @@ function createFakeDependencies() {
     state: {
       dayDocs,
       flatDocs,
+      collectionDocs,
       courseMeta,
       get invalidateCalls() {
         return invalidateCalls;
@@ -257,6 +289,40 @@ test("batch upload rejects blank course paths", async () => {
   expect(response.status).toBe(400);
   await expect(response.json()).resolves.toEqual({
     error: "Course path is required",
+  });
+});
+
+test("batch upload writes collection-backed word docs using provided ids", async () => {
+  const { handler, state } = createFakeDependencies();
+
+  const response = await handler(
+    createRequest({
+      coursePath: "courses/JLPT_COUNTER/counter_hon",
+      storageMode: "collection",
+      preserveExistingImages: true,
+      days: [
+        {
+          dayName: "counter_hon",
+          words: [
+            { id: "JLPT_COUNTER_counter_hon_1", word: "本", meaningEnglish: "counter" },
+          ],
+        },
+      ],
+    }),
+  );
+  const payload = (await response.json()) as {
+    results: Array<{ dayName: string; count: number; error?: string }>;
+  };
+
+  expect(response.status).toBe(200);
+  expect(payload.results).toEqual([{ dayName: "counter_hon", count: 1 }]);
+  expect(
+    state.collectionDocs
+      .get("courses/JLPT_COUNTER/counter_hon")
+      ?.get("JLPT_COUNTER_counter_hon_1"),
+  ).toEqual({
+    word: "本",
+    meaningEnglish: "counter",
   });
 });
 

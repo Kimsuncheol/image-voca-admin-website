@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { act, type ReactElement } from "react";
+import { act, type ReactElement, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -46,7 +46,7 @@ vi.mock("@mui/material/Typography", () => ({
     className,
     sx,
   }: {
-    children?: ReactElement["props"]["children"];
+    children?: ReactNode;
     className?: string;
     sx?: Record<string, string>;
   }) => (

@@ -63,8 +63,7 @@ import {
   getCourseById,
   getSingleListSubcollectionByCourseId,
   isFamousQuoteCourse,
-  isPrefixCourse,
-  isPostfixCourse,
+  isCollectionCourse,
   isSingleListCourse,
   type CourseId,
 } from "@/types/course";
@@ -90,6 +89,7 @@ import {
 // ── Firebase / data helpers ───────────────────────────────────────────
 import {
   checkDayExists,
+  checkCollectionExists,
   checkSingleListExists,
 } from "@/lib/firebase/firestore";
 import { uploadCsvBackup } from "@/lib/firebase/storage";
@@ -132,6 +132,8 @@ type ReadyStandardQueueItem = StandardQueueItem & {
   data: { words: StandardWordInput[] };
 };
 
+type ReadyUploadItem = ReadyQueueItem & { targetCoursePath?: string };
+
 /**
  * Type guard — returns true when `item` originated from a CSV file upload.
  * CSV items carry a `fileName` property; URL items carry a `url` property.
@@ -143,6 +145,13 @@ function isCsvItem(item: QueueItem): item is CsvItem {
 
 function isUrlItem(item: QueueItem): item is UrlItem {
   return "url" in item;
+}
+
+function resolveQueueItemTargetCoursePath(
+  item: ReadyUploadItem,
+  fallbackCoursePath: string,
+): string {
+  return item.targetCoursePath?.trim() || fallbackCoursePath;
 }
 
 export default function AddVocaPage() {
@@ -278,9 +287,8 @@ export default function AddVocaPage() {
   const schemaType: SchemaType =
     getCourseById(selectedCourse)?.schema ?? "standard";
   const isFamousQuote = isFamousQuoteCourse(selectedCourse);
-  const isPrefix = isPrefixCourse(selectedCourse);
-  const isPostfix = isPostfixCourse(selectedCourse);
   const isSingleList = isSingleListCourse(selectedCourse);
+  const isCollection = isCollectionCourse(selectedCourse);
   const singleListSubcollection = isSingleList
     ? getSingleListSubcollectionByCourseId(selectedCourse)
     : null;
@@ -407,6 +415,17 @@ export default function AddVocaPage() {
     const existsFlags =
       course.storageMode === "flat"
         ? itemsToUpload.map(() => false)
+        : course.storageMode === "collection"
+          ? await Promise.all(
+              itemsToUpload.map((item) =>
+                checkCollectionExists(
+                  resolveQueueItemTargetCoursePath(
+                    item as ReadyUploadItem,
+                    course.path,
+                  ),
+                ),
+              ),
+            )
         : course.storageMode === "singleList"
           ? await Promise.all(
               itemsToUpload.map(() => checkSingleListExists(course.id, course.path)),
@@ -747,30 +766,56 @@ export default function AddVocaPage() {
     if (daysToUpload.length > 0) {
       setStatusText(t("addVoca.statusWriting"));
       try {
-        const batchResp = await fetch("/api/admin/batch-upload", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            coursePath: course.path,
-            days: daysToUpload,
-            storageMode: course.storageMode,
-            preserveExistingImages: options.preserveExistingImages,
-          }),
-        });
-        if (!batchResp.ok) {
-          const payload = (await batchResp.json().catch(() => null)) as
-            | { error?: string }
-            | null;
-          throw new Error(payload?.error || "Batch upload failed");
-        }
+        const uploadGroups =
+          course.storageMode === "collection"
+            ? Array.from(
+                daysToUpload.reduce(
+                  (groups, day) => {
+                    const matchingItem = queue.find(
+                      (item) => item.dayName === day.dayName,
+                    ) as ReadyUploadItem | undefined;
+                    const targetCoursePath = resolveQueueItemTargetCoursePath(
+                      matchingItem ?? { dayName: day.dayName, targetCoursePath: course.path } as ReadyUploadItem,
+                      course.path,
+                    );
+                    const existingGroup = groups.get(targetCoursePath) ?? [];
+                    existingGroup.push(day);
+                    groups.set(targetCoursePath, existingGroup);
+                    return groups;
+                  },
+                  new Map<string, typeof daysToUpload>(),
+                ),
+              )
+            : [[course.path, daysToUpload] as const];
 
-        const { results } = (await batchResp.json()) as {
-          results: { dayName: string; count: number; error?: string }[];
-        };
+        const allResults: Array<{ dayName: string; count: number; error?: string }> = [];
+        for (const [targetCoursePath, groupedDays] of uploadGroups) {
+          const batchResp = await fetch("/api/admin/batch-upload", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              coursePath: targetCoursePath,
+              days: groupedDays,
+              storageMode: course.storageMode,
+              preserveExistingImages: options.preserveExistingImages,
+            }),
+          });
+          if (!batchResp.ok) {
+            const payload = (await batchResp.json().catch(() => null)) as
+              | { error?: string }
+              | null;
+            throw new Error(payload?.error || "Batch upload failed");
+          }
+
+          const { results } = (await batchResp.json()) as {
+            results: { dayName: string; count: number; error?: string }[];
+          };
+          allResults.push(...results);
+        }
 
         let successCount = 0;
         let failCount = errorMap.size;
-        for (const r of results) {
+        for (const r of allResults) {
           const item = queue.find((q) => q.dayName === r.dayName);
           if (!item) continue;
           if (r.error) {
@@ -1052,7 +1097,7 @@ export default function AddVocaPage() {
           onItemsChange={setCsvItems}
           schemaType={schemaType}
           courseId={selectedCourse}
-          hideDayInput={isFamousQuote || isPrefix || isPostfix}
+          hideDayInput={isFamousQuote || isSingleList || isCollection}
           hiddenDayName={singleListSubcollection ?? undefined}
           courseLabel={selectedCourseLabel}
           coursePath={
@@ -1068,7 +1113,7 @@ export default function AddVocaPage() {
           onItemsChange={setUrlItems}
           schemaType={schemaType}
           courseId={selectedCourse}
-          hideDayInput={isFamousQuote || isPrefix || isPostfix}
+          hideDayInput={isFamousQuote || isSingleList || isCollection}
           hiddenDayName={singleListSubcollection ?? undefined}
           courseLabel={selectedCourseLabel}
         />

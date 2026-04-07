@@ -6,7 +6,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { ParseResult } from "@/lib/utils/csvParser";
 
-import UploadModal from "./UploadModal";
+import UploadModal, {
+  detectJlptCounterOptionIdFromFilename,
+  resolveJlptCounterOptionIdFromFilename,
+} from "./UploadModal";
 
 vi.mock("react-dropzone", () => ({
   useDropzone: () => ({
@@ -251,5 +254,53 @@ describe("UploadModal", () => {
     expect(document.body.textContent).not.toContain(
       "This file appears to use the TOEFL/IELTS format because it includes a synonym column.",
     );
+  });
+
+  it("detects Counter Hours from a COUNTERS_HOURS filename", () => {
+    expect(detectJlptCounterOptionIdFromFilename("COUNTERS_HOURS.csv")).toBe(
+      "counter_hours",
+    );
+  });
+
+  it("detects Counter Hiki from a COUNTERS_HIKI filename", () => {
+    expect(detectJlptCounterOptionIdFromFilename("COUNTERS_HIKI.csv")).toBe(
+      "counter_hiki",
+    );
+  });
+
+  it("detects Counter Minutes case-insensitively from the filename", () => {
+    expect(detectJlptCounterOptionIdFromFilename("counters-minutes.CSV")).toBe(
+      "counter_minutes",
+    );
+  });
+
+  it("detects counter targets when separators vary in the filename", () => {
+    expect(detectJlptCounterOptionIdFromFilename("COUNTERS HIKI.csv")).toBe(
+      "counter_hiki",
+    );
+  });
+
+  it("does not force a selection for unmatched filenames on new items", () => {
+    expect(resolveJlptCounterOptionIdFromFilename("random-upload.csv")).toBe(
+      "",
+    );
+  });
+
+  it("replaces the previous selection when a matching filename is uploaded while editing", () => {
+    expect(
+      resolveJlptCounterOptionIdFromFilename(
+        "COUNTERS_MINUTES.csv",
+        "counter_hon",
+      ),
+    ).toBe("counter_minutes");
+  });
+
+  it("keeps the existing selection when an edited filename does not match", () => {
+    expect(
+      resolveJlptCounterOptionIdFromFilename(
+        "random-upload.csv",
+        "counter_hon",
+      ),
+    ).toBe("counter_hon");
   });
 });

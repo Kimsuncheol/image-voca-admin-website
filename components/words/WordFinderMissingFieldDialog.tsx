@@ -17,10 +17,13 @@ import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import { useTranslation } from "react-i18next";
 
 import {
+  getJlptCounterOptionByPath,
   getCourseById,
   getSingleListSubcollectionByCourseId,
 } from "@/types/course";
 import {
+  updateCollectionWordField,
+  updateCollectionWordImageUrl,
   updateFlatCourseField,
   updateSingleListWordField,
   updateSingleListWordImageUrl,
@@ -300,6 +303,13 @@ export default function WordFinderMissingFieldDialog({
                 value,
               );
             }
+            if (storageMode === "collection") {
+              return updateCollectionWordImageUrl(
+                result.coursePath,
+                result.id,
+                value,
+              );
+            }
             throw new Error(t("words.imageUploadUnavailable"));
           }
 
@@ -316,6 +326,15 @@ export default function WordFinderMissingFieldDialog({
           if (storageMode === "singleList") {
             return updateSingleListWordField(
               result.courseId,
+              result.coursePath,
+              result.id,
+              updateField,
+              value,
+            );
+          }
+
+          if (storageMode === "collection") {
+            return updateCollectionWordField(
               result.coursePath,
               result.id,
               updateField,
@@ -570,6 +589,8 @@ export default function WordFinderMissingFieldDialog({
     );
     const imageTarget = storageMode === "singleList"
       ? singleListSubcollection
+      : storageMode === "collection"
+        ? getJlptCounterOptionByPath(result.coursePath)?.id ?? null
       : result.dayId;
     if (!imageTarget) return;
 

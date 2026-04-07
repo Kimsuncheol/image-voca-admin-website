@@ -84,6 +84,7 @@ export default function UrlListSection({
               key={item.id}
               label={item.url}
               dayName={item.dayName}
+              secondaryLabel={item.counterOptionLabel}
               // 데이터가 있고 단어가 1개 이상일 때 hasData=true
               hasData={!!item.data && item.data.words.length > 0}
               onClick={() => onItemClick(index)}

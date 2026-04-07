@@ -10,17 +10,34 @@ import CourseDaysPage from "./page";
 const {
   pushMock,
   replaceMock,
+  translateMock,
   getCourseByIdMock,
+  getCollectionWordsMock,
   getCourseDaysMock,
   getSingleListWordsMock,
   fetchFilteredFamousQuotesMock,
+  wordTableMock,
 } = vi.hoisted(() => ({
   pushMock: vi.fn(),
   replaceMock: vi.fn(),
+  translateMock: vi.fn((key: string, fallback?: string) => {
+    const labels: Record<string, string> = {
+      "courses.title": "Courses",
+      "courses.days": "Days",
+      "courses.fetchError": "Fetch error",
+      "courses.noData": "No data",
+      "common.all": "All",
+      "common.loading": "Loading",
+    };
+
+    return labels[key] ?? fallback ?? key;
+  }),
   getCourseByIdMock: vi.fn(),
+  getCollectionWordsMock: vi.fn(),
   getCourseDaysMock: vi.fn(),
   getSingleListWordsMock: vi.fn(),
   fetchFilteredFamousQuotesMock: vi.fn(),
+  wordTableMock: vi.fn(),
 }));
 
 vi.mock("next/navigation", () => ({
@@ -32,18 +49,7 @@ vi.mock("next/navigation", () => ({
 
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({
-    t: (key: string, fallback?: string) => {
-      const labels: Record<string, string> = {
-        "courses.title": "Courses",
-        "courses.days": "Days",
-        "courses.fetchError": "Fetch error",
-        "courses.noData": "No data",
-        "common.all": "All",
-        "common.loading": "Loading",
-      };
-
-      return labels[key] ?? fallback ?? key;
-    },
+    t: translateMock,
   }),
 }));
 
@@ -78,18 +84,40 @@ vi.mock("@/components/courses/DayCard", () => ({
 }));
 
 vi.mock("@/components/courses/WordTable", () => ({
-  default: ({ words }: { words: Array<{ id: string }> }) => (
-    <div data-testid="word-table">{words.map((word) => word.id).join(",")}</div>
-  ),
+  default: (props: {
+    words: Array<{ id: string }>;
+    isJlpt?: boolean;
+    isPrefix?: boolean;
+    isPostfix?: boolean;
+    showImageUrl?: boolean;
+  }) => {
+    wordTableMock(props);
+    return (
+      <div data-testid="word-table">{props.words.map((word) => word.id).join(",")}</div>
+    );
+  },
 }));
 
 vi.mock("@/types/course", () => ({
+  JLPT_COUNTER_OPTIONS: [
+    {
+      id: "counter_hon",
+      label: "counter_hon",
+      path: "courses/JLPT_COUNTER/counter_hon",
+    },
+    {
+      id: "counter_mai",
+      label: "counter_mai",
+      path: "courses/JLPT_COUNTER/counter_mai",
+    },
+  ],
   JLPT_LEVEL_COURSES: [],
   isJlptCourse: () => false,
   getCourseById: getCourseByIdMock,
 }));
 
 vi.mock("@/lib/firebase/firestore", () => ({
+  getCollectionWords: getCollectionWordsMock,
   getCourseDays: getCourseDaysMock,
   getSingleListWords: getSingleListWordsMock,
 }));
@@ -147,6 +175,7 @@ describe("CourseDaysPage", () => {
     (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT =
       true;
     getCourseByIdMock.mockReturnValue(createCourse());
+    getCollectionWordsMock.mockResolvedValue([]);
     getCourseDaysMock.mockResolvedValue([]);
     getSingleListWordsMock.mockResolvedValue([]);
     fetchFilteredFamousQuotesMock.mockResolvedValue([]);
@@ -193,6 +222,78 @@ describe("CourseDaysPage", () => {
     rendered = await renderPage("FAMOUS_QUOTE");
 
     expect(document.body.textContent).toContain("No data");
+  });
+
+  it("renders collection-backed JLPT counters with JLPT table props", async () => {
+    getCourseByIdMock.mockReturnValue(
+      createCourse({
+        id: "JLPT_COUNTER",
+        label: "Counters",
+        path: "JLPT_Counters/GWhncSjjmcrL0X47yU9j",
+        storageMode: "collection",
+        schema: "jlpt",
+      }),
+    );
+    getCollectionWordsMock.mockImplementation(async (path: string) => {
+      if (path === "courses/JLPT_COUNTER/counter_hon") {
+        return [{ id: "counter-1", word: "本" }];
+      }
+      if (path === "courses/JLPT_COUNTER/counter_mai") {
+        return [{ id: "counter-2", word: "枚" }];
+      }
+      return [];
+    });
+
+    rendered = await renderPage("JLPT_COUNTER");
+
+    const counterChip = Array.from(document.querySelectorAll('[role="button"], button')).find(
+      (element) => element.textContent === "counter_hon",
+    );
+    const secondCounterChip = Array.from(document.querySelectorAll('[role="button"], button')).find(
+      (element) => element.textContent === "counter_mai",
+    );
+
+    expect(counterChip?.textContent).toBe("counter_hon");
+    expect(secondCounterChip?.textContent).toBe("counter_mai");
+    expect(document.getElementById("counter_hon")).not.toBeNull();
+    expect(document.getElementById("counter_mai")).toBeNull();
+    expect(document.body.textContent?.match(/counter_hon/g)?.length).toBe(1);
+    expect(wordTableMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        isJlpt: true,
+        showImageUrl: true,
+        coursePath: "courses/JLPT_COUNTER/counter_hon",
+        rowIdPrefix: "counter_hon-",
+      }),
+    );
+    expect(document.body.textContent).toContain("counter-1");
+
+    act(() => {
+      secondCounterChip?.dispatchEvent(
+        new MouseEvent("click", { bubbles: true }),
+      );
+    });
+
+    expect(document.getElementById("counter_hon")).toBeNull();
+    expect(document.getElementById("counter_mai")).not.toBeNull();
+    expect(document.body.textContent?.match(/counter_mai/g)?.length).toBe(1);
+    expect(wordTableMock).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        coursePath: "courses/JLPT_COUNTER/counter_mai",
+        rowIdPrefix: "counter_mai-",
+      }),
+    );
+    expect(document.body.textContent).toContain("counter-2");
+  });
+
+  it("does not render counter section chips for non-counter courses", async () => {
+    rendered = await renderPage("TOEIC");
+
+    expect(
+      Array.from(document.querySelectorAll('[role="button"], button')).some(
+        (element) => element.textContent === "counter_hon",
+      ),
+    ).toBe(false);
   });
 
   it("renders day cards when a standard course has days", async () => {

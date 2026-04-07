@@ -136,6 +136,40 @@ describe("WordTable", () => {
     expect(markup).toContain('data-nowrap="true">猫<');
   });
 
+  it("renders JLPT counter rows with the existing JLPT layout", () => {
+    const markup = renderToStaticMarkup(
+      <WordTable
+        words={[
+          {
+            id: "counter-1",
+            word: "本",
+            meaningEnglish: "counter for long cylindrical objects",
+            meaningKorean: "긴 물건을 세는 단위",
+            pronunciation: "ほん",
+            pronunciationRoman: "hon",
+            example: "ペンを三本買った。",
+            exampleRoman: "",
+            translationEnglish: "I bought three pens.",
+            translationKorean: "펜을 세 자루 샀다.",
+            imageUrl: "https://example.com/counter.png",
+          },
+        ]}
+        isCollocation={false}
+        isJlpt
+        showImageUrl
+        courseId="JLPT_COUNTER"
+        coursePath="JLPT_Counters/GWhncSjjmcrL0X47yU9j"
+      />,
+    );
+
+    expect(markup).toContain("Meaning (English)");
+    expect(markup).toContain("Meaning (Korean)");
+    expect(markup).toContain("Image");
+    expect(markup).toContain("本");
+    expect(markup).toContain("ほん");
+    expect(markup).toContain("https://example.com/counter.png");
+  });
+
   it("renders derivative content and a generate affordance for supported standard rows", () => {
     const markup = renderToStaticMarkup(
       <WordTable

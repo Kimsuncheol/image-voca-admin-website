@@ -34,8 +34,9 @@ import {
   shouldTreatSheetParseAsValidationError,
 } from "@/lib/utils/sheetsApi";
 import type { ParseResult, SchemaType } from "@/lib/utils/csvParser";
-import type { CourseId } from "@/types/course";
+import type { CourseId, JlptCounterOptionId } from "@/types/course";
 import UploadModal from "./UploadModal";
+import type { UploadModalConfirmPayload } from "./UploadModal";
 
 // ─── 서브 컴포넌트 ─────────────────────────────────────────────────────────
 import GoogleAuthSection from "./url-upload/GoogleAuthSection";
@@ -52,6 +53,9 @@ export interface UrlItem {
   dayName: string;
   /** fetch 성공 시 채워지는 파싱 결과, 실패 시 null */
   data: ParseResult | null;
+  counterOptionId?: JlptCounterOptionId;
+  counterOptionLabel?: string;
+  targetCoursePath?: string;
 }
 
 interface UrlUploadTabProps {
@@ -75,8 +79,10 @@ export default function UrlUploadTab({
   schemaType,
   hideDayInput,
   hiddenDayName,
+  courseLabel,
   courseId,
 }: UrlUploadTabProps) {
+  const isJlptCounterCourse = courseId === "JLPT_COUNTER";
   // Google Sheets OAuth 훅
   const {
     token,
@@ -100,6 +106,12 @@ export default function UrlUploadTab({
   const [urlFetchError, setUrlFetchError] = useState("");
   const [urlValidationError, setUrlValidationError] =
     useState<ParseResult | null>(null);
+  const [pendingAddItem, setPendingAddItem] = useState<{
+    id: string;
+    url: string;
+    dayName: string;
+    data: ParseResult;
+  } | null>(null);
 
   // ── 이벤트 핸들러 ─────────────────────────────────────────────────────
 
@@ -139,6 +151,19 @@ export default function UrlUploadTab({
       // 검증 에러가 있으면 항목 추가 없이 에러만 표시
       if (shouldTreatSheetParseAsValidationError(data)) {
         setUrlValidationError(data);
+        return;
+      }
+      if (courseId === "JLPT_COUNTER") {
+        setPendingAddItem({
+          id: crypto.randomUUID(),
+          url: urlInput,
+          dayName: effectiveDayName,
+          data,
+        });
+        setActiveIndex(-1);
+        setModalOpen(true);
+        setUrlInput("");
+        setDayInput("");
         return;
       }
       onItemsChange([
@@ -201,12 +226,44 @@ export default function UrlUploadTab({
    * - activeIndex의 항목을 새 dayName·data로 업데이트합니다.
    * - 같은 dayName을 가진 다른 항목은 제거합니다 (사용자가 Replace를 확인한 경우).
    */
-  const handleModalConfirm = (dayName: string, data: ParseResult) => {
+  const handleModalConfirm = ({
+    dayName,
+    data,
+    counterOptionId,
+    counterOptionLabel,
+    targetCoursePath,
+  }: UploadModalConfirmPayload) => {
+    const effectiveDayName =
+      isJlptCounterCourse && counterOptionLabel ? counterOptionLabel : dayName;
+
+    if (activeIndex === -1 && pendingAddItem) {
+      onItemsChange([
+        ...items,
+        {
+          ...pendingAddItem,
+          dayName: effectiveDayName,
+          data,
+          counterOptionId,
+          counterOptionLabel,
+          targetCoursePath,
+        },
+      ]);
+      setPendingAddItem(null);
+      return;
+    }
+
     let updated = [...items];
-    updated[activeIndex] = { ...updated[activeIndex], dayName, data };
+    updated[activeIndex] = {
+      ...updated[activeIndex],
+      dayName: effectiveDayName,
+      data,
+      counterOptionId,
+      counterOptionLabel,
+      targetCoursePath,
+    };
     // 동일 dayName을 가진 다른 항목 제거
     updated = updated.filter(
-      (item, i) => i === activeIndex || item.dayName !== dayName,
+      (item, i) => i === activeIndex || item.dayName !== effectiveDayName,
     );
     onItemsChange(updated);
   };
@@ -256,14 +313,31 @@ export default function UrlUploadTab({
       {/* UploadModal: 항목 클릭 시 열리는 편집 모달 */}
       <UploadModal
         open={modalOpen}
-        onClose={() => setModalOpen(false)}
+        onClose={() => {
+          setModalOpen(false);
+          if (activeIndex === -1) {
+            setPendingAddItem(null);
+          }
+        }}
         onConfirm={handleModalConfirm}
-        initialDayName={activeIndex >= 0 ? items[activeIndex]?.dayName : ""}
-        initialData={activeIndex >= 0 ? items[activeIndex]?.data : null}
+        initialDayName={
+          activeIndex >= 0
+            ? items[activeIndex]?.dayName
+            : pendingAddItem?.dayName ?? ""
+        }
+        initialData={
+          activeIndex >= 0
+            ? items[activeIndex]?.data
+            : pendingAddItem?.data ?? null
+        }
+        initialCounterOptionId={
+          activeIndex >= 0 ? items[activeIndex]?.counterOptionId : undefined
+        }
         schemaType={schemaType}
         courseId={courseId}
         hideDayInput={hideDayInput}
         hiddenDayName={hiddenDayName}
+        courseLabel={courseLabel}
         existingDayNames={items
           .filter((_, i) => i !== activeIndex)
           .map((i) => i.dayName)

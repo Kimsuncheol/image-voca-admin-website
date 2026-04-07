@@ -174,6 +174,42 @@ describe("WordFinderTable", () => {
     expect(markup).toContain("Has example");
   });
 
+  it("renders JLPT counter results with the existing JLPT finder layout", () => {
+    const markup = renderToStaticMarkup(
+      <WordFinderTable
+        results={[
+          createResult({
+            id: "counter-1",
+            courseId: "JLPT_COUNTER",
+            courseLabel: "Counters",
+            coursePath: "JLPT_Counters/GWhncSjjmcrL0X47yU9j",
+            sourceHref: "/courses/JLPT_COUNTER#counter-1",
+            dayId: null,
+            schemaVariant: "jlpt",
+            primaryText: "本",
+            secondaryText: "counter for long objects / 긴 물건을 세는 단위",
+            meaning: "counter for long objects / 긴 물건을 세는 단위",
+            meaningEnglish: "counter for long objects",
+            meaningKorean: "긴 물건을 세는 단위",
+            pronunciation: "ほん",
+            pronunciationRoman: "hon",
+            example: "ペンを三本買った。",
+            exampleRoman: "pen o san-bon katta.",
+            translation: "I bought three pens. / 펜을 세 자루 샀다.",
+            translationEnglish: "I bought three pens.",
+            translationKorean: "펜을 세 자루 샀다.",
+            imageUrl: "https://example.com/counter.png",
+          }),
+        ]}
+      />,
+    );
+
+    expect(markup).toContain("https://example.com/counter.png");
+    expect(markup).toContain("本");
+    expect(markup).toContain("Has pronunciation");
+    expect(markup).toContain("Has example");
+  });
+
   it("renders a synonym column for TOEFL / IELTS standard results", () => {
     const markup = renderToStaticMarkup(
       <WordFinderTable

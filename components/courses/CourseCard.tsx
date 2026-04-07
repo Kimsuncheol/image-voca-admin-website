@@ -28,6 +28,7 @@ const courseIcons: Record<CourseId, React.ReactNode> = {
   FAMOUS_QUOTE: <FormatQuoteIcon sx={{ fontSize: 48 }} />,
   JLPT_PREFIX: <TranslateIcon sx={{ fontSize: 48 }} />,
   JLPT_POSTFIX: <TranslateIcon sx={{ fontSize: 48 }} />,
+  JLPT_COUNTER: <TranslateIcon sx={{ fontSize: 48 }} />,
 };
 
 interface CourseCardProps {

@@ -101,6 +101,20 @@ export async function getSingleListWords(
   })) as Word[];
 }
 
+export async function getCollectionWords(
+  collectionPath: string,
+): Promise<Word[]> {
+  console.log('[Firestore] getCollectionWords path:', collectionPath);
+  const wordsCollection = collection(db, collectionPath);
+  const snapshot = await getDocs(wordsCollection);
+
+  console.log('[Firestore] getCollectionWords snapshot size:', snapshot.size);
+  return snapshot.docs.map((d) => ({
+    id: d.id,
+    ...d.data(),
+  })) as Word[];
+}
+
 export async function updateWordImageUrl(
   coursePath: string,
   dayId: string,
@@ -121,6 +135,15 @@ export async function updateSingleListWordImageUrl(
     getSingleListCollection(courseId, coursePath),
     wordId,
   );
+  await updateDoc(wordRef, { imageUrl });
+}
+
+export async function updateCollectionWordImageUrl(
+  collectionPath: string,
+  wordId: string,
+  imageUrl: string,
+): Promise<void> {
+  const wordRef = doc(collection(db, collectionPath), wordId);
   await updateDoc(wordRef, { imageUrl });
 }
 
@@ -163,6 +186,23 @@ export async function updateSingleListWordField(
   await updateDoc(wordRef, { [field]: value });
 }
 
+export async function updateCollectionWordField(
+  collectionPath: string,
+  wordId: string,
+  field:
+    | 'pronunciation'
+    | 'pronunciationRoman'
+    | 'example'
+    | 'exampleRoman'
+    | 'translation'
+    | 'translationEnglish'
+    | 'translationKorean',
+  value: string,
+): Promise<void> {
+  const wordRef = doc(collection(db, collectionPath), wordId);
+  await updateDoc(wordRef, { [field]: value });
+}
+
 export async function updateWordDerivatives(
   coursePath: string,
   dayId: string,
@@ -183,6 +223,15 @@ export async function updateSingleListWordDerivatives(
     getSingleListCollection(courseId, coursePath),
     wordId,
   );
+  await updateDoc(wordRef, { derivative });
+}
+
+export async function updateCollectionWordDerivatives(
+  collectionPath: string,
+  wordId: string,
+  derivative: { word: string; meaning: string }[],
+): Promise<void> {
+  const wordRef = doc(collection(db, collectionPath), wordId);
   await updateDoc(wordRef, { derivative });
 }
 
@@ -237,6 +286,29 @@ export async function updateSingleListWordTextField(
   await updateDoc(wordRef, { [field]: value });
 }
 
+export async function updateCollectionWordTextField(
+  collectionPath: string,
+  wordId: string,
+  field:
+    | 'word'
+    | 'prefix'
+    | 'postfix'
+    | 'meaning'
+    | 'collocation'
+    | 'meaningEnglish'
+    | 'meaningKorean'
+    | 'pronunciation'
+    | 'example'
+    | 'exampleRoman'
+    | 'translation'
+    | 'translationEnglish'
+    | 'translationKorean',
+  value: string,
+): Promise<void> {
+  const wordRef = doc(collection(db, collectionPath), wordId);
+  await updateDoc(wordRef, { [field]: value });
+}
+
 export async function updateFlatCourseField(
   coursePath: string,
   wordId: string,
@@ -263,6 +335,12 @@ export async function checkSingleListExists(
   coursePath: string,
 ): Promise<boolean> {
   const wordsCollection = getSingleListCollection(courseId, coursePath);
+  const snap = await getDocs(query(wordsCollection, limit(1)));
+  return !snap.empty;
+}
+
+export async function checkCollectionExists(collectionPath: string): Promise<boolean> {
+  const wordsCollection = collection(db, collectionPath);
   const snap = await getDocs(query(wordsCollection, limit(1)));
   return !snap.empty;
 }

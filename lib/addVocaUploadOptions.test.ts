@@ -158,6 +158,43 @@ test("enables furigana-only modal options for JLPT uploads when pronunciation is
   });
 });
 
+test("enables JLPT-style image preservation and furigana options for counters uploads", () => {
+  const result = getUploadOptionState({
+    selectedCourse: "JLPT_COUNTER",
+    imageGenerationEnabled: true,
+    enrichGenerationEnabled: true,
+    uploadWords: [
+      {
+        word: "本",
+        meaningEnglish: "counter for long objects",
+        meaningKorean: "긴 물건을 세는 단위",
+        pronunciation: "",
+        pronunciationRoman: "",
+        example: "本(ほん)を三本買った。",
+        exampleRoman: "",
+        translationEnglish: "I bought three long objects.",
+        translationKorean: "긴 물건을 세 개 샀다.",
+        imageUrl: "",
+      },
+    ],
+  });
+
+  expect(result).toEqual({
+    isImageGenerationEnabled: true,
+    isExampleAndTranslationGenerationEnabled: false,
+    isFuriganaEnabled: true,
+    isPreserveExistingImagesEnabled: true,
+    shouldShowModal: true,
+    defaultOptions: {
+      images: true,
+      examples: false,
+      translations: false,
+      furigana: false,
+      preserveExistingImages: true,
+    },
+  });
+});
+
 test("enables furigana-only modal options when examples lack parenthetical furigana", () => {
   const prefixResult = getUploadOptionState({
     selectedCourse: "JLPT_PREFIX",

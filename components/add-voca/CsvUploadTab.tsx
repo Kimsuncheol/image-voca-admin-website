@@ -25,7 +25,8 @@ import { getFamousQuotes } from '@/lib/firebase/firestore';
 import FileListItem from './FileListItem';
 import UploadModal from './UploadModal';
 import { type ParseResult, type SchemaType } from '@/lib/utils/csvParser';
-import type { CourseId } from '@/types/course';
+import type { CourseId, JlptCounterOptionId } from '@/types/course';
+import type { UploadModalConfirmPayload } from './UploadModal';
 
 export interface CsvItem {
   id: string;
@@ -34,6 +35,9 @@ export interface CsvItem {
   file: File | null;
   dayName: string;
   data: ParseResult | null;
+  counterOptionId?: JlptCounterOptionId;
+  counterOptionLabel?: string;
+  targetCoursePath?: string;
 }
 
 interface CsvUploadTabProps {
@@ -71,6 +75,7 @@ export default function CsvUploadTab({
   courseId,
 }: CsvUploadTabProps) {
   const { t } = useTranslation();
+  const isJlptCounterCourse = courseId === "JLPT_COUNTER";
   const [modalOpen, setModalOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState<number>(-1);
   const [downloadAnchor, setDownloadAnchor] = useState<HTMLButtonElement | null>(null);
@@ -134,18 +139,31 @@ export default function CsvUploadTab({
     onItemsChange(items.filter((_, i) => i !== index));
   };
 
-  const handleModalConfirm = (dayName: string, data: ParseResult, file?: File) => {
+  const handleModalConfirm = ({
+    dayName,
+    data,
+    file,
+    counterOptionId,
+    counterOptionLabel,
+    targetCoursePath,
+  }: UploadModalConfirmPayload) => {
+    const effectiveDayName =
+      isJlptCounterCourse && counterOptionLabel ? counterOptionLabel : dayName;
+
     if (activeIndex === -1) {
       // Adding a new item. If user confirmed Replace, overwrite the existing entry.
-      const existingIndex = items.findIndex((i) => i.dayName === dayName);
+      const existingIndex = items.findIndex((i) => i.dayName === effectiveDayName);
       if (existingIndex !== -1) {
         const updated = [...items];
         updated[existingIndex] = {
           ...updated[existingIndex],
           fileName: file?.name ?? updated[existingIndex].fileName,
           file: file ?? updated[existingIndex].file,
-          dayName,
+          dayName: effectiveDayName,
           data,
+          counterOptionId,
+          counterOptionLabel,
+          targetCoursePath,
         };
         onItemsChange(updated);
       } else {
@@ -153,10 +171,13 @@ export default function CsvUploadTab({
           ...items,
           {
             id: crypto.randomUUID(),
-            fileName: file?.name ?? (data.words.length > 0 ? `${dayName}.csv` : 'Untitled.csv'),
+            fileName: file?.name ?? (data.words.length > 0 ? `${effectiveDayName}.csv` : 'Untitled.csv'),
             file: file ?? null,
-            dayName,
+            dayName: effectiveDayName,
             data,
+            counterOptionId,
+            counterOptionLabel,
+            targetCoursePath,
           },
         ]);
       }
@@ -166,11 +187,14 @@ export default function CsvUploadTab({
       let updated = [...items];
       updated[activeIndex] = {
         ...updated[activeIndex],
-        dayName,
+        dayName: effectiveDayName,
         data,
         file: file ?? updated[activeIndex].file,
+        counterOptionId,
+        counterOptionLabel,
+        targetCoursePath,
       };
-      updated = updated.filter((item, i) => i === activeIndex || item.dayName !== dayName);
+      updated = updated.filter((item, i) => i === activeIndex || item.dayName !== effectiveDayName);
       onItemsChange(updated);
     }
   };
@@ -257,6 +281,7 @@ export default function CsvUploadTab({
                 key={item.id}
                 label={item.fileName}
                 dayName={hideDayInput ? undefined : item.dayName}
+                secondaryLabel={item.counterOptionLabel}
                 hasData={!!item.data && item.data.words.length > 0}
                 onClick={() => handleItemClick(index)}
                 onDelete={() => handleDelete(index)}
@@ -272,6 +297,7 @@ export default function CsvUploadTab({
         onConfirm={handleModalConfirm}
         initialDayName={activeIndex >= 0 ? items[activeIndex]?.dayName : ''}
         initialData={activeIndex >= 0 ? items[activeIndex]?.data : null}
+        initialCounterOptionId={activeIndex >= 0 ? items[activeIndex]?.counterOptionId : undefined}
         schemaType={schemaType}
         hideDayInput={hideDayInput}
         hiddenDayName={hiddenDayName}

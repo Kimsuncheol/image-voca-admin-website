@@ -27,15 +27,29 @@ import {
   type ParseResult,
   type SchemaType,
 } from "@/lib/utils/csvParser";
-import type { CourseId } from "@/types/course";
+import {
+  JLPT_COUNTER_OPTIONS,
+  type CourseId,
+  type JlptCounterOptionId,
+} from "@/types/course";
+
+export interface UploadModalConfirmPayload {
+  dayName: string;
+  data: ParseResult;
+  file?: File;
+  counterOptionId?: JlptCounterOptionId;
+  counterOptionLabel?: string;
+  targetCoursePath?: string;
+}
 
 interface UploadModalProps {
   open: boolean;
   onClose: () => void;
   /** file is passed back for CSV Storage backup (FR-6); absent for URL-sourced items */
-  onConfirm: (dayName: string, data: ParseResult, file?: File) => void;
+  onConfirm: (payload: UploadModalConfirmPayload) => void;
   initialDayName?: string;
   initialData?: ParseResult | null;
+  initialCounterOptionId?: JlptCounterOptionId;
   /** Derived from the selected course; overrides CSV header auto-detection. */
   schemaType?: SchemaType;
   /**
@@ -78,6 +92,49 @@ const STANDARD_HEADERS_WITH_SYNONYM = [
   "synonym",
 ] as const;
 
+function normalizeCounterFilenameToken(value: string): string {
+  return value
+    .replace(/\.[^./\\]+$/, "")
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, "_");
+}
+
+export function detectJlptCounterOptionIdFromFilename(
+  filename: string,
+): JlptCounterOptionId | null {
+  const normalizedFilename = normalizeCounterFilenameToken(filename);
+  if (!normalizedFilename) return null;
+
+  if (normalizedFilename === "counters_numbers") {
+    return "numbers";
+  }
+
+  if (normalizedFilename.startsWith("counters_")) {
+    const candidateOptionId = `counter_${normalizedFilename.slice("counters_".length)}`;
+    const matchedOption = JLPT_COUNTER_OPTIONS.find(
+      (option) => option.id === candidateOptionId,
+    );
+
+    if (matchedOption) {
+      return matchedOption.id;
+    }
+  }
+
+  const matchedOption = JLPT_COUNTER_OPTIONS.find(
+    (option) => option.id === normalizedFilename,
+  );
+
+  return matchedOption?.id ?? null;
+}
+
+export function resolveJlptCounterOptionIdFromFilename(
+  filename: string,
+  currentSelectionId: JlptCounterOptionId | "" = "",
+): JlptCounterOptionId | "" {
+  return detectJlptCounterOptionIdFromFilename(filename) ?? currentSelectionId;
+}
+
 function filenameMatchesCourse(filename: string, courseLabel: string): boolean {
   const lower = filename.toLowerCase();
   const tokens = courseLabel.split(/[\s/]+/).filter((t) => t.length > 1);
@@ -116,6 +173,7 @@ export default function UploadModal({
   onConfirm,
   initialDayName = "",
   initialData = null,
+  initialCounterOptionId,
   schemaType,
   existingDayNames = [],
   hideDayInput = false,
@@ -136,6 +194,10 @@ export default function UploadModal({
   );
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [filenameMismatch, setFilenameMismatch] = useState(false);
+  const [selectedCounterOptionId, setSelectedCounterOptionId] = useState<
+    JlptCounterOptionId | ""
+  >(initialCounterOptionId ?? "");
+  const isJlptCounterCourse = courseId === "JLPT_COUNTER";
 
   const onDrop = useCallback(
     async (acceptedFiles: File[]) => {
@@ -145,6 +207,14 @@ export default function UploadModal({
           !!courseLabel && !filenameMatchesCourse(file.name, courseLabel),
         );
         setSelectedFile(file);
+        if (isJlptCounterCourse) {
+          setSelectedCounterOptionId((currentSelectionId) =>
+            resolveJlptCounterOptionIdFromFilename(
+              file.name,
+              currentSelectionId,
+            ),
+          );
+        }
         const result = await parseCsvFile(file, {
           schemaType,
           courseId,
@@ -153,7 +223,7 @@ export default function UploadModal({
         setParseResult(result);
       }
     },
-    [schemaType, courseId, courseLabel],
+    [schemaType, courseId, courseLabel, isJlptCounterCourse],
   );
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
@@ -190,7 +260,18 @@ export default function UploadModal({
       }
     }
 
-    onConfirm(effectiveDayName, parseResult, selectedFile ?? undefined);
+    const selectedCounterOption = JLPT_COUNTER_OPTIONS.find(
+      (option) => option.id === selectedCounterOptionId,
+    );
+
+    onConfirm({
+      dayName: effectiveDayName,
+      data: parseResult,
+      file: selectedFile ?? undefined,
+      counterOptionId: selectedCounterOption?.id,
+      counterOptionLabel: selectedCounterOption?.label,
+      targetCoursePath: selectedCounterOption?.path,
+    });
     onClose();
   };
 
@@ -215,6 +296,7 @@ export default function UploadModal({
     setParseResult(initialData ?? null);
     setSelectedFile(null);
     setFilenameMismatch(false);
+    setSelectedCounterOptionId(initialCounterOptionId ?? "");
   };
 
   const getBlockingErrorMessage = (code?: ParseResult["blockingError"]) => {
@@ -269,6 +351,29 @@ export default function UploadModal({
               placeholder="1"
               sx={dayFieldSx}
             />
+          )}
+
+          {isJlptCounterCourse && (
+            <TextField
+              select
+              fullWidth
+              label={t("addVoca.counterOption", "Counter target")}
+              value={selectedCounterOptionId}
+              onChange={(event) =>
+                setSelectedCounterOptionId(
+                  event.target.value as JlptCounterOptionId | "",
+                )
+              }
+              SelectProps={{ native: true }}
+              sx={dayFieldSx}
+            >
+              <option value="" />
+              {JLPT_COUNTER_OPTIONS.map((option) => (
+                <option key={option.id} value={option.id}>
+                  {option.label}
+                </option>
+              ))}
+            </TextField>
           )}
 
           <Box
@@ -474,6 +579,7 @@ export default function UploadModal({
           variant="contained"
           disabled={
             (!hideDayInput && !dayName) ||
+            (isJlptCounterCourse && !selectedCounterOptionId) ||
             !parseResult ||
             parseResult.words.length === 0 ||
             filenameMismatch

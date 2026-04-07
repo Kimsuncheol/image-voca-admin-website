@@ -40,6 +40,15 @@ test("validateGenerateImageRequestBody accepts supported courses", () => {
   assert.equal(result.ok, true);
 });
 
+test("validateGenerateImageRequestBody accepts JLPT counter uploads", () => {
+  const result = validateGenerateImageRequestBody({
+    word: "本",
+    courseId: "JLPT_COUNTER",
+  });
+
+  assert.equal(result.ok, true);
+});
+
 test("createGenerateImageError supports FEATURE_DISABLED", () => {
   const result = createGenerateImageError("FEATURE_DISABLED");
 

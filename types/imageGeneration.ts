@@ -8,6 +8,7 @@ export type ImageGenerationCourseId = Extract<
   | "TOEFL_IELTS"
   | "TOEIC"
   | "JLPT"
+  | "JLPT_COUNTER"
   | "JLPT_N1"
   | "JLPT_N2"
   | "JLPT_N3"
@@ -23,6 +24,7 @@ export const SUPPORTED_IMAGE_GENERATION_COURSE_IDS = [
   "TOEFL_IELTS",
   "TOEIC",
   "JLPT",
+  "JLPT_COUNTER",
   "JLPT_N1",
   "JLPT_N2",
   "JLPT_N3",

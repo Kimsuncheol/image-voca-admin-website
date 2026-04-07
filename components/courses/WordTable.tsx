@@ -25,6 +25,9 @@ import InlineEditableText from "@/components/shared/InlineEditableText";
 import WordFinderMissingFieldDialog from "@/components/words/WordFinderMissingFieldDialog";
 import { addFuriganaText } from "@/lib/addFurigana";
 import {
+  updateCollectionWordDerivatives,
+  updateCollectionWordImageUrl,
+  updateCollectionWordTextField,
   updateSingleListWordDerivatives,
   updateSingleListWordImageUrl,
   updateSingleListWordTextField,
@@ -427,6 +430,7 @@ interface WordTableProps {
   courseId?: CourseId;
   coursePath?: string;
   dayId?: string;
+  rowIdPrefix?: string;
   exitingWordIds?: Set<string>;
   onWordImageUpdated?: (wordId: string, imageUrl: string) => void;
   onWordFieldsUpdated?: (wordId: string, fields: WordFinderResultFieldUpdates) => void;
@@ -449,6 +453,7 @@ export default function WordTable({
   courseId,
   coursePath,
   dayId,
+  rowIdPrefix = "",
   exitingWordIds,
   onWordImageUpdated,
   onWordFieldsUpdated,
@@ -525,6 +530,11 @@ export default function WordTable({
         return;
       }
 
+      if (storageMode === "collection") {
+        await updateCollectionWordTextField(coursePath, wordId, field, value);
+        return;
+      }
+
       if (storageMode === "day" && dayId) {
         await updateWordTextField(coursePath, dayId, wordId, field, value);
       }
@@ -542,6 +552,11 @@ export default function WordTable({
         return;
       }
 
+      if (storageMode === "collection") {
+        await updateCollectionWordImageUrl(coursePath, wordId, imageUrl);
+        return;
+      }
+
       if (storageMode === "day" && dayId) {
         await updateWordImageUrl(coursePath, dayId, wordId, imageUrl);
       }
@@ -556,6 +571,11 @@ export default function WordTable({
       if (storageMode === "singleList") {
         if (!courseId) return;
         await updateSingleListWordDerivatives(courseId, coursePath, wordId, items);
+        return;
+      }
+
+      if (storageMode === "collection") {
+        await updateCollectionWordDerivatives(coursePath, wordId, items);
         return;
       }
 
@@ -1366,7 +1386,7 @@ export default function WordTable({
               return (
                 <TableRow
                   key={word.id}
-                  id={word.id}
+                  id={`${rowIdPrefix}${word.id}`}
                   sx={exitingWordIds?.has(word.id) ? {
                     animation: "rowFadeOut 350ms ease forwards",
                     "@keyframes rowFadeOut": {

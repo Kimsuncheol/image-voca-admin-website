@@ -14,7 +14,7 @@ import { invalidateCourseCache } from "@/lib/server/wordCache";
  * Body:  {
  *   coursePath: string;
  *   days: { dayName: string; words: unknown[] }[];
- *   storageMode?: "day" | "flat" | "singleList";
+ *   storageMode?: "day" | "flat" | "singleList" | "collection";
  * }
  * Response: { results: { dayName: string; count: number; error?: string }[] }
  *
@@ -22,6 +22,7 @@ import { invalidateCourseCache } from "@/lib/server/wordCache";
  *  - "day": words are written into DayN subcollections
  *  - "flat": words are written directly into the collection root
  *  - "singleList": words are written into the course's fixed named subcollection
+ *  - "collection": words are written directly into the provided collection path
  */
 
 interface DayPayload {
@@ -44,12 +45,17 @@ interface NamedWordPayload {
 interface BatchUploadRequestBody {
   coursePath: string;
   days: DayPayload[];
-  storageMode?: "day" | "flat" | "singleList";
+  storageMode?: "day" | "flat" | "singleList" | "collection";
   preserveExistingImages?: boolean;
 }
 
 interface BatchUploadCollectionSnapshot {
-  docs: Array<{ data: () => unknown }>;
+  empty?: boolean;
+  docs: Array<{
+    id: string;
+    ref: unknown;
+    data: () => Record<string, unknown> | undefined;
+  }>;
 }
 
 interface BatchUploadDaySnapshot {
@@ -264,12 +270,13 @@ async function writeFlatQuotes(
 }
 
 async function writeDayWords(
-  coursePath: string,
-  subcollectionName: string,
+  targetPath: string,
+  subcollectionName: string | null,
   words: unknown[],
   dependencies: BatchUploadDependencies,
   batchLimit: number,
   preserveExistingImages: boolean,
+  storageMode: "day" | "singleList" | "collection",
 ): Promise<number> {
   const parsedWords = words.map((word) => parseNamedWordPayload(word));
   if (parsedWords.some((word) => word === null)) {
@@ -285,7 +292,10 @@ async function writeDayWords(
     seenIds.add(word.id);
   }
 
-  const dayCollection = dependencies.adminDb.doc(coursePath).collection(subcollectionName);
+  const dayCollection =
+    storageMode === "collection"
+      ? dependencies.adminDb.collection(targetPath)
+      : dependencies.adminDb.doc(targetPath).collection(subcollectionName ?? "");
 
   const existingSnap = await dayCollection.get();
   const wordsToWrite = preserveExistingImages
@@ -327,7 +337,7 @@ export function createBatchUploadHandler(
 
     let coursePath: string;
     let days: DayPayload[];
-    let storageMode: "day" | "flat" | "singleList";
+    let storageMode: "day" | "flat" | "singleList" | "collection";
     let preserveExistingImages: boolean;
     try {
       ({ coursePath, days, storageMode = "day", preserveExistingImages = false } =
@@ -395,16 +405,27 @@ export function createBatchUploadHandler(
               dependencies,
               batchLimit,
             )
-          : await writeDayWords(
-              normalizedCoursePath,
-              storageMode === "singleList"
-                ? (singleListSubcollectionName ?? dayName)
-                : dayName,
-              words,
-              dependencies,
-              batchLimit,
-              preserveExistingImages,
-            );
+          : storageMode === "collection"
+            ? await writeDayWords(
+                normalizedCoursePath,
+                null,
+                words,
+                dependencies,
+                batchLimit,
+                preserveExistingImages,
+                "collection",
+              )
+            : await writeDayWords(
+                normalizedCoursePath,
+                storageMode === "singleList"
+                  ? (singleListSubcollectionName ?? dayName)
+                  : dayName,
+                words,
+                dependencies,
+                batchLimit,
+                preserveExistingImages,
+                storageMode,
+              );
 
         if (storageMode === "day") {
           const dayNumber = parseInt(dayName.replace("Day", ""), 10) || 0;

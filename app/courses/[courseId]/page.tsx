@@ -45,14 +45,24 @@ import { useTranslation } from "react-i18next";
 import PageLayout from "@/components/layout/PageLayout";
 
 // ── Course-domain types & data helpers ────────────────────────────────
-import { getCourseById, JLPT_LEVEL_COURSES, isJlptCourse } from "@/types/course";
+import {
+  getCourseById,
+  isJlptCourse,
+  JLPT_COUNTER_OPTIONS,
+  JLPT_LEVEL_COURSES,
+} from "@/types/course";
+import { isSupportedImageGenerationCourseId } from "@/types/imageGeneration";
 import type { Day } from "@/types/course";
 import {
   FAMOUS_QUOTE_FILTER_LANGUAGES,
   type FamousQuoteFilterLanguage,
 } from "@/types/famousQuote";
 import type { FamousQuoteWord, Word } from "@/types/word";
-import { getCourseDays, getSingleListWords } from "@/lib/firebase/firestore";
+import {
+  getCollectionWords,
+  getCourseDays,
+  getSingleListWords,
+} from "@/lib/firebase/firestore";
 import {
   fetchFilteredFamousQuotes,
   fillFamousQuotesEnglish,
@@ -93,6 +103,10 @@ export default function CourseDaysPage({
   const [days, setDays] = useState<Day[]>([]);
   const [quotes, setQuotes] = useState<FamousQuoteWord[]>([]);
   const [singleListWords, setSingleListWords] = useState<Word[]>([]);
+  const [collectionSections, setCollectionSections] = useState<
+    Array<{ id: string; label: string; path: string; words: Word[] }>
+  >([]);
+  const [selectedCounterSectionId, setSelectedCounterSectionId] = useState("");
   const [languageFilter, setLanguageFilter] =
     useState<FamousQuoteFilterLanguage>("All");
   const [refreshKey, setRefreshKey] = useState(0);
@@ -105,7 +119,9 @@ export default function CourseDaysPage({
   const storageMode = course?.storageMode ?? "day";
   const isFlat = storageMode === "flat";
   const isSingleList = storageMode === "singleList";
-  const isDirectList = isFlat || isSingleList;
+  const isCollection = storageMode === "collection";
+  const isJlptCounterCourse = courseId === "JLPT_COUNTER";
+  const isDirectList = isFlat || isSingleList || isCollection;
   const isJlptLevel = JLPT_LEVEL_COURSES.some((l) => l.id === courseId);
   const isJlptGroup = isJlptCourse(courseId) || isJlptLevel;
   // Generic /courses/JLPT page — redirect to the default level
@@ -246,6 +262,56 @@ export default function CourseDaysPage({
     };
   }, [course, isJlptGroupRoot, isSingleList, t]);
 
+  useEffect(() => {
+    if (!course || isJlptGroupRoot || !isCollection) return;
+
+    let isCancelled = false;
+
+    Promise.all(
+      JLPT_COUNTER_OPTIONS.filter((option) => Boolean(option.path)).map(async (option) => ({
+        id: option.id,
+        label: option.label,
+        path: option.path,
+        words: await getCollectionWords(option.path),
+      })),
+    )
+      .then((sections) => {
+        if (isCancelled) return;
+        setCollectionSections(
+          sections.filter((section) => section.words.length > 0),
+        );
+        setError("");
+      })
+      .catch(() => {
+        if (isCancelled) return;
+        setError(t("courses.fetchError"));
+        setCollectionSections([]);
+      })
+      .finally(() => {
+        if (isCancelled) return;
+        setLoading(false);
+      });
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [course, isCollection, isJlptGroupRoot, t]);
+
+  useEffect(() => {
+    if (!isJlptCounterCourse) return;
+
+    if (collectionSections.length === 0) {
+      setSelectedCounterSectionId("");
+      return;
+    }
+
+    setSelectedCounterSectionId((current) =>
+      collectionSections.some((section) => section.id === current)
+        ? current
+        : collectionSections[0]?.id ?? "",
+    );
+  }, [collectionSections, isJlptCounterCourse]);
+
   // ── Loading state ─────────────────────────────────────────────────
   if (isLoading) {
     return isFlat ? (
@@ -289,6 +355,35 @@ export default function CourseDaysPage({
               sx={{
                 borderRadius: "999px",
                 fontWeight: courseId === level.id ? 600 : 400,
+                "& .MuiChip-label": { px: "8px", py: "6px" },
+              }}
+            />
+          ))}
+        </Box>
+      )}
+
+      {isJlptCounterCourse && collectionSections.length > 0 && (
+        <Box
+          sx={{
+            display: "flex",
+            gap: 0.75,
+            mb: 2,
+            alignItems: "center",
+            flexWrap: "wrap",
+          }}
+        >
+          {collectionSections.map((section) => (
+            <Chip
+              key={section.id}
+              label={section.label}
+              size="small"
+              clickable
+              onClick={() => setSelectedCounterSectionId(section.id)}
+              color={selectedCounterSectionId === section.id ? "primary" : "default"}
+              variant={selectedCounterSectionId === section.id ? "filled" : "outlined"}
+              sx={{
+                borderRadius: "999px",
+                fontWeight: selectedCounterSectionId === section.id ? 600 : 400,
                 "& .MuiChip-label": { px: "8px", py: "6px" },
               }}
             />
@@ -367,11 +462,35 @@ export default function CourseDaysPage({
           <WordTable
             words={singleListWords}
             isCollocation={false}
+            isJlpt={course?.schema === "jlpt"}
             isPrefix={course?.schema === "prefix"}
             isPostfix={course?.schema === "postfix"}
+            showImageUrl={isSupportedImageGenerationCourseId(course.id)}
             courseId={course.id}
             coursePath={course.path}
           />
+        )
+      ) : isCollection && course ? (
+        collectionSections.length === 0 && !resolvedError ? (
+          <SimpleEmptyState text={t("courses.noData")} />
+        ) : (
+          <Box sx={{ display: "grid", gap: 3 }}>
+            {collectionSections
+              .filter((section) => section.id === selectedCounterSectionId)
+              .map((section) => (
+              <Box key={section.id} id={section.id}>
+                <WordTable
+                  words={section.words}
+                  isCollocation={false}
+                  isJlpt={course?.schema === "jlpt"}
+                  showImageUrl={isSupportedImageGenerationCourseId(course.id)}
+                  courseId={course.id}
+                  coursePath={section.path}
+                  rowIdPrefix={`${section.id}-`}
+                />
+              </Box>
+            ))}
+          </Box>
         )
       ) : /* ── Standard course: day-card grid ────────────────────────── */
       days.length === 0 && !resolvedError ? (

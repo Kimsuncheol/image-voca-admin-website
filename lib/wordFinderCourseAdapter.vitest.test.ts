@@ -33,6 +33,34 @@ describe("wordFinderCourseAdapter derivatives", () => {
     expect(result.synonym).toBe("function");
   });
 
+  it("maps JLPT counters through the existing JLPT result shape", () => {
+    const result = adaptCourseWordToWordFinderResult({
+      word: {
+        id: "counter-1",
+        word: "本",
+        meaningEnglish: "counter for long objects",
+        meaningKorean: "긴 물건을 세는 단위",
+        pronunciation: "ほん",
+        pronunciationRoman: "hon",
+        example: "ペンを三本買った。",
+        exampleRoman: "",
+        translationEnglish: "I bought three pens.",
+        translationKorean: "펜을 세 자루 샀다.",
+        imageUrl: "https://example.com/counter.png",
+      },
+      courseId: "JLPT_COUNTER",
+      courseLabel: "Counters",
+      coursePath: "JLPT_Counters/GWhncSjjmcrL0X47yU9j",
+      isCollocation: false,
+      isJlpt: true,
+    });
+
+    expect(result.schemaVariant).toBe("jlpt");
+    expect(result.primaryText).toBe("本");
+    expect(result.dayId).toBeNull();
+    expect(result.imageUrl).toBe("https://example.com/counter.png");
+  });
+
   it("includes derivative as a missing field only for supported standard rows", () => {
     const missingFields = getCourseWordMissingFields(
       {

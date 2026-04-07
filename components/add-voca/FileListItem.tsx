@@ -11,12 +11,20 @@ import Chip from '@mui/material/Chip';
 interface FileListItemProps {
   label: string;
   dayName?: string;
+  secondaryLabel?: string;
   hasData: boolean;
   onClick: () => void;
   onDelete: () => void;
 }
 
-export default function FileListItem({ label, dayName, hasData, onClick, onDelete }: FileListItemProps) {
+export default function FileListItem({
+  label,
+  dayName,
+  secondaryLabel,
+  hasData,
+  onClick,
+  onDelete,
+}: FileListItemProps) {
   return (
     <ListItem
       disablePadding
@@ -45,7 +53,9 @@ export default function FileListItem({ label, dayName, hasData, onClick, onDelet
         {hasData && <CheckCircleIcon color="success" sx={{ mr: 1, fontSize: 20 }} />}
         <ListItemText
           primary={label}
+          secondary={secondaryLabel}
           primaryTypographyProps={{ variant: 'body2', fontWeight: 500, noWrap: true }}
+          secondaryTypographyProps={{ variant: 'caption', color: 'text.secondary', noWrap: true }}
         />
         {dayName && (
           <Chip

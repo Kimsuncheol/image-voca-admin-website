@@ -9,6 +9,7 @@ const IMAGE_URL_COURSE_IDS = new Set<CourseId>([
   "TOEFL_IELTS",
   "TOEIC",
   "JLPT",
+  "JLPT_COUNTER",
 ]);
 
 export function shouldIncludeImageUrl(courseId: CourseId | ""): boolean {

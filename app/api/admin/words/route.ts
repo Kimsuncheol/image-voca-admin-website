@@ -15,7 +15,12 @@ import {
   normalizeWordFinderText,
 } from "@/lib/server/wordFinderSearch";
 import { verifySessionUser } from "@/lib/server/sessionUser";
-import { COURSES, JLPT_LEVEL_COURSES, type Course } from "@/types/course";
+import {
+  COURSES,
+  JLPT_COUNTER_OPTIONS,
+  JLPT_LEVEL_COURSES,
+  type Course,
+} from "@/types/course";
 import type {
   WordFinderMissingField,
   WordFinderResponse,
@@ -46,8 +51,10 @@ function buildCourseSourceHref(
   courseId: Course["id"],
   id: string,
   dayId?: string | null,
+  anchorId?: string | null,
 ): string {
-  return dayId ? `/courses/${courseId}/${dayId}#${id}` : `/courses/${courseId}#${id}`;
+  const targetId = anchorId ?? id;
+  return dayId ? `/courses/${courseId}/${dayId}#${targetId}` : `/courses/${courseId}#${targetId}`;
 }
 
 function createStandardResult(
@@ -105,9 +112,13 @@ function normalizeDerivativeEntries(
 
 function createJlptResult(
   course: Course,
-  dayId: string,
+  dayId: string | null,
   id: string,
   data: Record<string, unknown>,
+  overrides?: {
+    coursePath?: string;
+    sourceAnchorId?: string;
+  },
 ): WordFinderResult | null {
   const word = normalizeWordFinderText(data.word);
   if (!word) return null;
@@ -121,10 +132,10 @@ function createJlptResult(
     id,
     courseId: course.id,
     courseLabel: course.label,
-    coursePath: course.path,
+    coursePath: overrides?.coursePath ?? course.path,
     schemaVariant: "jlpt",
     dayId,
-    sourceHref: buildCourseSourceHref(course.id, id, dayId),
+    sourceHref: buildCourseSourceHref(course.id, id, dayId, overrides?.sourceAnchorId),
     type: "standard",
     primaryText: word,
     secondaryText: [meaningEnglish, meaningKorean].filter(Boolean).join(" / ") || null,
@@ -283,6 +294,24 @@ function createPostfixResult(
 async function getCourseResults(course: Course): Promise<WordFinderResult[]> {
   if (!course.path) return [];
 
+  if (course.id === "JLPT_COUNTER") {
+    const optionSnapshots = await Promise.all(
+      JLPT_COUNTER_OPTIONS.filter((option) => Boolean(option.path)).map(async (option) => {
+        const snapshot = await adminDb.collection(option.path).get();
+        return snapshot.docs
+          .map((doc) =>
+            createJlptResult(course, null, doc.id, doc.data() as Record<string, unknown>, {
+              coursePath: option.path,
+              sourceAnchorId: `${option.id}-${doc.id}`,
+            }),
+          )
+          .filter((result): result is WordFinderResult => Boolean(result));
+      }),
+    );
+
+    return optionSnapshots.flat();
+  }
+
   if (course.storageMode === "flat") {
     const snapshot = await adminDb.collection(course.path).get();
     return snapshot.docs
@@ -306,6 +335,9 @@ async function getCourseResults(course: Course): Promise<WordFinderResult[]> {
     return snapshot.docs
       .map((doc) => {
         const data = doc.data() as Record<string, unknown>;
+        if (course.schema === "jlpt") {
+          return createJlptResult(course, null, doc.id, data);
+        }
         if (course.schema === "prefix") {
           return createPrefixResult(course, doc.id, data);
         }
@@ -389,10 +421,12 @@ export async function GET(request: NextRequest) {
     // Fetch with caching
     const courseResults = await Promise.all(
       selectedCourses.map(async (course) => {
-        const cached = getCachedCourseResults(course.id);
+        const cacheKey =
+          course.id === "JLPT_COUNTER" ? `${course.id}:${course.path}` : course.id;
+        const cached = getCachedCourseResults(cacheKey);
         if (cached) return cached;
         const results = await getCourseResults(course);
-        return setCachedCourseResults(course.id, results);
+        return setCachedCourseResults(cacheKey, results);
       }),
     );
 
