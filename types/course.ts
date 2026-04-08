@@ -37,7 +37,8 @@ export type JlptCounterOptionId =
   | "counter_hon"
   | "counter_mai"
   | "counter_nin"
-  | "counter_hiki";
+  | "counter_hiki"
+  | "counter_ens";
 
 export interface Course {
   id: CourseId;
@@ -158,6 +159,11 @@ export const JLPT_COUNTER_OPTIONS: JlptCounterOption[] = [
     id: "counter_hiki",
     label: "Counter Hiki",
     path: normalizeCoursePath(process.env.NEXT_PUBLIC_JLTP_COUNTER_COUNTER_HIKI_PATH),
+  },
+  {
+    id: "counter_ens",
+    label: "Counter Ens",
+    path: normalizeCoursePath(process.env.NEXT_PUBLIC_JLTP_COUNTER_COUNTER_ENS_PATH),
   },
 ];
 

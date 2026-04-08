@@ -81,7 +81,7 @@ describe("JLPT affix course paths", () => {
     ]);
   });
 
-  it("includes counter_years and keeps JLPT counter options in env order", async () => {
+  it("includes counter_years, counter_ens, and keeps JLPT counter options in env order", async () => {
     vi.stubEnv(
       "NEXT_PUBLIC_JLTP_COUNTER_NUMBERS_PATH",
       "/jlpt-counter/numbers",
@@ -154,6 +154,10 @@ describe("JLPT affix course paths", () => {
       "NEXT_PUBLIC_JLTP_COUNTER_COUNTER_HIKI_PATH",
       "/jlpt-counter/counter_hiki",
     );
+    vi.stubEnv(
+      "NEXT_PUBLIC_JLTP_COUNTER_COUNTER_ENS_PATH",
+      "/jlpt-counter/counter_ens",
+    );
     vi.resetModules();
 
     const { JLPT_COUNTER_OPTIONS } = await import("./course");
@@ -177,10 +181,14 @@ describe("JLPT affix course paths", () => {
       "counter_mai",
       "counter_nin",
       "counter_hiki",
+      "counter_ens",
     ]);
     expect(
       JLPT_COUNTER_OPTIONS.find((option) => option.id === "counter_years")?.path,
     ).toBe("jlpt-counter/counter_years");
+    expect(
+      JLPT_COUNTER_OPTIONS.find((option) => option.id === "counter_ens")?.path,
+    ).toBe("jlpt-counter/counter_ens");
     expect(
       JLPT_COUNTER_OPTIONS.find((option) => option.id === "numbers")?.label,
     ).toBe("Numbers");
@@ -190,5 +198,8 @@ describe("JLPT affix course paths", () => {
     expect(
       JLPT_COUNTER_OPTIONS.find((option) => option.id === "counter_years")?.label,
     ).toBe("Counter Years");
+    expect(
+      JLPT_COUNTER_OPTIONS.find((option) => option.id === "counter_ens")?.label,
+    ).toBe("Counter Ens");
   });
 });
