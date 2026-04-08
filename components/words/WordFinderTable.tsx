@@ -23,6 +23,7 @@ import {
 import { supportsDerivativeGenerationForResult } from "@/lib/derivativeGeneration";
 import type { WordFinderResult } from "@/types/wordFinder";
 import type { WordFinderActionField } from "@/types/wordFinder";
+import { insertNumberedBreaks } from "@/lib/utils/textFormat";
 
 type FuriganaActionField = Extract<WordFinderActionField, "pronunciation" | "example">;
 
@@ -356,8 +357,8 @@ export default function WordFinderTable({
                 onContextMenu={(e) => handleCellContextMenu(e, rowIdx, 1)}
               >
                 <Stack spacing={0.5}>
-                  <Typography variant="body2">
-                    {result.meaning || result.secondaryText || t("words.none")}
+                  <Typography variant="body2" sx={{ whiteSpace: "pre-line" }}>
+                    {insertNumberedBreaks(result.meaning || result.secondaryText || "") || t("words.none")}
                   </Typography>
                   {result.secondaryText && result.secondaryText !== result.meaning && (
                     <Typography variant="caption" color="text.secondary">
@@ -372,9 +373,9 @@ export default function WordFinderTable({
                   onClick={(e) => handleCellClick(e, rowIdx, 2)}
                   onContextMenu={(e) => handleCellContextMenu(e, rowIdx, 2)}
                 >
-                  <Typography variant="body2">
+                  <Typography variant="body2" sx={{ whiteSpace: "pre-line" }}>
                     {isToeflSynonymResult(result)
-                      ? result.synonym || t("words.none")
+                      ? insertNumberedBreaks(result.synonym || "") || t("words.none")
                       : ""}
                   </Typography>
                 </TableCell>
@@ -393,8 +394,8 @@ export default function WordFinderTable({
                 onClick={(e) => handleCellClick(e, rowIdx, translationCol)}
                 onContextMenu={(e) => handleCellContextMenu(e, rowIdx, translationCol)}
               >
-                <Typography variant="body2">
-                  {result.translation || t("words.none")}
+                <Typography variant="body2" sx={{ whiteSpace: "pre-line" }}>
+                  {insertNumberedBreaks(result.translation || "") || t("words.none")}
                 </Typography>
               </TableCell>
               <TableCell sx={{ minWidth: 120 }}>

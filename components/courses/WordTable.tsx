@@ -39,6 +39,7 @@ import {
   isDerivativeGenerationEligibleResult,
 } from "@/lib/derivativeGeneration";
 import { containsKorean } from "@/lib/utils/korean";
+import { insertNumberedBreaks } from "@/lib/utils/textFormat";
 import { supportsDerivativeCourse } from "@/constants/supportedDerivativeCourses";
 import { getCourseById, type CourseId } from "@/types/course";
 import type { CollocationWord, JlptWord, PostfixWord, PrefixWord, StandardWord, Word } from "@/types/word";
@@ -818,6 +819,7 @@ export default function WordTable({
         fontWeight?: number;
         textVariant?: "body1" | "body2";
         singleLine?: boolean;
+        numberedList?: boolean;
       },
     ) => {
       const editable = resolveCourseInlineEditField({
@@ -832,21 +834,31 @@ export default function WordTable({
       const isEditing =
         editingCell?.wordId === word.id && editingCell.field === field;
 
+      const baseSx = options?.singleLine ? singleLineWordTextSx : undefined;
+      const numberedListSx = options?.numberedList
+        ? { whiteSpace: "pre-line" as const }
+        : undefined;
+      const resolvedSx = numberedListSx
+        ? baseSx
+          ? [baseSx, numberedListSx]
+          : numberedListSx
+        : baseSx;
+
       if (!editable) {
         return (
           <Typography
             variant={options?.textVariant ?? "body1"}
             fontWeight={options?.fontWeight}
-            sx={options?.singleLine ? singleLineWordTextSx : undefined}
+            sx={resolvedSx}
           >
-            {value}
+            {options?.numberedList ? insertNumberedBreaks(value) : value}
           </Typography>
         );
       }
 
       return (
         <InlineEditableText
-          value={value}
+          value={options?.numberedList ? insertNumberedBreaks(value) : value}
           emptyLabel={options?.emptyLabel}
           isEditing={isEditing}
           draft={isEditing ? editingCell.draft : value}
@@ -854,7 +866,7 @@ export default function WordTable({
           error={isEditing ? editingCell.error : ""}
           textVariant={options?.textVariant}
           fontWeight={options?.fontWeight}
-          sx={options?.singleLine ? singleLineWordTextSx : undefined}
+          sx={resolvedSx}
           onActivate={() => activateInlineEdit(word, field)}
           onDraftChange={updateInlineDraft}
           onCommit={() => {
@@ -1411,6 +1423,7 @@ export default function WordTable({
                     >
                       {renderEditableTextCell(mergedWord, "meaning", mergedWord.meaning, {
                         emptyLabel: t("courses.missingMeaningValue"),
+                        numberedList: true,
                       })}
                     </TableCell>
                     <TableCell
@@ -1735,12 +1748,13 @@ export default function WordTable({
                     <TableCell {...selectableCellProps(rowIdx, 1)}>
                       {renderEditableTextCell(mergedWord, "meaning", mergedWord.meaning, {
                         emptyLabel: t("courses.missingMeaningValue"),
+                        numberedList: true,
                       })}
                     </TableCell>
                     {hasSynonymColumn && (
                       <TableCell {...selectableCellProps(rowIdx, 2)}>
-                        <Typography variant="body2">
-                          {mergedWord.synonym || t("words.none")}
+                        <Typography variant="body2" sx={{ whiteSpace: "pre-line" }}>
+                          {insertNumberedBreaks(mergedWord.synonym || "") || t("words.none")}
                         </Typography>
                       </TableCell>
                     )}
