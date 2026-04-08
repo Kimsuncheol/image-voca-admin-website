@@ -316,10 +316,16 @@ export default function AddVocaPage() {
   const readyItems = currentItems.filter((item): item is ReadyQueueItem =>
     Boolean(item.dayName && item.data && item.data.words.length > 0),
   );
+  const hasAnyImageUrl = readyItems.some((item) =>
+    item.data.words.some(
+      (w) => Boolean((w as { imageUrl?: string }).imageUrl?.trim()),
+    ),
+  );
   const uploadOptionState = getUploadOptionState({
     selectedCourse,
     imageGenerationEnabled: canUseImageGeneration,
     enrichGenerationEnabled: canUseExampleTranslationGeneration,
+    hasAnyImageUrl,
     uploadWords:
       schemaType === "jlpt" || schemaType === "prefix" || schemaType === "postfix"
         ? readyItems.flatMap((item) => item.data.words) as

@@ -169,6 +169,7 @@ describe("JLPT affix course paths", () => {
       "counter_kai_floor",
       "counter_kai_times",
       "counter_ban",
+      "counter_ens",
       "counter_years",
       "counter_months",
       "counter_days",
@@ -181,7 +182,6 @@ describe("JLPT affix course paths", () => {
       "counter_mai",
       "counter_nin",
       "counter_hiki",
-      "counter_ens",
     ]);
     expect(
       JLPT_COUNTER_OPTIONS.find((option) => option.id === "counter_years")?.path,

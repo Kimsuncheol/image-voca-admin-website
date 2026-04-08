@@ -61,13 +61,12 @@ export function getUploadOptionState(params: {
   imageGenerationEnabled: boolean;
   enrichGenerationEnabled: boolean;
   uploadWords?: FuriganaUploadWord[];
+  hasAnyImageUrl?: boolean;
 }): UploadOptionState {
   const isImageGenerationEnabled =
     shouldIncludeImageUrl(params.selectedCourse) &&
     params.imageGenerationEnabled;
-  const isPreserveExistingImagesEnabled = shouldIncludeImageUrl(
-    params.selectedCourse,
-  );
+  const isPreserveExistingImagesEnabled = params.hasAnyImageUrl ?? false;
   const isExampleAndTranslationGenerationEnabled =
     params.enrichGenerationEnabled &&
     params.selectedCourse !== "" &&

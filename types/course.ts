@@ -101,6 +101,11 @@ export const JLPT_COUNTER_OPTIONS: JlptCounterOption[] = [
     path: normalizeCoursePath(process.env.NEXT_PUBLIC_JLTP_COUNTER_COUNTER_BAN_PATH),
   },
   {
+    id: "counter_ens",
+    label: "Counter ¥",
+    path: normalizeCoursePath(process.env.NEXT_PUBLIC_JLTP_COUNTER_COUNTER_ENS_PATH),
+  },
+  {
     id: "counter_years",
     label: "Counter Years",
     path: normalizeCoursePath(process.env.NEXT_PUBLIC_JLTP_COUNTER_COUNTER_YEARS_PATH),
@@ -159,11 +164,6 @@ export const JLPT_COUNTER_OPTIONS: JlptCounterOption[] = [
     id: "counter_hiki",
     label: "Counter Hiki",
     path: normalizeCoursePath(process.env.NEXT_PUBLIC_JLTP_COUNTER_COUNTER_HIKI_PATH),
-  },
-  {
-    id: "counter_ens",
-    label: "Counter Ens",
-    path: normalizeCoursePath(process.env.NEXT_PUBLIC_JLTP_COUNTER_COUNTER_ENS_PATH),
   },
 ];
 
