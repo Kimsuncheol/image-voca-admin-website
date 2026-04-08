@@ -98,6 +98,7 @@ export default function TextToolsPage() {
           })}
 
           <ParenthesesForm
+            horizontal
             apiPath={
               parenthesesAction === "generate"
                 ? "/api/text/generate-parentheses"
@@ -117,6 +118,7 @@ export default function TextToolsPage() {
     if (group === "romanize") {
       return (
         <ParenthesesForm
+          horizontal
           apiPath="/api/text/romanize"
           submitLabel={t("textTools.romanizeAction")}
           {...sharedFormProps}
@@ -137,6 +139,7 @@ export default function TextToolsPage() {
           })}
 
           <ParenthesesForm
+            horizontal
             apiPath={
               furiganaAction === "add"
                 ? "/api/text/add-furigana"
@@ -209,6 +212,7 @@ export default function TextToolsPage() {
 
     return (
       <ParenthesesForm
+        horizontal
         apiPath="/api/text/translate"
         submitLabel={t("textTools.translateAction")}
         {...sharedFormProps}

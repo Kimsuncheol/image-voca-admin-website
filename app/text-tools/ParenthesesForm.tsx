@@ -34,6 +34,7 @@ export default function ParenthesesForm({
   inputRequiredMsg,
   networkErrorMsg,
   checkboxOptions,
+  horizontal = false,
 }: {
   apiPath: string;
   submitLabel: string;
@@ -44,6 +45,7 @@ export default function ParenthesesForm({
   inputRequiredMsg: string;
   networkErrorMsg: string;
   checkboxOptions?: CheckboxOptionConfig[];
+  horizontal?: boolean;
 }) {
   const { t } = useTranslation();
   const [input, setInput] = useState("");
@@ -125,86 +127,104 @@ export default function ParenthesesForm({
     }
   }
 
+  const inputSection = (
+    <Stack spacing={2} flex={1}>
+      <TextField
+        label={inputLabel}
+        value={input}
+        onChange={(event) => setInput(event.target.value)}
+        multiline
+        minRows={5}
+        fullWidth
+      />
+
+      {(checkboxOptions ?? []).map((option) => (
+        <FormControlLabel
+          key={option.key}
+          control={
+            <Checkbox
+              checked={checkboxValues[option.key] ?? option.defaultValue}
+              onChange={(event) =>
+                setCheckboxValues((current) => ({
+                  ...current,
+                  [option.key]: event.target.checked,
+                }))
+              }
+            />
+          }
+          label={option.label}
+        />
+      ))}
+
+      <Stack direction="row" spacing={2}>
+        <Button type="submit" variant="contained" disabled={loading}>
+          {loading ? loadingLabel : submitLabel}
+        </Button>
+        <Button
+          type="button"
+          variant="outlined"
+          onClick={handleReset}
+          disabled={loading}
+        >
+          {resetLabel}
+        </Button>
+      </Stack>
+
+      {error ? <Alert severity="error">{error}</Alert> : null}
+    </Stack>
+  );
+
+  const outputSection = (
+    <Stack spacing={2} flex={1}>
+      <TextField
+        label={outputLabel}
+        value={output}
+        multiline
+        minRows={5}
+        fullWidth
+        slotProps={{ input: { readOnly: true } }}
+      />
+
+      <Box>
+        <Button
+          variant="outlined"
+          size="small"
+          disabled={!output}
+          onClick={() => void handleCopy()}
+        >
+          Copy
+        </Button>
+      </Box>
+    </Stack>
+  );
+
   return (
     <Box component="form" onSubmit={handleSubmit}>
-      <Stack spacing={2}>
-        <TextField
-          label={inputLabel}
-          value={input}
-          onChange={(event) => setInput(event.target.value)}
-          multiline
-          minRows={5}
-          fullWidth
-        />
-
-        {(checkboxOptions ?? []).map((option) => (
-          <FormControlLabel
-            key={option.key}
-            control={
-              <Checkbox
-                checked={checkboxValues[option.key] ?? option.defaultValue}
-                onChange={(event) =>
-                  setCheckboxValues((current) => ({
-                    ...current,
-                    [option.key]: event.target.checked,
-                  }))
-                }
-              />
-            }
-            label={option.label}
-          />
-        ))}
-
-        <Stack direction="row" spacing={2}>
-          <Button type="submit" variant="contained" disabled={loading}>
-            {loading ? loadingLabel : submitLabel}
-          </Button>
-          <Button
-            type="button"
-            variant="outlined"
-            onClick={handleReset}
-            disabled={loading}
-          >
-            {resetLabel}
-          </Button>
+      {horizontal ? (
+        <Stack direction="row" spacing={2} alignItems="flex-start">
+          {inputSection}
+          {outputSection}
         </Stack>
+      ) : (
+        <Stack spacing={2}>
+          {inputSection}
+          {outputSection}
+        </Stack>
+      )}
 
-        {error ? <Alert severity="error">{error}</Alert> : null}
-
-        <TextField
-          label={outputLabel}
-          value={output}
-          multiline
-          minRows={5}
-          fullWidth
-          slotProps={{ input: { readOnly: true } }}
-        />
-
-        <Box>
-          <Button
-            variant="outlined"
-            size="small"
-            disabled={!output}
-            onClick={() => void handleCopy()}
-          >
-            Copy
-          </Button>
-        </Box>
-
-        <Snackbar
-          open={copySnackbar.open}
-          autoHideDuration={1500}
+      <Snackbar
+        open={copySnackbar.open}
+        autoHideDuration={1500}
+        onClose={() => setCopySnackbar((prev) => ({ ...prev, open: false }))}
+        anchorOrigin={{ vertical: "top", horizontal: "center" }}
+      >
+        <Alert
+          severity={copySnackbar.success ? "success" : "error"}
           onClose={() => setCopySnackbar((prev) => ({ ...prev, open: false }))}
-          anchorOrigin={{ vertical: "top", horizontal: "center" }}
         >
-          <Alert
-            severity={copySnackbar.success ? "success" : "error"}
-            onClose={() => setCopySnackbar((prev) => ({ ...prev, open: false }))}
-          >
-            {copySnackbar.success ? t("common.copied") : t("common.copyFailed")}
-          </Alert>
-        </Snackbar>
-      </Stack>
+          {copySnackbar.success ? t("common.copied") : t("common.copyFailed")}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 }
