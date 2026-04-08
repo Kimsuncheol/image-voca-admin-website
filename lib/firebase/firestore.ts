@@ -376,3 +376,14 @@ export async function addWordsToDay(
     { merge: true }
   );
 }
+
+export async function deleteDay(
+  coursePath: string,
+  dayId: string,
+): Promise<void> {
+  const wordsRef = collection(db, coursePath, dayId);
+  const snap = await getDocs(wordsRef);
+  const batch = writeBatch(db);
+  for (const wordDoc of snap.docs) batch.delete(wordDoc.ref);
+  await batch.commit();
+}

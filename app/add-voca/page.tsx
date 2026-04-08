@@ -41,6 +41,7 @@
  */
 
 import { useState, useRef, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import Typography from "@mui/material/Typography";
 import Box from "@mui/material/Box";
 import Tabs from "@mui/material/Tabs";
@@ -156,6 +157,9 @@ function resolveQueueItemTargetCoursePath(
 
 export default function AddVocaPage() {
   const { t } = useTranslation();
+  const searchParams = useSearchParams();
+  const paramCourse = searchParams.get("course") as CourseId | null;
+  const paramDayName = searchParams.get("dayName") ?? "";
   const {
     settings,
     canUseImageGeneration,
@@ -169,7 +173,9 @@ export default function AddVocaPage() {
   // `selectedCourse` drives the Firestore write path and the word schema —
   // COLLOCATIONS uses a different field set than all standard courses.
   const [tabIndex, setTabIndex] = useState(0);
-  const [selectedCourse, setSelectedCourse] = useState<CourseId | "">("CSAT");
+  const [selectedCourse, setSelectedCourse] = useState<CourseId | "">(
+    paramCourse ?? "CSAT",
+  );
   const [csvItems, setCsvItems] = useState<CsvItem[]>([]);
   const [urlItems, setUrlItems] = useState<UrlItem[]>([]);
   const [quoteItems, setQuoteItems] = useState<QuoteItem[]>([]);
@@ -1111,6 +1117,7 @@ export default function AddVocaPage() {
               ? (getCourseById(selectedCourse)?.path ?? "")
               : undefined
           }
+          defaultDayName={paramDayName || undefined}
         />
       )}
       {tabIndex === 1 && (
@@ -1122,6 +1129,7 @@ export default function AddVocaPage() {
           hideDayInput={isFamousQuote || isSingleList || isCollection}
           hiddenDayName={singleListSubcollection ?? undefined}
           courseLabel={selectedCourseLabel}
+          defaultDayName={paramDayName || undefined}
         />
       )}
       {isFamousQuote && tabIndex === 2 && (

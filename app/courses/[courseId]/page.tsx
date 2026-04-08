@@ -62,6 +62,7 @@ import {
   getCollectionWords,
   getCourseDays,
   getSingleListWords,
+  deleteDay,
 } from "@/lib/firebase/firestore";
 import {
   fetchFilteredFamousQuotes,
@@ -504,8 +505,25 @@ export default function CourseDaysPage({
           }}
         >
           {days.map((day) => (
-            // DayCard links to /courses/[courseId]/[dayId]
-            <DayCard key={day.id} day={day} courseId={courseId} />
+            <DayCard
+              key={day.id}
+              day={day}
+              courseId={courseId}
+              onRemove={async () => {
+                if (
+                  !course ||
+                  !window.confirm(`Delete all words in "${day.name}"?`)
+                )
+                  return;
+                await deleteDay(course.path, day.id);
+                setDays((prev) => prev.filter((d) => d.id !== day.id));
+              }}
+              onUpdate={() =>
+                router.push(
+                  `/add-voca?course=${courseId}&dayName=${encodeURIComponent(day.name)}`,
+                )
+              }
+            />
           ))}
         </Box>
       )}

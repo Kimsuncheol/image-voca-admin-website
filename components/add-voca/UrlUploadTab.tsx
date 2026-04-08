@@ -70,6 +70,7 @@ interface UrlUploadTabProps {
   hiddenDayName?: string;
   courseLabel?: string;
   courseId?: CourseId | "";
+  defaultDayName?: string;
 }
 
 // ─── 컴포넌트 ──────────────────────────────────────────────────────────────
@@ -81,6 +82,7 @@ export default function UrlUploadTab({
   hiddenDayName,
   courseLabel,
   courseId,
+  defaultDayName,
 }: UrlUploadTabProps) {
   const isJlptCounterCourse = courseId === "JLPT_COUNTER";
   // Google Sheets OAuth 훅
@@ -93,7 +95,7 @@ export default function UrlUploadTab({
 
   // ── 폼 입력 상태 ──────────────────────────────────────────────────────
   const [urlInput, setUrlInput] = useState("");
-  const [dayInput, setDayInput] = useState("");
+  const [dayInput, setDayInput] = useState(defaultDayName ?? "");
 
   // ── 모달 상태 ─────────────────────────────────────────────────────────
   const [modalOpen, setModalOpen] = useState(false);

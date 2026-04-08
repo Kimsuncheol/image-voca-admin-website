@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import * as XLSX from 'xlsx';
 import List from '@mui/material/List';
 import Button from '@mui/material/Button';
@@ -49,6 +49,7 @@ interface CsvUploadTabProps {
   coursePath?: string;
   courseLabel?: string;
   courseId?: CourseId | "";
+  defaultDayName?: string;
 }
 
 const sectionSx = {
@@ -73,11 +74,18 @@ export default function CsvUploadTab({
   coursePath,
   courseLabel,
   courseId,
+  defaultDayName,
 }: CsvUploadTabProps) {
   const { t } = useTranslation();
   const isJlptCounterCourse = courseId === "JLPT_COUNTER";
   const [modalOpen, setModalOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState<number>(-1);
+
+  useEffect(() => {
+    if (!defaultDayName) return;
+    setActiveIndex(-1);
+    setModalOpen(true);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const [downloadAnchor, setDownloadAnchor] = useState<HTMLButtonElement | null>(null);
   const [downloading, setDownloading] = useState(false);
 
@@ -295,7 +303,7 @@ export default function CsvUploadTab({
         open={modalOpen}
         onClose={() => setModalOpen(false)}
         onConfirm={handleModalConfirm}
-        initialDayName={activeIndex >= 0 ? items[activeIndex]?.dayName : ''}
+        initialDayName={activeIndex >= 0 ? items[activeIndex]?.dayName : (defaultDayName ?? '')}
         initialData={activeIndex >= 0 ? items[activeIndex]?.data : null}
         initialCounterOptionId={activeIndex >= 0 ? items[activeIndex]?.counterOptionId : undefined}
         schemaType={schemaType}
