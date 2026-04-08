@@ -135,6 +135,13 @@ export function resolveJlptCounterOptionIdFromFilename(
   return detectJlptCounterOptionIdFromFilename(filename) ?? currentSelectionId;
 }
 
+export function extractDayFromFilename(filename: string): number | null {
+  const offset = filename.startsWith("CSAT2 - ") ? 50 : 0;
+  const match = filename.match(/[Dd][Aa][Yy](\d+)/);
+  if (!match) return null;
+  return parseInt(match[1], 10) + offset;
+}
+
 function filenameMatchesCourse(filename: string, courseLabel: string): boolean {
   const lower = filename.toLowerCase();
   const tokens = courseLabel.split(/[\s/]+/).filter((t) => t.length > 1);
@@ -207,6 +214,12 @@ export default function UploadModal({
           !!courseLabel && !filenameMatchesCourse(file.name, courseLabel),
         );
         setSelectedFile(file);
+        if (!hideDayInput) {
+          const extracted = extractDayFromFilename(file.name);
+          if (extracted !== null && extracted >= 1) {
+            setDayName(`Day${extracted}`);
+          }
+        }
         if (isJlptCounterCourse) {
           setSelectedCounterOptionId((currentSelectionId) =>
             resolveJlptCounterOptionIdFromFilename(
@@ -223,7 +236,7 @@ export default function UploadModal({
         setParseResult(result);
       }
     },
-    [schemaType, courseId, courseLabel, isJlptCounterCourse],
+    [schemaType, courseId, courseLabel, isJlptCounterCourse, hideDayInput],
   );
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
