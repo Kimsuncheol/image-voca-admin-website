@@ -192,7 +192,7 @@ export default function ParenthesesForm({
           disabled={!output}
           onClick={() => void handleCopy()}
         >
-          Copy
+          {t("common.copy")}
         </Button>
       </Box>
     </Stack>

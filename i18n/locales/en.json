@@ -562,6 +562,7 @@
     "save": "Save",
     "delete": "Delete",
     "signOut": "Sign Out",
+    "copy": "Copy",
     "copied": "Copied!",
     "copyFailed": "Copy failed"
   },

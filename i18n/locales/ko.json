@@ -562,6 +562,7 @@
     "save": "저장",
     "delete": "삭제",
     "signOut": "로그아웃",
+    "copy": "복사",
     "copied": "복사됨!",
     "copyFailed": "복사 실패"
   },
