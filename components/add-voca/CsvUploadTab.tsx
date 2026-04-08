@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import * as XLSX from 'xlsx';
 import List from '@mui/material/List';
 import Button from '@mui/material/Button';
@@ -16,16 +16,18 @@ import MenuItem from '@mui/material/MenuItem';
 import ListItemIcon from '@mui/material/ListItemIcon';
 import ListItemText from '@mui/material/ListItemText';
 import AddIcon from '@mui/icons-material/Add';
+import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import DownloadIcon from '@mui/icons-material/Download';
 import TableChartIcon from '@mui/icons-material/TableChart';
 import ArticleIcon from '@mui/icons-material/Article';
 import CloseIcon from '@mui/icons-material/Close';
+import { useDropzone } from 'react-dropzone';
 import { useTranslation } from 'react-i18next';
 import { getFamousQuotes } from '@/lib/firebase/firestore';
 import FileListItem from './FileListItem';
-import UploadModal from './UploadModal';
-import { type ParseResult, type SchemaType } from '@/lib/utils/csvParser';
-import type { CourseId, JlptCounterOptionId } from '@/types/course';
+import UploadModal, { extractDayFromFilename, resolveJlptCounterOptionIdFromFilename } from './UploadModal';
+import { parseCsvFile, type ParseResult, type SchemaType } from '@/lib/utils/csvParser';
+import { JLPT_COUNTER_OPTIONS, type CourseId, type JlptCounterOptionId } from '@/types/course';
 import type { UploadModalConfirmPayload } from './UploadModal';
 
 export interface CsvItem {
@@ -80,6 +82,76 @@ export default function CsvUploadTab({
   const isJlptCounterCourse = courseId === "JLPT_COUNTER";
   const [modalOpen, setModalOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState<number>(-1);
+
+  const onDrop = useCallback(
+    async (acceptedFiles: File[]) => {
+      const newItems: CsvItem[] = [];
+      for (const file of acceptedFiles) {
+        const result = await parseCsvFile(file, { schemaType, courseId });
+        if (!result || result.words.length === 0) continue;
+
+        let counterOptionId: JlptCounterOptionId | undefined;
+        let counterOptionLabel: string | undefined;
+        let targetCoursePath: string | undefined;
+
+        if (isJlptCounterCourse) {
+          const resolvedId = resolveJlptCounterOptionIdFromFilename(file.name);
+          const option = resolvedId
+            ? JLPT_COUNTER_OPTIONS.find((o) => o.id === resolvedId)
+            : undefined;
+          counterOptionId = option?.id;
+          counterOptionLabel = option?.label;
+          targetCoursePath = option?.path;
+        }
+
+        const rawDayName = hideDayInput
+          ? (hiddenDayName ?? crypto.randomUUID())
+          : (() => {
+              const extracted = extractDayFromFilename(file.name);
+              return extracted !== null && extracted >= 1 ? `Day${extracted}` : '';
+            })();
+
+        const finalDayName =
+          isJlptCounterCourse && counterOptionLabel ? counterOptionLabel : rawDayName;
+
+        newItems.push({
+          id: crypto.randomUUID(),
+          fileName: file.name,
+          file,
+          dayName: finalDayName,
+          data: result,
+          counterOptionId,
+          counterOptionLabel,
+          targetCoursePath,
+        });
+      }
+
+      if (newItems.length === 0) return;
+
+      let updated = [...items];
+      for (const newItem of newItems) {
+        if (!newItem.dayName) {
+          updated.push(newItem);
+          continue;
+        }
+        const existingIndex = updated.findIndex((i) => i.dayName === newItem.dayName);
+        if (existingIndex !== -1) {
+          updated[existingIndex] = { ...updated[existingIndex], ...newItem, id: updated[existingIndex].id };
+        } else {
+          updated.push(newItem);
+        }
+      }
+      onItemsChange(updated);
+    },
+    [schemaType, courseId, hideDayInput, hiddenDayName, isJlptCounterCourse, items, onItemsChange],
+  );
+
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    onDrop,
+    accept: { 'text/csv': ['.csv'], 'text/tab-separated-values': ['.tsv'] },
+    multiple: true,
+    noClick: true,
+  });
 
   useEffect(() => {
     if (!defaultDayName) return;
@@ -192,7 +264,7 @@ export default function CsvUploadTab({
     } else {
       // Editing an existing item; keep the previous file if no new one was selected.
       // Also drop any other item that now shares the same day name (Replace confirmed).
-      let updated = [...items];
+      const updated = [...items];
       updated[activeIndex] = {
         ...updated[activeIndex],
         dayName: effectiveDayName,
@@ -202,14 +274,45 @@ export default function CsvUploadTab({
         counterOptionLabel,
         targetCoursePath,
       };
-      updated = updated.filter((item, i) => i === activeIndex || item.dayName !== effectiveDayName);
-      onItemsChange(updated);
+      onItemsChange(updated.filter((item, i) => i === activeIndex || item.dayName !== effectiveDayName));
     }
   };
 
   return (
     <Box>
-      <Paper variant="outlined" sx={sectionSx}>
+      <Paper
+        variant="outlined"
+        sx={{
+          ...sectionSx,
+          position: 'relative',
+          outline: isDragActive ? '2px dashed' : undefined,
+          outlineColor: isDragActive ? 'primary.main' : undefined,
+        }}
+        {...getRootProps()}
+      >
+        <input {...getInputProps()} />
+        {isDragActive && (
+          <Box
+            sx={{
+              position: 'absolute',
+              inset: 0,
+              borderRadius: 3,
+              bgcolor: 'action.hover',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              zIndex: 1,
+              pointerEvents: 'none',
+            }}
+          >
+            <Stack alignItems="center" spacing={1}>
+              <CloudUploadIcon sx={{ fontSize: 40, color: 'primary.main' }} />
+              <Typography variant="body2" color="primary.main" fontWeight={600}>
+                {t('addVoca.dropzone')}
+              </Typography>
+            </Stack>
+          </Box>
+        )}
         <Stack
           direction={{ xs: 'column', sm: 'row' }}
           spacing={1}
