@@ -1,6 +1,7 @@
 import type {
   CollocationWordInput,
   FamousQuoteWordInput,
+  IdiomWordInput,
   JlptWordInput,
   PostfixWordInput,
   PrefixWordInput,
@@ -12,12 +13,14 @@ type UploadWordWithOptionalId =
   | StandardWordInput
   | JlptWordInput
   | CollocationWordInput
+  | IdiomWordInput
   | PrefixWordInput
   | PostfixWordInput;
 type UploadParseWord =
   | StandardWordInput
   | JlptWordInput
   | CollocationWordInput
+  | IdiomWordInput
   | FamousQuoteWordInput
   | PrefixWordInput
   | PostfixWordInput;
