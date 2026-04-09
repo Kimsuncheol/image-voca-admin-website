@@ -113,7 +113,7 @@ function getMissingFieldOptions(
   const primaryTextLabel = isCollocation
     ? t("courses.missingCollocation")
     : isIdiom
-      ? t("courses.missingIdiom", "Missing idiom")
+      ? t("courses.missingIdiom")
       : t("courses.missingWord");
   const options: Array<{ value: CourseDayMissingField; label: string }> = [
     { value: "all", label: t("courses.missingAll") },
