@@ -751,6 +751,7 @@ export default function AddVocaPage() {
       (schemaType === "standard" ||
         schemaType === "jlpt" ||
         schemaType === "collocation" ||
+        schemaType === "idiom" ||
         schemaType === "prefix" ||
         schemaType === "postfix")
     ) {

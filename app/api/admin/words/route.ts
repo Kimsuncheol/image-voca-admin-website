@@ -39,8 +39,10 @@ function filterCoursesByType(courses: Course[], type: string): Course[] {
   if (type === "famousQuote") return courses.filter((c) => c.storageMode === "flat");
   if (type === "collocation")
     return courses.filter((c) => c.id === "COLLOCATIONS");
-  // "standard" — everything except flat courses and COLLOCATIONS
-  return courses.filter((c) => c.storageMode !== "flat" && c.id !== "COLLOCATIONS");
+  if (type === "idiom")
+    return courses.filter((c) => c.id === "IDIOMS");
+  // "standard" — everything except flat courses, COLLOCATIONS, and IDIOMS
+  return courses.filter((c) => c.storageMode !== "flat" && c.id !== "COLLOCATIONS" && c.id !== "IDIOMS");
 }
 
 // ---------------------------------------------------------------------------
@@ -181,6 +183,34 @@ function createCollocationResult(
   };
 }
 
+
+function createIdiomResult(
+  course: Course,
+  dayId: string,
+  id: string,
+  data: Record<string, unknown>,
+): WordFinderResult | null {
+  const idiom = normalizeWordFinderText(data.idiom);
+  if (!idiom) return null;
+
+  return {
+    id,
+    courseId: course.id,
+    courseLabel: course.label,
+    coursePath: course.path,
+    schemaVariant: "idiom",
+    dayId,
+    sourceHref: buildCourseSourceHref(course.id, id, dayId),
+    type: "idiom",
+    primaryText: idiom,
+    secondaryText: null,
+    meaning: normalizeNullableWordFinderText(data.meaning),
+    translation: normalizeNullableWordFinderText(data.translation),
+    example: normalizeNullableWordFinderText(data.example),
+    pronunciation: null,
+    imageUrl: normalizeNullableWordFinderText(data.imageUrl),
+  };
+}
 
 function createFamousQuoteResult(
   course: Course,
@@ -369,6 +399,8 @@ async function getCourseResults(course: Course): Promise<WordFinderResult[]> {
           const result =
             course.schema === "collocation"
               ? createCollocationResult(course, dayId, doc.id, data)
+              : course.schema === "idiom"
+                ? createIdiomResult(course, dayId, doc.id, data)
               : course.schema === "jlpt"
                 ? createJlptResult(course, dayId, doc.id, data)
               : createStandardResult(course, dayId, doc.id, data);

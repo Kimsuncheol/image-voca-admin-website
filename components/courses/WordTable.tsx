@@ -42,9 +42,9 @@ import { containsKorean } from "@/lib/utils/korean";
 import { insertNumberedBreaks } from "@/lib/utils/textFormat";
 import { supportsDerivativeCourse } from "@/constants/supportedDerivativeCourses";
 import { getCourseById, type CourseId } from "@/types/course";
-import type { CollocationWord, JlptWord, PostfixWord, PrefixWord, StandardWord, Word } from "@/types/word";
+import type { CollocationWord, IdiomWord, JlptWord, PostfixWord, PrefixWord, StandardWord, Word } from "@/types/word";
 import DerivativeEditDialog from "@/components/courses/DerivativeEditDialog";
-import { isCollocationWord, isFamousQuoteWord, isJlptWord, isPostfixWord, isPrefixWord } from "@/types/word";
+import { isCollocationWord, isFamousQuoteWord, isIdiomWord, isJlptWord, isPostfixWord, isPrefixWord } from "@/types/word";
 import {
   adaptCourseWordToWordFinderResult,
   applyCourseWordResolvedUpdates,
@@ -104,6 +104,12 @@ function getWordTableColField(
     if (col === 5) return "image";
     return null;
   }
+  if (isIdiomWord(word)) {
+    if (col === 2) return "example";
+    if (col === 3) return "translation";
+    if (col === 4) return "image";
+    return null;
+  }
   if (isFamousQuoteWord(word)) {
     return col === 2 ? "translation" : null;
   }
@@ -146,7 +152,7 @@ function getWordTableColEditField(col: number, word: Word): CourseInlineEditable
     if (col === 6) return "translationKorean";
     return null;
   }
-  if (isCollocationWord(word) || (!isFamousQuoteWord(word))) {
+  if (isCollocationWord(word) || isIdiomWord(word) || (!isFamousQuoteWord(word))) {
     if (col === 0) return "primaryText";
     if (col === 1) return "meaning";
   }
@@ -423,6 +429,7 @@ interface ContextMenuState {
 interface WordTableProps {
   words: Word[];
   isCollocation: boolean;
+  isIdiom?: boolean;
   isJlpt?: boolean;
   isFamousQuote?: boolean;
   isPrefix?: boolean;
@@ -446,6 +453,7 @@ function filterJapanese(text: string): string {
 export default function WordTable({
   words,
   isCollocation,
+  isIdiom,
   isJlpt,
   isFamousQuote,
   isPrefix,
@@ -489,6 +497,7 @@ export default function WordTable({
   const supportsDerivatives = Boolean(
     courseId &&
       !isCollocation &&
+      !isIdiom &&
       !isJlpt &&
       !isFamousQuote &&
       !isPrefix &&
@@ -498,6 +507,7 @@ export default function WordTable({
   const hasSynonymColumn = Boolean(
     courseId === "TOEFL_IELTS" &&
       !isCollocation &&
+      !isIdiom &&
       !isJlpt &&
       !isFamousQuote &&
       !isPrefix &&
@@ -513,6 +523,7 @@ export default function WordTable({
         | "postfix"
         | "meaning"
         | "collocation"
+        | "idiom"
         | "meaningEnglish"
         | "meaningKorean"
         | "pronunciation"
@@ -603,6 +614,7 @@ export default function WordTable({
       coursePath,
       dayId,
       isCollocation,
+      isIdiom,
       isJlpt,
       isFamousQuote,
       isPrefix,
@@ -615,6 +627,7 @@ export default function WordTable({
     coursePath,
     dayId,
     isCollocation,
+    isIdiom,
     isJlpt,
     isFamousQuote,
     isPrefix,
@@ -714,6 +727,7 @@ export default function WordTable({
       const editable = resolveCourseInlineEditField({
         word,
         isCollocation,
+        isIdiom,
         isJlpt,
         isFamousQuote,
         isPrefix,
@@ -731,7 +745,7 @@ export default function WordTable({
         error: "",
       });
     },
-    [isCollocation, isJlpt, isFamousQuote, isPrefix, isPostfix],
+    [isCollocation, isIdiom, isJlpt, isFamousQuote, isPrefix, isPostfix],
   );
 
   const updateInlineDraft = useCallback((draft: string) => {
@@ -766,6 +780,7 @@ export default function WordTable({
       const editable = resolveCourseInlineEditField({
         word,
         isCollocation,
+        isIdiom,
         isJlpt,
         isFamousQuote,
         field: editingCell.field,
@@ -806,7 +821,7 @@ export default function WordTable({
         );
       }
     },
-    [coursePath, editingCell, isCollocation, isJlpt, isFamousQuote, onWordFieldsUpdated, persistTextField, storageMode, t],
+    [coursePath, editingCell, isCollocation, isIdiom, isJlpt, isFamousQuote, onWordFieldsUpdated, persistTextField, storageMode, t],
   );
 
   const renderEditableTextCell = useCallback(
@@ -825,6 +840,7 @@ export default function WordTable({
       const editable = resolveCourseInlineEditField({
         word,
         isCollocation,
+        isIdiom,
         isJlpt,
         isFamousQuote,
         isPrefix,
@@ -888,6 +904,7 @@ export default function WordTable({
       editingCell,
       handleJlptExamplePaste,
       isCollocation,
+      isIdiom,
       isJlpt,
       isFamousQuote,
       isPrefix,
@@ -928,6 +945,7 @@ export default function WordTable({
         word,
         {
           isCollocation,
+          isIdiom,
           isJlpt,
           isFamousQuote,
           isPrefix,
@@ -939,6 +957,7 @@ export default function WordTable({
       ),
     [
       isCollocation,
+      isIdiom,
       isJlpt,
       isFamousQuote,
       isPrefix,
@@ -980,6 +999,9 @@ export default function WordTable({
       if (isCollocation && isCollocationWord(m)) {
         return [m.collocation, m.meaning, m.explanation, m.example, m.translation, ""];
       }
+      if (isIdiom && isIdiomWord(m)) {
+        return [m.idiom, m.meaning, m.example, m.translation, ""];
+      }
       if (isFamousQuote && isFamousQuoteWord(m)) {
         return [m.quote, m.author, m.translation, m.language ?? ''];
       }
@@ -1006,7 +1028,7 @@ export default function WordTable({
             derivativeCell,
           ];
     });
-  }, [words, localWordUpdates, isJlpt, isCollocation, isFamousQuote, isPrefix, isPostfix, hasSynonymColumn, showImageUrl]);
+  }, [words, localWordUpdates, isJlpt, isCollocation, isIdiom, isFamousQuote, isPrefix, isPostfix, hasSynonymColumn, showImageUrl]);
 
   const contextMenuWord = useMemo(() => {
     if (!contextMenu) return null;
@@ -1328,7 +1350,15 @@ export default function WordTable({
         <Table>
           <TableHead>
             <TableRow>
-              {isCollocation ? (
+              {isIdiom ? (
+                <>
+                  <TableCell>{t("courses.idiom", "Idiom")}</TableCell>
+                  <TableCell>{t("courses.meaning")}</TableCell>
+                  <TableCell>{t("courses.example")}</TableCell>
+                  <TableCell>{t("courses.translation")}</TableCell>
+                  {showImageUrl && <TableCell>{t("courses.image", "Image")}</TableCell>}
+                </>
+              ) : isCollocation ? (
                 <>
                   <TableCell>{t("courses.collocation")}</TableCell>
                   <TableCell>{t("courses.meaning")}</TableCell>
@@ -1482,6 +1512,114 @@ export default function WordTable({
                                   component="img"
                                   src={getResolvedImage(word.id) || mergedWord.imageUrl}
                                   alt={mergedWord.collocation}
+                                  sx={{
+                                    width: 64,
+                                    height: 64,
+                                    objectFit: "cover",
+                                    borderRadius: 1,
+                                  }}
+                                />
+                              ) : (
+                                <AddPhotoAlternateIcon fontSize="small" />
+                              )}
+                            </IconButton>
+                          </Tooltip>
+                          {!isMissingField(mergedWord, "image") && (
+                            <Tooltip title={t("words.removeImage")}>
+                              <IconButton
+                                className="remove-img-btn"
+                                size="small"
+                                onClick={(e) => { e.stopPropagation(); handleRemoveImage(word.id); }}
+                                sx={{
+                                  position: "absolute",
+                                  top: -6,
+                                  right: -6,
+                                  opacity: 0,
+                                  transition: "opacity 0.15s",
+                                  bgcolor: "background.paper",
+                                  border: "1px solid",
+                                  borderColor: "divider",
+                                  p: "2px",
+                                  "&:hover": { bgcolor: "error.main", color: "white", borderColor: "error.main" },
+                                }}
+                              >
+                                <CloseIcon sx={{ fontSize: 12 }} />
+                              </IconButton>
+                            </Tooltip>
+                          )}
+                        </Box>
+                      </TableCell>
+                    )}
+                  </>
+                  ) : isIdiomWord(mergedWord) ? (
+                  <>
+                    <TableCell
+                      {...selectableCellProps(rowIdx, 0)}
+                    >
+                      {renderEditableTextCell(mergedWord, "primaryText", mergedWord.idiom, {
+                        emptyLabel: t("courses.missingIdiomValue", "Add idiom"),
+                        singleLine: true,
+                      })}
+                    </TableCell>
+                    <TableCell
+                      {...selectableCellProps(rowIdx, 1)}
+                    >
+                      {renderEditableTextCell(mergedWord, "meaning", mergedWord.meaning, {
+                        emptyLabel: t("courses.missingMeaningValue"),
+                        numberedList: true,
+                      })}
+                    </TableCell>
+                    {!isMissingField(mergedWord, "example") ? (
+                      <ExampleCell
+                        text={getResolvedTextField(word.id, "example") || mergedWord.example}
+                        onClick={(e) => handleCellClick(e, rowIdx, 2)}
+                        onContextMenu={(e) => handleCellContextMenu(e, rowIdx, 2)}
+                        selected={isCellSelected(rowIdx, 2)}
+                      />
+                    ) : (
+                      <MissingFieldTrigger
+                        wordId={word.id}
+                        field="example"
+                        tooltipKey="words.generateNewExamples"
+                      />
+                    )}
+                    {!isMissingField(mergedWord, "translation") ? (
+                      <ExampleCell
+                        text={
+                          getResolvedTextField(word.id, "translation") || mergedWord.translation
+                        }
+                        onClick={(e) => handleCellClick(e, rowIdx, 3)}
+                        onContextMenu={(e) => handleCellContextMenu(e, rowIdx, 3)}
+                        selected={isCellSelected(rowIdx, 3)}
+                      />
+                    ) : (
+                      <MissingFieldTrigger
+                        wordId={word.id}
+                        field="translation"
+                        tooltipKey="words.generateNewTranslations"
+                      />
+                    )}
+                    {showImageUrl && (
+                    <TableCell>
+                        <Box
+                          sx={{
+                            position: "relative",
+                            display: "inline-flex",
+                            "&:hover .remove-img-btn": { opacity: 1 },
+                          }}
+                        >
+                          <Tooltip title={t("words.generateNewImage")}>
+                            <IconButton
+                              size="small"
+                              aria-label={t("words.generateNewImage")}
+                              onClick={() => openFieldModal(word.id, "image")}
+                              sx={{ p: 0 }}
+                            >
+                              {!isMissingField(mergedWord, "image") ? (
+                                <Box
+                                  component="img"
+                                  src={getResolvedImage(word.id) || mergedWord.imageUrl}
+                                  alt={mergedWord.idiom}
                                   sx={{
                                     width: 64,
                                     height: 64,
@@ -1994,7 +2132,7 @@ export default function WordTable({
       {derivativeDialogWordId && (() => {
         const w = words.find((ww) => ww.id === derivativeDialogWordId);
         const merged = w ? { ...w, ...localWordUpdates[w.id] } as Word : null;
-        const isStandard = merged && !isCollocationWord(merged) && !isJlptWord(merged) && !isPrefixWord(merged) && !isPostfixWord(merged) && !isFamousQuoteWord(merged);
+        const isStandard = merged && !isCollocationWord(merged) && !isIdiomWord(merged) && !isJlptWord(merged) && !isPrefixWord(merged) && !isPostfixWord(merged) && !isFamousQuoteWord(merged);
         const initial = isStandard ? (merged as StandardWord).derivative ?? [] : [];
         const canGenerate = Boolean(
           isStandard &&

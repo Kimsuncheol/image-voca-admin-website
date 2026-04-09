@@ -463,6 +463,7 @@ export default function CourseDaysPage({
           <WordTable
             words={singleListWords}
             isCollocation={false}
+            isIdiom={course?.schema === "idiom"}
             isJlpt={course?.schema === "jlpt"}
             isPrefix={course?.schema === "prefix"}
             isPostfix={course?.schema === "postfix"}

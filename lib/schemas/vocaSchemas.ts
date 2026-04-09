@@ -36,6 +36,15 @@ export const collocationWordSchema = z.object({
   imageUrl: z.string().optional(),
 });
 
+export const idiomWordSchema = z.object({
+  id: z.string().optional(),
+  idiom: z.string().min(1),
+  meaning: z.string().min(1),
+  example: z.string().optional().default(''),
+  translation: z.string().optional().default(''),
+  imageUrl: z.string().optional(),
+});
+
 export const famousQuoteWordSchema = z.object({
   quote: z.string().min(1),
   author: z.string().optional().default(''),
@@ -56,6 +65,7 @@ export const postfixSchema = jlptPrefixPostfixBase.extend({
 export type StandardWordInput = z.infer<typeof standardWordSchema>;
 export type JlptWordInput = z.infer<typeof jlptWordSchema>;
 export type CollocationWordInput = z.infer<typeof collocationWordSchema>;
+export type IdiomWordInput = z.infer<typeof idiomWordSchema>;
 export type FamousQuoteWordInput = z.infer<typeof famousQuoteWordSchema>;
 export type PrefixWordInput = z.infer<typeof prefixSchema>;
 export type PostfixWordInput = z.infer<typeof postfixSchema>;

@@ -42,6 +42,7 @@ export const MANGA_NO_AI_COURSE_OPTIONS: Array<{
   label: string;
 }> = [
   { id: "CSAT", label: "CSAT" },
+  { id: "CSAT_IDIOMS", label: "CSAT Idioms" },
   { id: "TOEFL_IELTS", label: "TOEFL / IELTS" },
   { id: "TOEIC", label: "TOEIC" },
   { id: "JLPT", label: "JLPT" },

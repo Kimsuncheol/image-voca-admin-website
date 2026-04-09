@@ -108,6 +108,8 @@ function getTypeLabel(
   switch (value) {
     case "collocation":
       return t("words.typeCollocation");
+    case "idiom":
+      return t("words.typeIdiom");
     case "famousQuote":
       return t("words.typeFamousQuote");
     case "standard":

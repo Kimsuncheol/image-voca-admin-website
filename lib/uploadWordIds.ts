@@ -68,6 +68,7 @@ export function assignDeterministicUploadIdsForSchema<
     schemaType === "standard" ||
     schemaType === "jlpt" ||
     schemaType === "collocation" ||
+    schemaType === "idiom" ||
     schemaType === "prefix" ||
     schemaType === "postfix"
   ) {
@@ -92,6 +93,7 @@ export function assignDeterministicUploadIdsForItems<
     schemaType !== "standard" &&
     schemaType !== "jlpt" &&
     schemaType !== "collocation" &&
+    schemaType !== "idiom" &&
     schemaType !== "prefix" &&
     schemaType !== "postfix"
   ) {

@@ -1,5 +1,6 @@
 export type MangaNoAiUploadCourseId =
   | "CSAT"
+  | "CSAT_IDIOMS"
   | "TOEFL_IELTS"
   | "TOEIC"
   | "JLPT"

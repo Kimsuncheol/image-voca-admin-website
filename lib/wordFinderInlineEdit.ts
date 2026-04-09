@@ -1,13 +1,14 @@
 import type { WordFinderResult } from "../types/wordFinder.ts";
 import type {
   CollocationWord,
+  IdiomWord,
   JlptWord,
   PostfixWord,
   PrefixWord,
   StandardWord,
   Word,
 } from "../types/word.ts";
-import { isCollocationWord, isFamousQuoteWord, isJlptWord, isPrefixWord, isPostfixWord } from "../types/word.ts";
+import { isCollocationWord, isFamousQuoteWord, isIdiomWord, isJlptWord, isPrefixWord, isPostfixWord } from "../types/word.ts";
 
 export type InlineEditableWordFinderField = "primaryText" | "meaning";
 export type CourseInlineEditableField =
@@ -24,6 +25,7 @@ export type EditableWordTextField =
   | "postfix"
   | "meaning"
   | "collocation"
+  | "idiom"
   | "meaningEnglish"
   | "meaningKorean"
   | "example"
@@ -40,6 +42,7 @@ interface EditableFieldConfig {
 interface ResolveCourseInlineEditArgs {
   word: Word;
   isCollocation: boolean;
+  isIdiom?: boolean;
   isJlpt?: boolean;
   isFamousQuote?: boolean;
   isPrefix?: boolean;
@@ -63,7 +66,7 @@ export function resolveWordFinderInlineEditField(
   }
 
   return {
-    sourceField: result.type === "collocation" ? "collocation" : "word",
+    sourceField: result.type === "collocation" ? "collocation" : result.type === "idiom" ? "idiom" : "word",
     value: result.primaryText,
   };
 }
@@ -165,6 +168,14 @@ export function resolveCourseInlineEditField(
     };
   }
 
+  if (args.isIdiom || isIdiomWord(word)) {
+    const idiomWord = word as IdiomWord;
+    return {
+      sourceField: "idiom",
+      value: idiomWord.idiom,
+    };
+  }
+
   const standardWord = word as StandardWord;
   return {
     sourceField: "word",
@@ -195,7 +206,7 @@ export function applyCourseInlineEdit(
   word: Word,
   field: CourseInlineEditableField,
   value: string,
-): Partial<StandardWord> | Partial<JlptWord> | Partial<CollocationWord> | Partial<PrefixWord> | Partial<PostfixWord> | null {
+): Partial<StandardWord> | Partial<JlptWord> | Partial<CollocationWord> | Partial<IdiomWord> | Partial<PrefixWord> | Partial<PostfixWord> | null {
   if (isFamousQuoteWord(word)) {
     return null;
   }
@@ -253,6 +264,10 @@ export function applyCourseInlineEdit(
 
   if (isCollocationWord(word)) {
     return { collocation: value };
+  }
+
+  if (isIdiomWord(word)) {
+    return { idiom: value };
   }
 
   return { word: value };

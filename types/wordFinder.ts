@@ -1,10 +1,11 @@
 import type { CourseId } from "./course";
 
-export type WordFinderType = "standard" | "collocation" | "famousQuote";
+export type WordFinderType = "standard" | "collocation" | "idiom" | "famousQuote";
 export type WordFinderSchemaVariant =
   | "standard"
   | "jlpt"
   | "collocation"
+  | "idiom"
   | "famousQuote"
   | "prefix"
   | "postfix";

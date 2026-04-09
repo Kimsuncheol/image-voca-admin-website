@@ -104,6 +104,7 @@ interface BulkFeedback {
 
 function getMissingFieldOptions(
   isCollocation: boolean,
+  isIdiom: boolean,
   isJlpt: boolean,
   showImageUrl: boolean,
   supportsDerivatives: boolean,
@@ -111,14 +112,16 @@ function getMissingFieldOptions(
 ): Array<{ value: CourseDayMissingField; label: string }> {
   const primaryTextLabel = isCollocation
     ? t("courses.missingCollocation")
-    : t("courses.missingWord");
+    : isIdiom
+      ? t("courses.missingIdiom", "Missing idiom")
+      : t("courses.missingWord");
   const options: Array<{ value: CourseDayMissingField; label: string }> = [
     { value: "all", label: t("courses.missingAll") },
     { value: "primaryText", label: primaryTextLabel },
     { value: "meaning", label: t("courses.missingMeaning") },
   ];
 
-  if (!isCollocation) {
+  if (!isCollocation && !isIdiom) {
     options.push({
       value: "pronunciation",
       label: t("courses.missingPronunciation"),
@@ -347,6 +350,7 @@ export default function DayWordsPage({
   // ── Course type detection ─────────────────────────────────────────
   // WordTable switches its column layout based on these flags.
   const isCollocation = course?.schema === "collocation";
+  const isIdiom = course?.schema === "idiom";
   const isJlpt = course?.schema === "jlpt";
   const isFamousQuote = course?.schema === "famousQuote";
   const showImageUrl = isSupportedImageGenerationCourseId(courseId);
@@ -357,12 +361,13 @@ export default function DayWordsPage({
     () =>
       getMissingFieldOptions(
         isCollocation,
+        isIdiom,
         isJlpt,
         showImageUrl,
         supportsDerivatives,
         t,
       ),
-    [isCollocation, isJlpt, showImageUrl, supportsDerivatives, t],
+    [isCollocation, isIdiom, isJlpt, showImageUrl, supportsDerivatives, t],
   );
 
   const filteredWords = useMemo(
@@ -377,6 +382,7 @@ export default function DayWordsPage({
           word,
           {
             isCollocation,
+            isIdiom,
             isJlpt,
             isFamousQuote,
             showImageUrl,
@@ -387,6 +393,7 @@ export default function DayWordsPage({
       }),
     [
       isCollocation,
+      isIdiom,
       isJlpt,
       isFamousQuote,
       missingField,
@@ -408,6 +415,7 @@ export default function DayWordsPage({
               coursePath: course.path,
               dayId,
               isCollocation,
+              isIdiom,
               isJlpt,
               isFamousQuote,
             }),
@@ -418,6 +426,7 @@ export default function DayWordsPage({
       dayId,
       filteredWords,
       isCollocation,
+      isIdiom,
       isJlpt,
       isFamousQuote,
     ],
@@ -1305,6 +1314,7 @@ export default function DayWordsPage({
         <WordTable
           words={filteredWords}
       isCollocation={isCollocation}
+      isIdiom={isIdiom}
       isJlpt={isJlpt}
       isFamousQuote={isFamousQuote}
       showImageUrl={showImageUrl}

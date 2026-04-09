@@ -67,6 +67,15 @@ export interface CollocationWord {
   imageUrl?: string;
 }
 
+export interface IdiomWord {
+  id: string;
+  idiom: string;
+  meaning: string;
+  example: string;
+  translation: string;
+  imageUrl?: string;
+}
+
 export interface FamousQuoteWord {
   id: string;
   quote: string;
@@ -75,7 +84,7 @@ export interface FamousQuoteWord {
   language?: 'English' | 'Japanese';
 }
 
-export type Word = StandardWord | JlptWord | CollocationWord | FamousQuoteWord | PrefixWord | PostfixWord;
+export type Word = StandardWord | JlptWord | CollocationWord | IdiomWord | FamousQuoteWord | PrefixWord | PostfixWord;
 
 export function isJlptWord(w: Word): w is JlptWord {
   return "word" in w && "meaningEnglish" in w;
@@ -91,6 +100,10 @@ export function isPostfixWord(w: Word): w is PostfixWord {
 
 export function isCollocationWord(w: Word): w is CollocationWord {
   return "collocation" in w;
+}
+
+export function isIdiomWord(w: Word): w is IdiomWord {
+  return "idiom" in w;
 }
 
 export function isFamousQuoteWord(w: Word): w is FamousQuoteWord {

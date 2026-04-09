@@ -2,13 +2,14 @@ import type { CourseId } from "../types/course.ts";
 import type {
   CollocationWord,
   FamousQuoteWord,
+  IdiomWord,
   JlptWord,
   PostfixWord,
   PrefixWord,
   StandardWord,
   Word,
 } from "../types/word.ts";
-import { isJlptWord, isPrefixWord, isPostfixWord } from "../types/word.ts";
+import { isIdiomWord, isJlptWord, isPrefixWord, isPostfixWord } from "../types/word.ts";
 import type {
   CourseDayActionableMissingField,
   CourseDayMissingField,
@@ -29,6 +30,7 @@ interface AdaptCourseWordToWordFinderResultArgs {
   coursePath: string;
   dayId?: string;
   isCollocation: boolean;
+  isIdiom?: boolean;
   isJlpt?: boolean;
   isFamousQuote?: boolean;
   isPrefix?: boolean;
@@ -69,6 +71,7 @@ export type CourseWordResolvedUpdates = Partial<
       | "translationKorean"
     > &
     Pick<CollocationWord, "example" | "translation" | "imageUrl"> &
+    Pick<IdiomWord, "example" | "translation" | "imageUrl"> &
     Pick<FamousQuoteWord, "translation">
 >;
 
@@ -79,11 +82,12 @@ function hasTrimmedText(value: string | null | undefined): boolean {
 function getWordFinderType(
   args: Pick<
     AdaptCourseWordToWordFinderResultArgs,
-    "isCollocation" | "isFamousQuote"
+    "isCollocation" | "isIdiom" | "isFamousQuote"
   >,
 ): WordFinderType {
   if (args.isFamousQuote) return "famousQuote";
   if (args.isCollocation) return "collocation";
+  if (args.isIdiom) return "idiom";
   return "standard";
 }
 
@@ -107,12 +111,13 @@ export function adaptCourseWordToWordFinderResult(
     coursePath,
     dayId,
     isCollocation,
+    isIdiom,
     isJlpt,
     isFamousQuote,
     isPrefix,
     isPostfix,
   } = args;
-  const type = getWordFinderType({ isCollocation, isFamousQuote });
+  const type = getWordFinderType({ isCollocation, isIdiom, isFamousQuote });
 
   if (isFamousQuote) {
     const quote = word as FamousQuoteWord;
@@ -155,6 +160,28 @@ export function adaptCourseWordToWordFinderResult(
       example: collocation.example || null,
       pronunciation: null,
       imageUrl: collocation.imageUrl || null,
+    };
+  }
+
+  if (isIdiom) {
+    const idiom = word as IdiomWord;
+
+    return {
+      id: idiom.id,
+      courseId,
+      courseLabel,
+      coursePath,
+      schemaVariant: "idiom",
+      dayId: dayId ?? null,
+      sourceHref: buildCourseWordSourceHref(courseId, idiom.id, dayId),
+      type,
+      primaryText: idiom.idiom,
+      secondaryText: null,
+      meaning: idiom.meaning || null,
+      translation: idiom.translation || null,
+      example: idiom.example || null,
+      pronunciation: null,
+      imageUrl: idiom.imageUrl || null,
     };
   }
 
@@ -280,6 +307,7 @@ export function getWordTableMissingActionField(
   word: Word,
   args: {
     isCollocation: boolean;
+    isIdiom?: boolean;
     isJlpt?: boolean;
     isFamousQuote?: boolean;
     isPrefix?: boolean;
@@ -308,6 +336,7 @@ export function isCourseWordFieldMissing(
   word: Word,
   args: {
     isCollocation: boolean;
+    isIdiom?: boolean;
     isJlpt?: boolean;
     isFamousQuote?: boolean;
     isPrefix?: boolean;
@@ -337,6 +366,28 @@ export function isCourseWordFieldMissing(
         return !hasTrimmedText(collocation.translation);
       case "image":
         return Boolean(args.showImageUrl) && !hasTrimmedText(collocation.imageUrl);
+      case "pronunciation":
+      case "derivative":
+        return false;
+      default:
+        return false;
+    }
+  }
+
+  if (args.isIdiom || isIdiomWord(word)) {
+    const idiom = word as IdiomWord;
+
+    switch (field) {
+      case "primaryText":
+        return !hasTrimmedText(idiom.idiom);
+      case "meaning":
+        return !hasTrimmedText(idiom.meaning);
+      case "example":
+        return !hasTrimmedText(idiom.example);
+      case "translation":
+        return !hasTrimmedText(idiom.translation);
+      case "image":
+        return Boolean(args.showImageUrl) && !hasTrimmedText(idiom.imageUrl);
       case "pronunciation":
       case "derivative":
         return false;
@@ -436,6 +487,7 @@ export function getCourseWordMissingFields(
   word: Word,
   args: {
     isCollocation: boolean;
+    isIdiom?: boolean;
     isJlpt?: boolean;
     isFamousQuote?: boolean;
     isPrefix?: boolean;

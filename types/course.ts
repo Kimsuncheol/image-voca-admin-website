@@ -14,9 +14,10 @@ export type CourseId =
   | "JLPT_POSTFIX"
   | "JLPT_COUNTER"
   | "COLLOCATIONS"
+  | "IDIOMS"
   | "FAMOUS_QUOTE";
 
-export type CourseSchema = "standard" | "jlpt" | "collocation" | "famousQuote" | "prefix" | "postfix";
+export type CourseSchema = "standard" | "jlpt" | "collocation" | "idiom" | "famousQuote" | "prefix" | "postfix";
 export type CourseStorageMode = "day" | "flat" | "singleList" | "collection";
 export type SingleListSubcollectionName = "prefix" | "postfix";
 export type JlptCounterOptionId =
@@ -275,6 +276,13 @@ export const COURSES: Course[] = [
     storageMode: "day",
   },
   {
+    id: "IDIOMS",
+    label: "CSAT Idioms",
+    path: normalizeCoursePath(process.env.NEXT_PUBLIC_COURSE_PATH_CSAT_IDIOMS),
+    schema: "idiom",
+    storageMode: "day",
+  },
+  {
     id: "FAMOUS_QUOTE",
     label: "Famous Quote",
     path: normalizeCoursePath(process.env.NEXT_PUBLIC_COURSE_PATH_FAMOUS_QUOTE),
@@ -289,6 +297,10 @@ export function getCourseById(id: string): Course | undefined {
 
 export function isCollocationCourse(id: string): boolean {
   return getCourseById(id)?.schema === "collocation";
+}
+
+export function isIdiomCourse(id: string): boolean {
+  return getCourseById(id)?.schema === "idiom";
 }
 
 export function isFamousQuoteCourse(id: string): boolean {

@@ -3,12 +3,14 @@ import {
   standardWordSchema,
   jlptWordSchema,
   collocationWordSchema,
+  idiomWordSchema,
   famousQuoteWordSchema,
   prefixSchema,
   postfixSchema,
   type StandardWordInput,
   type JlptWordInput,
   type CollocationWordInput,
+  type IdiomWordInput,
   type FamousQuoteWordInput,
   type PrefixWordInput,
   type PostfixWordInput,
@@ -17,7 +19,7 @@ import { textMatchesLanguage, quoteMatchesLanguage } from '@/lib/utils/quoteLang
 import type { FamousQuoteLanguage } from '@/types/famousQuote';
 import type { CourseId } from '@/types/course';
 
-export type SchemaType = 'standard' | 'jlpt' | 'collocation' | 'famousQuote' | 'prefix' | 'postfix';
+export type SchemaType = 'standard' | 'jlpt' | 'collocation' | 'idiom' | 'famousQuote' | 'prefix' | 'postfix';
 
 export interface ParseSchemaOptions {
   schemaType?: SchemaType;
@@ -29,6 +31,7 @@ export interface ParseResult {
     | StandardWordInput
     | JlptWordInput
     | CollocationWordInput
+    | IdiomWordInput
     | FamousQuoteWordInput
     | PrefixWordInput
     | PostfixWordInput
@@ -55,6 +58,7 @@ const JLPT_HEADERS = [
 ] as const;
 const JLPT_OPTIONAL_HEADERS = ['imageurl'] as const;
 const COLLOCATION_HEADERS = ['collocation', 'meaning', 'explanation', 'example', 'translation'] as const;
+const IDIOM_HEADERS = ['idiom', 'meaning', 'example', 'translation'] as const;
 const FAMOUS_QUOTE_HEADERS = ['quote', 'author', 'translation'] as const;
 const FAMOUS_QUOTE_OPTIONAL_HEADERS = ['language'] as const;
 const PREFIX_POSTFIX_HEADERS = [
@@ -96,9 +100,11 @@ function isToeflIeltsStandardCourse(courseId?: CourseId | ''): boolean {
 /** Exported alias for normalizeRow — required by FR-9. */
 export function extractVocaFields(
   row: Record<string, unknown>,
-  isCollocation: boolean
+  isCollocation: boolean,
+  schemaType?: SchemaType,
 ): Record<string, unknown> {
-  return normalizeRow(row, isCollocation ? 'collocation' : 'standard');
+  const resolvedSchema = schemaType ?? (isCollocation ? 'collocation' : 'standard');
+  return normalizeRow(row, resolvedSchema);
 }
 
 function normalizeRow(row: Record<string, unknown>, schemaType: SchemaType): Record<string, unknown> {
@@ -226,6 +232,32 @@ function normalizeRow(row: Record<string, unknown>, schemaType: SchemaType): Rec
     return normalized;
   }
 
+  if (schemaType === 'idiom') {
+    const idiomAliases = ['idiom', '_1'];
+    const meaningAliases = ['meaning', '_2'];
+    const exampleAliases = ['example', 'example sentence', '_3'];
+    const translationAliases = ['translation', '_4'];
+    const imageUrlAliases = ['imageurl', 'image url', 'image_url', '_5'];
+
+    for (const [key, value] of Object.entries(row)) {
+      const cleanKey = key.trim().toLowerCase();
+      const cleanValue = typeof value === 'string' ? value.trim() : value;
+
+      if (idiomAliases.includes(cleanKey)) normalized['idiom'] = cleanValue;
+      else if (meaningAliases.includes(cleanKey)) normalized['meaning'] = cleanValue;
+      else if (exampleAliases.includes(cleanKey)) normalized['example'] = cleanValue;
+      else if (translationAliases.includes(cleanKey)) normalized['translation'] = cleanValue;
+      else if (imageUrlAliases.includes(cleanKey)) normalized['imageUrl'] = cleanValue;
+      else normalized[cleanKey] = cleanValue;
+    }
+
+    normalized['idiom'] = normalized['idiom'] ?? '';
+    normalized['meaning'] = normalized['meaning'] ?? '';
+    normalized['example'] = normalized['example'] ?? '';
+    normalized['translation'] = normalized['translation'] ?? '';
+    return normalized;
+  }
+
   // Alias mappings
   const wordAliases = ['word', '_1'];
   const collocationAliases = ['collocation', '_1'];
@@ -284,6 +316,8 @@ function detectAndParse(
   let schemaType: SchemaType;
   if (forceSchemaType) {
     schemaType = forceSchemaType;
+  } else if (headers.includes('idiom')) {
+    schemaType = 'idiom';
   } else if (headers.includes('collocation')) {
     schemaType = 'collocation';
   } else if (
@@ -301,6 +335,7 @@ function detectAndParse(
 
   const schema =
     schemaType === 'collocation' ? collocationWordSchema
+    : schemaType === 'idiom' ? idiomWordSchema
     : schemaType === 'jlpt' ? jlptWordSchema
     : schemaType === 'famousQuote' ? famousQuoteWordSchema
     : schemaType === 'prefix' ? prefixSchema
@@ -311,6 +346,7 @@ function detectAndParse(
     | StandardWordInput
     | JlptWordInput
     | CollocationWordInput
+    | IdiomWordInput
     | FamousQuoteWordInput
     | PrefixWordInput
     | PostfixWordInput
@@ -323,7 +359,7 @@ function detectAndParse(
     if (currentSchemaType === 'standard') {
       return 'English';
     }
-    if (currentSchemaType === 'collocation') {
+    if (currentSchemaType === 'collocation' || currentSchemaType === 'idiom') {
       return 'English';
     }
     if (currentSchemaType === 'jlpt' || currentSchemaType === 'prefix' || currentSchemaType === 'postfix') {
@@ -333,7 +369,7 @@ function detectAndParse(
   }
 
   function validateUploadRowLanguage(
-    parsedWord: StandardWordInput | JlptWordInput | CollocationWordInput | PrefixWordInput | PostfixWordInput,
+    parsedWord: StandardWordInput | JlptWordInput | CollocationWordInput | IdiomWordInput | PrefixWordInput | PostfixWordInput,
     currentSchemaType: Exclude<SchemaType, 'famousQuote'>,
   ): string | null {
     const language = getUploadValidationLanguage(currentSchemaType);
@@ -346,6 +382,16 @@ function detectAndParse(
 
       if (!textMatchesLanguage(collocationWord.collocation.trim(), language)) {
         failedFields.push('collocation');
+      }
+      if (exampleValue && !textMatchesLanguage(exampleValue, language)) {
+        failedFields.push('example');
+      }
+    } else if (currentSchemaType === 'idiom') {
+      const idiomWord = parsedWord as IdiomWordInput;
+      const exampleValue = idiomWord.example.trim();
+
+      if (!textMatchesLanguage(idiomWord.idiom.trim(), language)) {
+        failedFields.push('idiom');
       }
       if (exampleValue && !textMatchesLanguage(exampleValue, language)) {
         failedFields.push('example');
@@ -410,6 +456,10 @@ function detectAndParse(
       const postfixVal = String(normalized['postfix'] ?? '').toLowerCase();
       const meaningEnglishVal = String(normalized['meaningEnglish'] ?? '').toLowerCase();
       if (postfixVal === 'postfix' && meaningEnglishVal === 'meaning(english)') return;
+    } else if (schemaType === 'idiom') {
+      const idiomVal = String(normalized['idiom'] ?? '').toLowerCase();
+      const meaningVal = String(normalized['meaning'] ?? '').toLowerCase();
+      if (idiomVal === 'idiom' && meaningVal === 'meaning') return;
     } else {
       const primaryKey = schemaType === 'collocation' ? 'collocation' : 'word';
       const primaryVal = String(normalized[primaryKey] ?? '').toLowerCase();
@@ -429,7 +479,7 @@ function detectAndParse(
         }
       } else {
         const languageWarning = validateUploadRowLanguage(
-          parsed.data as StandardWordInput | JlptWordInput | CollocationWordInput | PrefixWordInput | PostfixWordInput,
+          parsed.data as StandardWordInput | JlptWordInput | CollocationWordInput | IdiomWordInput | PrefixWordInput | PostfixWordInput,
           schemaType,
         );
         if (languageWarning) {
@@ -453,6 +503,7 @@ export type { PrefixWordInput, PostfixWordInput };
 
 function getExpectedHeaders(schemaType: SchemaType): string[] {
   if (schemaType === 'collocation') return [...COLLOCATION_HEADERS];
+  if (schemaType === 'idiom') return [...IDIOM_HEADERS];
   if (schemaType === 'famousQuote') return [...FAMOUS_QUOTE_HEADERS];
   if (schemaType === 'jlpt') return [...JLPT_HEADERS];
   if (schemaType === 'prefix') return [...PREFIX_HEADERS];
@@ -533,8 +584,18 @@ function isCrossHeaderFirstRow(
     // Famous quote rows are sentences; cross-header detection not applicable
     return false;
   }
-  if (firstDataRow.length < 5) return false;
   const norm = firstDataRow.map((cell) => (cell?.trim() ?? '').toLowerCase());
+
+  if (targetSchemaType === 'idiom') {
+    // Detect a standard or collocation header pasted into an idiom upload
+    if (firstDataRow.length < 4) return false;
+    return (
+      (norm[0] === 'word' || norm[0] === 'collocation') &&
+      norm[1] === 'meaning'
+    );
+  }
+
+  if (firstDataRow.length < 5) return false;
 
   if (targetSchemaType === 'collocation') {
     return (
@@ -546,19 +607,17 @@ function isCrossHeaderFirstRow(
     );
   }
 
+  // standard — detect collocation or idiom header
   return (
-    norm[0] === 'collocation' &&
-    norm[1] === 'meaning' &&
-    norm[2] === 'explanation' &&
-    norm[3] === 'example' &&
-    norm[4] === 'translation'
+    (norm[0] === 'collocation' || norm[0] === 'idiom') &&
+    norm[1] === 'meaning'
   );
 }
 
 // Schema field names only — NOT positional aliases.
 // A row qualifies as a header row when ≥2 of its cells match known field names.
 const KNOWN_FIELDS = new Set([
-  'word', 'collocation', 'prefix', 'postfix', 'meaning',
+  'word', 'collocation', 'idiom', 'prefix', 'postfix', 'meaning',
   'meaning(english)', 'meaning english', 'meaning(korean)', 'meaning korean',
   'pronunciation', 'pronounciation',
   'synonym',
