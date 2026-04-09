@@ -25,6 +25,7 @@ const courseIcons: Record<CourseId, React.ReactNode> = {
   JLPT_N4: <TranslateIcon sx={{ fontSize: 48 }} />,
   JLPT_N5: <TranslateIcon sx={{ fontSize: 48 }} />,
   COLLOCATIONS: <LinkIcon sx={{ fontSize: 48 }} />,
+  IDIOMS: <LinkIcon sx={{ fontSize: 48 }} />,
   FAMOUS_QUOTE: <FormatQuoteIcon sx={{ fontSize: 48 }} />,
   JLPT_PREFIX: <TranslateIcon sx={{ fontSize: 48 }} />,
   JLPT_POSTFIX: <TranslateIcon sx={{ fontSize: 48 }} />,
