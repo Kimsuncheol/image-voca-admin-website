@@ -15,6 +15,22 @@ import type { CourseId, Day } from '@/types/course';
 import type { Word } from '@/types/word';
 import type { FamousQuoteWord } from '@/types/word';
 
+export type EditableWordTextField =
+  | 'word'
+  | 'prefix'
+  | 'postfix'
+  | 'meaning'
+  | 'collocation'
+  | 'idiom'
+  | 'meaningEnglish'
+  | 'meaningKorean'
+  | 'pronunciation'
+  | 'example'
+  | 'exampleRoman'
+  | 'translation'
+  | 'translationEnglish'
+  | 'translationKorean';
+
 /**
  * Firestore structure:
  *   {coursePath}                   ← course document (has totalDays, lastUploadedDayId, etc.)
@@ -239,20 +255,7 @@ export async function updateWordTextField(
   coursePath: string,
   dayId: string,
   wordId: string,
-  field:
-    | 'word'
-    | 'prefix'
-    | 'postfix'
-    | 'meaning'
-    | 'collocation'
-    | 'meaningEnglish'
-    | 'meaningKorean'
-    | 'pronunciation'
-    | 'example'
-    | 'exampleRoman'
-    | 'translation'
-    | 'translationEnglish'
-    | 'translationKorean',
+  field: EditableWordTextField,
   value: string,
 ): Promise<void> {
   const wordRef = doc(collection(doc(db, coursePath), dayId), wordId);
@@ -263,20 +266,7 @@ export async function updateSingleListWordTextField(
   courseId: CourseId,
   coursePath: string,
   wordId: string,
-  field:
-    | 'word'
-    | 'prefix'
-    | 'postfix'
-    | 'meaning'
-    | 'collocation'
-    | 'meaningEnglish'
-    | 'meaningKorean'
-    | 'pronunciation'
-    | 'example'
-    | 'exampleRoman'
-    | 'translation'
-    | 'translationEnglish'
-    | 'translationKorean',
+  field: EditableWordTextField,
   value: string,
 ): Promise<void> {
   const wordRef = doc(
@@ -289,20 +279,7 @@ export async function updateSingleListWordTextField(
 export async function updateCollectionWordTextField(
   collectionPath: string,
   wordId: string,
-  field:
-    | 'word'
-    | 'prefix'
-    | 'postfix'
-    | 'meaning'
-    | 'collocation'
-    | 'meaningEnglish'
-    | 'meaningKorean'
-    | 'pronunciation'
-    | 'example'
-    | 'exampleRoman'
-    | 'translation'
-    | 'translationEnglish'
-    | 'translationKorean',
+  field: EditableWordTextField,
   value: string,
 ): Promise<void> {
   const wordRef = doc(collection(db, collectionPath), wordId);

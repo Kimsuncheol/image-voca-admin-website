@@ -25,6 +25,7 @@ import InlineEditableText from "@/components/shared/InlineEditableText";
 import WordFinderMissingFieldDialog from "@/components/words/WordFinderMissingFieldDialog";
 import { addFuriganaText } from "@/lib/addFurigana";
 import {
+  type EditableWordTextField,
   updateCollectionWordDerivatives,
   updateCollectionWordImageUrl,
   updateCollectionWordTextField,
@@ -517,21 +518,7 @@ export default function WordTable({
   const persistTextField = useCallback(
     async (
       wordId: string,
-      field:
-        | "word"
-        | "prefix"
-        | "postfix"
-        | "meaning"
-        | "collocation"
-        | "idiom"
-        | "meaningEnglish"
-        | "meaningKorean"
-        | "pronunciation"
-        | "example"
-        | "exampleRoman"
-        | "translation"
-        | "translationEnglish"
-        | "translationKorean",
+      field: EditableWordTextField,
       value: string,
     ) => {
       if (!coursePath || !storageMode) return;
