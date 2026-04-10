@@ -70,6 +70,7 @@ import {
 } from "@/types/course";
 import type {
   JlptWordInput,
+  ExtremelyAdvancedWordInput,
   PostfixWordInput,
   PrefixWordInput,
   StandardWordInput,
@@ -697,6 +698,42 @@ export default function AddVocaPage() {
             words as StandardWordInput[],
             selectedCourse,
           );
+        } else if (schemaType === "extremelyAdvanced") {
+          if (options.images && isImageGenerationEnabled) {
+            setStatusText(t("addVoca.statusImage"));
+            try {
+              const imageResp = await fetch("/api/admin/generate-images", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  courseId: selectedCourse,
+                  words,
+                }),
+              });
+
+              if (imageResp.ok) {
+                const result = (await imageResp.json()) as {
+                  words: ExtremelyAdvancedWordInput[];
+                  failures?: { word: string; error: string }[];
+                };
+                words = result.words;
+
+                if (result.failures && result.failures.length > 0) {
+                  console.warn(
+                    `[Image Generation] ${item.dayName} partial failures:`,
+                    result.failures,
+                  );
+                }
+              }
+            } catch (e) {
+              console.error("[Image Generation] Failed (non-fatal):", e);
+            }
+          }
+
+          words = prepareStandardWordsForUpload(
+            words as ExtremelyAdvancedWordInput[],
+            selectedCourse,
+          );
         }
 
         processedMap.set(item.id, words);
@@ -749,6 +786,7 @@ export default function AddVocaPage() {
     if (
       daysToUpload.length > 0 &&
       (schemaType === "standard" ||
+        schemaType === "extremelyAdvanced" ||
         schemaType === "jlpt" ||
         schemaType === "collocation" ||
         schemaType === "idiom" ||
@@ -974,6 +1012,7 @@ export default function AddVocaPage() {
 
     const isOptionBasedUploadFlow =
       (schemaType === "standard" ||
+        schemaType === "extremelyAdvanced" ||
         schemaType === "jlpt" ||
         schemaType === "prefix" ||
         schemaType === "postfix") &&

@@ -49,6 +49,15 @@ test("validateGenerateImageRequestBody accepts JLPT counter uploads", () => {
   assert.equal(result.ok, true);
 });
 
+test("validateGenerateImageRequestBody accepts Extremely Advanced uploads", () => {
+  const result = validateGenerateImageRequestBody({
+    word: "fuddle",
+    courseId: "EXTREMELY_ADVANCED",
+  });
+
+  assert.equal(result.ok, true);
+});
+
 test("createGenerateImageError supports FEATURE_DISABLED", () => {
   const result = createGenerateImageError("FEATURE_DISABLED");
 

@@ -231,4 +231,38 @@ describe("WordTable", () => {
     expect(markup).toContain("concentration");
     expect(markup).toContain('data-nowrap="true">focus<');
   });
+
+  it("renders Extremely Advanced rows without pronunciation or derivative columns", () => {
+    const markup = renderToStaticMarkup(
+      <WordTable
+        words={[
+          {
+            id: "advanced-1",
+            word: "fuddle",
+            meaning: "to confuse",
+            example: "I fuddled away with old friends.",
+            translation: "나는 친구들과 시간을 보냈다.",
+            imageUrl: "https://example.com/fuddle.png",
+          },
+        ]}
+        isCollocation={false}
+        isExtremelyAdvanced
+        showImageUrl
+        courseId="EXTREMELY_ADVANCED"
+        coursePath="courses/EXTREMELY_ADVANCED"
+        dayId="Day1"
+      />,
+    );
+
+    expect(markup).toContain("Word");
+    expect(markup).toContain("Meaning");
+    expect(markup).toContain("Example");
+    expect(markup).toContain("Translation");
+    expect(markup).toContain("Image");
+    expect(markup).not.toContain("Pronunciation");
+    expect(markup).not.toContain("Derivatives");
+    expect(markup).toContain("fuddle");
+    expect(markup).toContain("I fuddled away with old friends.");
+    expect(markup).toContain("https://example.com/fuddle.png");
+  });
 });

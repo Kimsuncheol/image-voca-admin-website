@@ -88,6 +88,24 @@ function createHeaderMismatchParseResult(
   };
 }
 
+function createExtremelyAdvancedParseResult(): ParseResult {
+  return {
+    words: [
+      {
+        word: "fuddle",
+        meaning: "to confuse",
+        example: "I fuddled away with old friends.",
+        translation: "나는 친구들과 시간을 보냈다.",
+        imageUrl: "https://example.com/fuddle.png",
+      },
+    ],
+    schemaType: "extremelyAdvanced",
+    isCollocation: false,
+    errors: [],
+    detectedHeaders: ["word", "meaning", "example", "translation", "imageUrl"],
+  };
+}
+
 describe("UploadModal", () => {
   let rendered: ReturnType<typeof renderModal> | null = null;
 
@@ -151,6 +169,36 @@ describe("UploadModal", () => {
       "example",
       "translation",
     ]);
+  });
+
+  it("shows Extremely Advanced preview columns without pronunciation", () => {
+    rendered = renderModal(
+      <UploadModal
+        open
+        onClose={() => {}}
+        onConfirm={() => {}}
+        initialData={createExtremelyAdvancedParseResult()}
+        hideDayInput
+        hiddenDayName="Day1"
+        schemaType="extremelyAdvanced"
+        courseId="EXTREMELY_ADVANCED"
+      />,
+    );
+
+    const headers = Array.from(document.querySelectorAll("th")).map(
+      (cell) => cell.textContent?.trim() ?? "",
+    );
+
+    expect(headers).toEqual([
+      "word",
+      "meaning",
+      "example",
+      "translation",
+      "imageUrl",
+    ]);
+    expect(document.body.textContent).toContain("fuddle");
+    expect(document.body.textContent).toContain("https://example.com/fuddle.png");
+    expect(headers).not.toContain("pronunciation");
   });
 
   it("shows the targeted TOEFL/IELTS synonym hint for CSAT exact-match header mismatches", () => {

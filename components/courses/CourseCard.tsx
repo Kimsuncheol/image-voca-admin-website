@@ -18,6 +18,7 @@ const courseIcons: Record<CourseId, React.ReactNode> = {
   CSAT: <SchoolIcon sx={{ fontSize: 48 }} />,
   TOEFL_IELTS: <LanguageIcon sx={{ fontSize: 48 }} />,
   TOEIC: <WorkIcon sx={{ fontSize: 48 }} />,
+  EXTREMELY_ADVANCED: <SchoolIcon sx={{ fontSize: 48 }} />,
   JLPT: <TranslateIcon sx={{ fontSize: 48 }} />,
   JLPT_N1: <TranslateIcon sx={{ fontSize: 48 }} />,
   JLPT_N2: <TranslateIcon sx={{ fontSize: 48 }} />,

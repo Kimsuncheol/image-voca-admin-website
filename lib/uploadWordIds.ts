@@ -1,5 +1,6 @@
 import type {
   CollocationWordInput,
+  ExtremelyAdvancedWordInput,
   FamousQuoteWordInput,
   IdiomWordInput,
   JlptWordInput,
@@ -11,6 +12,7 @@ import type { SchemaType } from "@/lib/utils/csvParser";
 
 type UploadWordWithOptionalId =
   | StandardWordInput
+  | ExtremelyAdvancedWordInput
   | JlptWordInput
   | CollocationWordInput
   | IdiomWordInput
@@ -18,6 +20,7 @@ type UploadWordWithOptionalId =
   | PostfixWordInput;
 type UploadParseWord =
   | StandardWordInput
+  | ExtremelyAdvancedWordInput
   | JlptWordInput
   | CollocationWordInput
   | IdiomWordInput
@@ -69,6 +72,7 @@ export function assignDeterministicUploadIdsForSchema<
 ): T[] {
   if (
     schemaType === "standard" ||
+    schemaType === "extremelyAdvanced" ||
     schemaType === "jlpt" ||
     schemaType === "collocation" ||
     schemaType === "idiom" ||
@@ -94,6 +98,7 @@ export function assignDeterministicUploadIdsForItems<
 ): TItem[] {
   if (
     schemaType !== "standard" &&
+    schemaType !== "extremelyAdvanced" &&
     schemaType !== "jlpt" &&
     schemaType !== "collocation" &&
     schemaType !== "idiom" &&

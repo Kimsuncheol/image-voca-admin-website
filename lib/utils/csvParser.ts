@@ -1,6 +1,7 @@
 import Papa from 'papaparse';
 import {
   standardWordSchema,
+  extremelyAdvancedWordSchema,
   jlptWordSchema,
   collocationWordSchema,
   idiomWordSchema,
@@ -8,6 +9,7 @@ import {
   prefixSchema,
   postfixSchema,
   type StandardWordInput,
+  type ExtremelyAdvancedWordInput,
   type JlptWordInput,
   type CollocationWordInput,
   type IdiomWordInput,
@@ -19,7 +21,7 @@ import { textMatchesLanguage, quoteMatchesLanguage } from '@/lib/utils/quoteLang
 import type { FamousQuoteLanguage } from '@/types/famousQuote';
 import type { CourseId } from '@/types/course';
 
-export type SchemaType = 'standard' | 'jlpt' | 'collocation' | 'idiom' | 'famousQuote' | 'prefix' | 'postfix';
+export type SchemaType = 'standard' | 'extremelyAdvanced' | 'jlpt' | 'collocation' | 'idiom' | 'famousQuote' | 'prefix' | 'postfix';
 
 export interface ParseSchemaOptions {
   schemaType?: SchemaType;
@@ -29,6 +31,7 @@ export interface ParseSchemaOptions {
 export interface ParseResult {
   words: (
     | StandardWordInput
+    | ExtremelyAdvancedWordInput
     | JlptWordInput
     | CollocationWordInput
     | IdiomWordInput
@@ -47,6 +50,8 @@ export interface ParseResult {
 
 const STANDARD_HEADERS = ['word', 'meaning', 'pronunciation', 'example', 'translation'] as const;
 const STANDARD_OPTIONAL_HEADERS = ['synonym'] as const;
+const EXTREMELY_ADVANCED_HEADERS = ['word', 'meaning', 'example', 'translation'] as const;
+const EXTREMELY_ADVANCED_OPTIONAL_HEADERS = ['imageurl'] as const;
 const JLPT_HEADERS = [
   'word',
   'meaning(english)',
@@ -131,6 +136,33 @@ function normalizeRow(row: Record<string, unknown>, schemaType: SchemaType): Rec
     normalized['author'] = normalized['author'] ?? '';
     normalized['translation'] = normalized['translation'] ?? '';
     // language defaults to 'English' via Zod schema if absent
+    return normalized;
+  }
+
+  if (schemaType === 'extremelyAdvanced') {
+    const wordAliases = ['word', '_1'];
+    const meaningAliases = ['meaning', '_2'];
+    const exampleAliases = ['example', 'example sentence', '_3'];
+    const translationAliases = ['translation', '_4'];
+    const imageUrlAliases = ['imageurl', 'image url', 'image_url', '_5'];
+
+    for (const [key, value] of Object.entries(row)) {
+      const cleanKey = key.trim().toLowerCase();
+      const cleanValue = typeof value === 'string' ? value.trim() : value;
+
+      if (wordAliases.includes(cleanKey)) normalized['word'] = cleanValue;
+      else if (meaningAliases.includes(cleanKey)) normalized['meaning'] = cleanValue;
+      else if (exampleAliases.includes(cleanKey)) normalized['example'] = cleanValue;
+      else if (translationAliases.includes(cleanKey)) normalized['translation'] = cleanValue;
+      else if (imageUrlAliases.includes(cleanKey)) normalized['imageUrl'] = cleanValue;
+      else normalized[cleanKey] = cleanValue;
+    }
+
+    normalized['word'] = normalized['word'] ?? '';
+    normalized['meaning'] = normalized['meaning'] ?? '';
+    normalized['example'] = normalized['example'] ?? '';
+    normalized['translation'] = normalized['translation'] ?? '';
+    normalized['imageUrl'] = normalized['imageUrl'] ?? '';
     return normalized;
   }
 
@@ -335,6 +367,7 @@ function detectAndParse(
 
   const schema =
     schemaType === 'collocation' ? collocationWordSchema
+    : schemaType === 'extremelyAdvanced' ? extremelyAdvancedWordSchema
     : schemaType === 'idiom' ? idiomWordSchema
     : schemaType === 'jlpt' ? jlptWordSchema
     : schemaType === 'famousQuote' ? famousQuoteWordSchema
@@ -344,6 +377,7 @@ function detectAndParse(
 
   const words: (
     | StandardWordInput
+    | ExtremelyAdvancedWordInput
     | JlptWordInput
     | CollocationWordInput
     | IdiomWordInput
@@ -356,7 +390,7 @@ function detectAndParse(
   function getUploadValidationLanguage(
     currentSchemaType: SchemaType,
   ): FamousQuoteLanguage | null {
-    if (currentSchemaType === 'standard') {
+    if (currentSchemaType === 'standard' || currentSchemaType === 'extremelyAdvanced') {
       return 'English';
     }
     if (currentSchemaType === 'collocation' || currentSchemaType === 'idiom') {
@@ -369,7 +403,7 @@ function detectAndParse(
   }
 
   function validateUploadRowLanguage(
-    parsedWord: StandardWordInput | JlptWordInput | CollocationWordInput | IdiomWordInput | PrefixWordInput | PostfixWordInput,
+    parsedWord: StandardWordInput | ExtremelyAdvancedWordInput | JlptWordInput | CollocationWordInput | IdiomWordInput | PrefixWordInput | PostfixWordInput,
     currentSchemaType: Exclude<SchemaType, 'famousQuote'>,
   ): string | null {
     const language = getUploadValidationLanguage(currentSchemaType);
@@ -415,7 +449,7 @@ function detectAndParse(
         failedFields.push('example');
       }
     } else {
-      const standardLikeWord = parsedWord as StandardWordInput | JlptWordInput;
+      const standardLikeWord = parsedWord as StandardWordInput | ExtremelyAdvancedWordInput | JlptWordInput;
       const exampleValue = standardLikeWord.example.trim();
 
       if (!textMatchesLanguage(standardLikeWord.word.trim(), language)) {
@@ -479,7 +513,7 @@ function detectAndParse(
         }
       } else {
         const languageWarning = validateUploadRowLanguage(
-          parsed.data as StandardWordInput | JlptWordInput | CollocationWordInput | IdiomWordInput | PrefixWordInput | PostfixWordInput,
+          parsed.data as StandardWordInput | ExtremelyAdvancedWordInput | JlptWordInput | CollocationWordInput | IdiomWordInput | PrefixWordInput | PostfixWordInput,
           schemaType,
         );
         if (languageWarning) {
@@ -503,6 +537,7 @@ export type { PrefixWordInput, PostfixWordInput };
 
 function getExpectedHeaders(schemaType: SchemaType): string[] {
   if (schemaType === 'collocation') return [...COLLOCATION_HEADERS];
+  if (schemaType === 'extremelyAdvanced') return [...EXTREMELY_ADVANCED_HEADERS];
   if (schemaType === 'idiom') return [...IDIOM_HEADERS];
   if (schemaType === 'famousQuote') return [...FAMOUS_QUOTE_HEADERS];
   if (schemaType === 'jlpt') return [...JLPT_HEADERS];
@@ -535,6 +570,14 @@ function isExactHeaderSet(
 
   if (schemaType === 'famousQuote') {
     const allowedHeaders = new Set([...expectedHeaders, ...FAMOUS_QUOTE_OPTIONAL_HEADERS]);
+    const headerSet = new Set(headers);
+    if (headers.length < expectedHeaders.length) return false;
+    if (!expectedHeaders.every((h) => headerSet.has(h))) return false;
+    return headers.every((header) => allowedHeaders.has(header));
+  }
+
+  if (schemaType === 'extremelyAdvanced') {
+    const allowedHeaders = new Set([...expectedHeaders, ...EXTREMELY_ADVANCED_OPTIONAL_HEADERS]);
     const headerSet = new Set(headers);
     if (headers.length < expectedHeaders.length) return false;
     if (!expectedHeaders.every((h) => headerSet.has(h))) return false;
@@ -595,6 +638,14 @@ function isCrossHeaderFirstRow(
     );
   }
 
+  if (targetSchemaType === 'extremelyAdvanced') {
+    if (firstDataRow.length < 4) return false;
+    return (
+      (norm[0] === 'collocation' || norm[0] === 'idiom') &&
+      norm[1] === 'meaning'
+    );
+  }
+
   if (firstDataRow.length < 5) return false;
 
   if (targetSchemaType === 'collocation') {
@@ -624,6 +675,7 @@ const KNOWN_FIELDS = new Set([
   'pronunciation(roman)', 'pronunciation roman', 'roman',
   'explanation', 'example', 'example sentence', 'example(roman)', 'example roman', 'translation',
   'translation(english)', 'translation english', 'translation(korean)', 'translation korean',
+  'imageurl', 'image url', 'image_url',
   'quote', 'author', 'language',
 ]);
 

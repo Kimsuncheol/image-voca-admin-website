@@ -17,6 +17,15 @@ export interface StandardWord {
   derivative?: { word: string; meaning: string }[];
 }
 
+export interface ExtremelyAdvancedWord {
+  id: string;
+  word: string;
+  meaning: string;
+  example: string;
+  translation: string;
+  imageUrl?: string;
+}
+
 export interface JlptWord {
   id: string;
   word: string;
@@ -84,7 +93,7 @@ export interface FamousQuoteWord {
   language?: 'English' | 'Japanese';
 }
 
-export type Word = StandardWord | JlptWord | CollocationWord | IdiomWord | FamousQuoteWord | PrefixWord | PostfixWord;
+export type Word = StandardWord | ExtremelyAdvancedWord | JlptWord | CollocationWord | IdiomWord | FamousQuoteWord | PrefixWord | PostfixWord;
 
 export function isJlptWord(w: Word): w is JlptWord {
   return "word" in w && "meaningEnglish" in w;

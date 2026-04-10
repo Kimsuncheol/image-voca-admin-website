@@ -83,6 +83,52 @@ describe("csvParser language validation", () => {
     });
   });
 
+  it("accepts Extremely Advanced rows with optional imageUrl", () => {
+    const result = parseRowArrays(
+      [
+        ["word", "meaning", "example", "translation", "imageUrl"],
+        [
+          "fuddle",
+          "to confuse",
+          "I fuddled away with old friends.",
+          "나는 친구들과 시간을 보냈다.",
+          "https://example.com/fuddle.png",
+        ],
+      ],
+      "extremelyAdvanced",
+    );
+
+    expect(result.blockingError).toBeUndefined();
+    expect(result.errors).toEqual([]);
+    expect(result.expectedHeaders).toBeUndefined();
+    expect(result.words[0]).toMatchObject({
+      word: "fuddle",
+      meaning: "to confuse",
+      example: "I fuddled away with old friends.",
+      translation: "나는 친구들과 시간을 보냈다.",
+      imageUrl: "https://example.com/fuddle.png",
+    });
+  });
+
+  it("rejects standard pronunciation headers for Extremely Advanced uploads", () => {
+    const result = parseRowArrays(
+      [
+        ["word", "meaning", "pronunciation", "example", "translation"],
+        ["fuddle", "to confuse", "", "I fuddled away with old friends.", "나는 친구들과 시간을 보냈다."],
+      ],
+      "extremelyAdvanced",
+    );
+
+    expect(result.blockingError).toBe("HEADER_MISMATCH");
+    expect(result.expectedHeaders).toEqual([
+      "word",
+      "meaning",
+      "example",
+      "translation",
+    ]);
+    expect(result.words).toEqual([]);
+  });
+
   it("validates collocation and example fields for collocation uploads", () => {
     const result = parseRowArrays(
       [

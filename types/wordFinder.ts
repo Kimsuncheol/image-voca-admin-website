@@ -3,6 +3,7 @@ import type { CourseId } from "./course";
 export type WordFinderType = "standard" | "collocation" | "idiom" | "famousQuote";
 export type WordFinderSchemaVariant =
   | "standard"
+  | "extremelyAdvanced"
   | "jlpt"
   | "collocation"
   | "idiom"

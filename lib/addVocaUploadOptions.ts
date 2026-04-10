@@ -66,10 +66,13 @@ export function getUploadOptionState(params: {
   const isImageGenerationEnabled =
     shouldIncludeImageUrl(params.selectedCourse) &&
     params.imageGenerationEnabled;
-  const isPreserveExistingImagesEnabled = params.hasAnyImageUrl ?? false;
+  const isPreserveExistingImagesEnabled = shouldIncludeImageUrl(
+    params.selectedCourse,
+  );
   const isExampleAndTranslationGenerationEnabled =
     params.enrichGenerationEnabled &&
     params.selectedCourse !== "" &&
+    params.selectedCourse !== "EXTREMELY_ADVANCED" &&
     !isJlptCourse(params.selectedCourse) &&
     !isPrefixCourse(params.selectedCourse) &&
     !isPostfixCourse(params.selectedCourse);

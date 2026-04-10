@@ -90,6 +90,36 @@ function createStandardResult(
   };
 }
 
+function createExtremelyAdvancedResult(
+  course: Course,
+  dayId: string,
+  id: string,
+  data: Record<string, unknown>,
+): WordFinderResult | null {
+  const word = normalizeWordFinderText(data.word);
+  const meaning = normalizeNullableWordFinderText(data.meaning);
+  if (!word) return null;
+
+  return {
+    id,
+    courseId: course.id,
+    courseLabel: course.label,
+    coursePath: course.path,
+    schemaVariant: "extremelyAdvanced",
+    dayId,
+    sourceHref: buildCourseSourceHref(course.id, id, dayId),
+    type: "standard",
+    primaryText: word,
+    secondaryText: meaning,
+    meaning,
+    translation: normalizeNullableWordFinderText(data.translation),
+    example: normalizeNullableWordFinderText(data.example),
+    pronunciation: null,
+    imageUrl: normalizeNullableWordFinderText(data.imageUrl),
+    derivative: null,
+  };
+}
+
 function normalizeDerivativeEntries(
   value: unknown,
 ): Array<{ word: string; meaning: string }> | null {
@@ -399,6 +429,8 @@ async function getCourseResults(course: Course): Promise<WordFinderResult[]> {
           const result =
             course.schema === "collocation"
               ? createCollocationResult(course, dayId, doc.id, data)
+              : course.schema === "extremelyAdvanced"
+                ? createExtremelyAdvancedResult(course, dayId, doc.id, data)
               : course.schema === "idiom"
                 ? createIdiomResult(course, dayId, doc.id, data)
               : course.schema === "jlpt"
@@ -480,7 +512,8 @@ export async function GET(request: NextRequest) {
     };
 
     return NextResponse.json(response);
-  } catch {
+  } catch (error) {
+    console.error("[words] Failed to search words:", error);
     return NextResponse.json(
       { error: "Failed to search words" },
       { status: 500 },

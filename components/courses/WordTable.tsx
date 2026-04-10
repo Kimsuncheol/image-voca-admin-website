@@ -43,7 +43,7 @@ import { containsKorean } from "@/lib/utils/korean";
 import { insertNumberedBreaks } from "@/lib/utils/textFormat";
 import { supportsDerivativeCourse } from "@/constants/supportedDerivativeCourses";
 import { getCourseById, type CourseId } from "@/types/course";
-import type { CollocationWord, IdiomWord, JlptWord, PostfixWord, PrefixWord, StandardWord, Word } from "@/types/word";
+import type { CollocationWord, ExtremelyAdvancedWord, IdiomWord, JlptWord, PostfixWord, PrefixWord, StandardWord, Word } from "@/types/word";
 import DerivativeEditDialog from "@/components/courses/DerivativeEditDialog";
 import { isCollocationWord, isFamousQuoteWord, isIdiomWord, isJlptWord, isPostfixWord, isPrefixWord } from "@/types/word";
 import {
@@ -85,6 +85,7 @@ function getWordTableColField(
   showImageUrl?: boolean,
   supportsDerivatives?: boolean,
   hasSynonymColumn = false,
+  isExtremelyAdvanced = false,
 ): WordFinderActionField | null {
   if (isPrefixWord(word) || isPostfixWord(word)) {
     if (col === 3) return "pronunciation";
@@ -113,6 +114,12 @@ function getWordTableColField(
   }
   if (isFamousQuoteWord(word)) {
     return col === 2 ? "translation" : null;
+  }
+  if (isExtremelyAdvanced) {
+    if (col === 2) return "example";
+    if (col === 3) return "translation";
+    if (showImageUrl && col === 4) return "image";
+    return null;
   }
   // Standard
   const pronunciationCol = hasSynonymColumn ? 3 : 2;
@@ -431,6 +438,7 @@ interface WordTableProps {
   words: Word[];
   isCollocation: boolean;
   isIdiom?: boolean;
+  isExtremelyAdvanced?: boolean;
   isJlpt?: boolean;
   isFamousQuote?: boolean;
   isPrefix?: boolean;
@@ -455,6 +463,7 @@ export default function WordTable({
   words,
   isCollocation,
   isIdiom,
+  isExtremelyAdvanced,
   isJlpt,
   isFamousQuote,
   isPrefix,
@@ -499,6 +508,7 @@ export default function WordTable({
     courseId &&
       !isCollocation &&
       !isIdiom &&
+      !isExtremelyAdvanced &&
       !isJlpt &&
       !isFamousQuote &&
       !isPrefix &&
@@ -509,6 +519,7 @@ export default function WordTable({
     courseId === "TOEFL_IELTS" &&
       !isCollocation &&
       !isIdiom &&
+      !isExtremelyAdvanced &&
       !isJlpt &&
       !isFamousQuote &&
       !isPrefix &&
@@ -602,6 +613,7 @@ export default function WordTable({
       dayId,
       isCollocation,
       isIdiom,
+      isExtremelyAdvanced,
       isJlpt,
       isFamousQuote,
       isPrefix,
@@ -615,6 +627,7 @@ export default function WordTable({
     dayId,
     isCollocation,
     isIdiom,
+    isExtremelyAdvanced,
     isJlpt,
     isFamousQuote,
     isPrefix,
@@ -933,6 +946,7 @@ export default function WordTable({
         {
           isCollocation,
           isIdiom,
+          isExtremelyAdvanced,
           isJlpt,
           isFamousQuote,
           isPrefix,
@@ -945,6 +959,7 @@ export default function WordTable({
     [
       isCollocation,
       isIdiom,
+      isExtremelyAdvanced,
       isJlpt,
       isFamousQuote,
       isPrefix,
@@ -992,6 +1007,16 @@ export default function WordTable({
       if (isFamousQuote && isFamousQuoteWord(m)) {
         return [m.quote, m.author, m.translation, m.language ?? ''];
       }
+      if (isExtremelyAdvanced) {
+        const advanced = m as ExtremelyAdvancedWord;
+        return [
+          advanced.word,
+          advanced.meaning,
+          advanced.example,
+          advanced.translation,
+          ...(showImageUrl ? [""] : []),
+        ];
+      }
       const s = m as StandardWord;
       const derivativeCell = formatDerivativeCellValue(s.derivative);
       return hasSynonymColumn
@@ -1015,7 +1040,7 @@ export default function WordTable({
             derivativeCell,
           ];
     });
-  }, [words, localWordUpdates, isJlpt, isCollocation, isIdiom, isFamousQuote, isPrefix, isPostfix, hasSynonymColumn, showImageUrl]);
+  }, [words, localWordUpdates, isJlpt, isCollocation, isIdiom, isExtremelyAdvanced, isFamousQuote, isPrefix, isPostfix, hasSynonymColumn, showImageUrl]);
 
   const contextMenuWord = useMemo(() => {
     if (!contextMenu) return null;
@@ -1033,6 +1058,7 @@ export default function WordTable({
         showImageUrl,
         supportsDerivatives,
         hasSynonymColumn,
+        isExtremelyAdvanced,
       );
       if (
         field === "derivative" &&
@@ -1049,6 +1075,7 @@ export default function WordTable({
       showImageUrl,
       supportsDerivatives,
       hasSynonymColumn,
+      isExtremelyAdvanced,
     ],
   );
 
@@ -1391,6 +1418,14 @@ export default function WordTable({
                   <TableCell>{t("courses.author")}</TableCell>
                   <TableCell>{t("courses.translation")}</TableCell>
                   <TableCell>{t("courses.language")}</TableCell>
+                </>
+              ) : isExtremelyAdvanced ? (
+                <>
+                  <TableCell>{t("courses.word")}</TableCell>
+                  <TableCell>{t("courses.meaning")}</TableCell>
+                  <TableCell>{t("courses.example")}</TableCell>
+                  <TableCell>{t("courses.translation")}</TableCell>
+                  {showImageUrl && <TableCell>{t("courses.image", "Image")}</TableCell>}
                 </>
               ) : (
                 <>
@@ -1861,6 +1896,112 @@ export default function WordTable({
                       {mergedWord.language ?? ''}
                     </TableCell>
                   </>
+                  ) : isExtremelyAdvanced ? (
+                  <>
+                    <TableCell {...selectableCellProps(rowIdx, 0)}>
+                      {renderEditableTextCell(mergedWord, "primaryText", (mergedWord as ExtremelyAdvancedWord).word, {
+                        emptyLabel: t("courses.missingWordValue"),
+                        fontWeight: 500,
+                        singleLine: true,
+                      })}
+                    </TableCell>
+                    <TableCell {...selectableCellProps(rowIdx, 1)}>
+                      {renderEditableTextCell(mergedWord, "meaning", (mergedWord as ExtremelyAdvancedWord).meaning, {
+                        emptyLabel: t("courses.missingMeaningValue"),
+                        numberedList: true,
+                      })}
+                    </TableCell>
+                    {!isMissingField(mergedWord, "example") ? (
+                      <ExampleCell
+                        text={getResolvedTextField(word.id, "example") || (mergedWord as ExtremelyAdvancedWord).example}
+                        onClick={(e) => handleCellClick(e, rowIdx, 2)}
+                        onContextMenu={(e) => handleCellContextMenu(e, rowIdx, 2)}
+                        selected={isCellSelected(rowIdx, 2)}
+                      />
+                    ) : (
+                      <MissingFieldTrigger
+                        wordId={word.id}
+                        field="example"
+                        tooltipKey="courses.generateExample"
+                      />
+                    )}
+                    {!isMissingField(mergedWord, "translation") ? (
+                      <ExampleCell
+                        text={
+                          getResolvedTextField(word.id, "translation") ||
+                          (mergedWord as ExtremelyAdvancedWord).translation
+                        }
+                        onClick={(e) => handleCellClick(e, rowIdx, 3)}
+                        onContextMenu={(e) => handleCellContextMenu(e, rowIdx, 3)}
+                        selected={isCellSelected(rowIdx, 3)}
+                      />
+                    ) : (
+                      <MissingFieldTrigger
+                        wordId={word.id}
+                        field="translation"
+                        tooltipKey="courses.generateTranslation"
+                      />
+                    )}
+                    {showImageUrl && (
+                      <TableCell>
+                        <Box
+                          sx={{
+                            position: "relative",
+                            display: "inline-flex",
+                            "&:hover .remove-img-btn": { opacity: 1 },
+                          }}
+                        >
+                          <Tooltip title={t("words.generateNewImage")}>
+                            <IconButton
+                              size="small"
+                              aria-label={t("words.generateNewImage")}
+                              onClick={() => openFieldModal(word.id, "image")}
+                              sx={{ p: 0 }}
+                            >
+                              {!isMissingField(mergedWord, "image") ? (
+                                <Box
+                                  component="img"
+                                  src={getResolvedImage(word.id) || (mergedWord as ExtremelyAdvancedWord).imageUrl}
+                                  alt={(mergedWord as ExtremelyAdvancedWord).word}
+                                  sx={{
+                                    width: 64,
+                                    height: 64,
+                                    objectFit: "cover",
+                                    borderRadius: 1,
+                                  }}
+                                />
+                              ) : (
+                                <AddPhotoAlternateIcon fontSize="small" />
+                              )}
+                            </IconButton>
+                          </Tooltip>
+                          {!isMissingField(mergedWord, "image") && (
+                            <Tooltip title={t("words.removeImage")}>
+                              <IconButton
+                                className="remove-img-btn"
+                                size="small"
+                                onClick={(e) => { e.stopPropagation(); handleRemoveImage(word.id); }}
+                                sx={{
+                                  position: "absolute",
+                                  top: -6,
+                                  right: -6,
+                                  opacity: 0,
+                                  transition: "opacity 0.15s",
+                                  bgcolor: "background.paper",
+                                  border: "1px solid",
+                                  borderColor: "divider",
+                                  p: "2px",
+                                  "&:hover": { bgcolor: "error.main", color: "white", borderColor: "error.main" },
+                                }}
+                              >
+                                <CloseIcon sx={{ fontSize: 12 }} />
+                              </IconButton>
+                            </Tooltip>
+                          )}
+                        </Box>
+                      </TableCell>
+                    )}
+                  </>
                   ) : (
                   <>
                     <TableCell {...selectableCellProps(rowIdx, 0)}>
@@ -1879,7 +2020,7 @@ export default function WordTable({
                     {hasSynonymColumn && (
                       <TableCell {...selectableCellProps(rowIdx, 2)}>
                         <Typography variant="body2" sx={{ whiteSpace: "pre-line" }}>
-                          {insertNumberedBreaks(mergedWord.synonym || "") || t("words.none")}
+                          {insertNumberedBreaks((mergedWord as StandardWord).synonym || "") || t("words.none")}
                         </Typography>
                       </TableCell>
                     )}
@@ -1890,7 +2031,7 @@ export default function WordTable({
                       sx={selectableCellSx(rowIdx, hasSynonymColumn ? 3 : 2)}
                     >
                       {!isMissingField(mergedWord, "pronunciation") ? (
-                        getResolvedTextField(word.id, "pronunciation") || mergedWord.pronunciation
+                        getResolvedTextField(word.id, "pronunciation") || (mergedWord as StandardWord).pronunciation
                       ) : (
                         <Tooltip title={t("courses.generatePronunciation")}>
                           <AutoFixHighIcon fontSize="small" color="action" />

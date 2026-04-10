@@ -22,7 +22,7 @@
  * ── States ───────────────────────────────────────────────────────────
  *  loading  → CourseDaysLoadingSkeleton (responsive day-grid placeholders)
  *  error    → MUI Alert with translated error message
- *  empty    → translated "no data" text
+ *  empty    → bordered no-data view with courses navigation
  *  success  → responsive grid of DayCard components (or inline WordTable)
  *
  * ── Shared components used ───────────────────────────────────────────
@@ -39,6 +39,8 @@ import Box from "@mui/material/Box";
 import Chip from "@mui/material/Chip";
 import Alert from "@mui/material/Alert";
 import Button from "@mui/material/Button";
+import QueryStatsIcon from "@mui/icons-material/QueryStats";
+import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import { useTranslation } from "react-i18next";
 
 // ── Layout & structural components ────────────────────────────────────
@@ -79,11 +81,108 @@ import WordTable from "@/components/courses/WordTable";
 import FamousQuoteLoadingSkeleton from "@/components/courses/FamousQuoteLoadingSkeleton";
 import CourseLoadingView from "@/components/courses/CourseLoadingView";
 
-function SimpleEmptyState({ text }: { text: string }) {
+function CourseEmptyState({
+  title,
+  description,
+  actionLabel,
+  addActionLabel,
+  onAction,
+  onAddAction,
+}: {
+  title: string;
+  description: string;
+  actionLabel: string;
+  addActionLabel: string;
+  onAction: () => void;
+  onAddAction: () => void;
+}) {
+  const borderRadius = 3;
+
   return (
-    <Typography color="text.secondary">
-      {text}
-    </Typography>
+    <Box
+      data-testid="course-empty-state"
+      sx={{
+        width: "100%",
+        border: "2px solid",
+        borderColor: "divider",
+        borderRadius,
+        p: 2,
+      }}
+    >
+      <Box
+        data-testid="course-empty-state-inner"
+        sx={{
+          border: "4px dotted",
+          borderColor: "divider",
+          borderRadius,
+          px: 3,
+          py: { xs: 6, sm: 8 },
+          minHeight: 360,
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 2.5,
+          textAlign: "center",
+        }}
+      >
+        <Box
+          sx={{
+            width: 72,
+            height: 72,
+            borderRadius: "50%",
+            display: "grid",
+            placeItems: "center",
+            backgroundColor: "action.hover",
+            color: "text.disabled",
+          }}
+        >
+          <QueryStatsIcon sx={{ fontSize: 32 }} />
+        </Box>
+
+        <Box sx={{ display: "grid", gap: 1.5, maxWidth: 560 }}>
+          <Typography variant="h5" color="text.primary" fontWeight={700}>
+            {title}
+          </Typography>
+          <Typography
+            variant="body1"
+            color="text.secondary"
+            sx={{ lineHeight: 1.7 }}
+          >
+            {description}
+          </Typography>
+        </Box>
+
+        <Box
+          sx={{
+            mt: 1,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            flexDirection: "column",
+            gap: 0.75,
+          }}
+        >
+          <Button
+            variant="text"
+            size="medium"
+            startIcon={<ArrowBackIcon fontSize="small" />}
+            onClick={onAction}
+            sx={{ textTransform: "none", fontWeight: 700 }}
+          >
+            {actionLabel}
+          </Button>
+          <Button
+            variant="text"
+            size="medium"
+            onClick={onAddAction}
+            sx={{ textTransform: "none", fontWeight: 700 }}
+          >
+            {addActionLabel}
+          </Button>
+        </Box>
+      </Box>
+    </Box>
   );
 }
 
@@ -142,6 +241,27 @@ export default function CourseDaysPage({
     if (nextLanguage === languageFilter) return;
     setLoading(true);
     setLanguageFilter(nextLanguage);
+  }
+
+  function renderEmptyState() {
+    const archiveLabel = `${course?.label || courseId}${!isDirectList && !isJlptGroupRoot ? ` - ${t("courses.days")}` : ""}`;
+
+    return (
+      <CourseEmptyState
+        title={t("courses.noDataTitle", "Void Detected")}
+        description={t(
+          "courses.noDataArchiveMessage",
+          {
+            archiveLabel,
+            defaultValue: `There is currently no data to display for this section. The archives for "${archiveLabel}" appear to be empty or restricted.`,
+          },
+        )}
+        actionLabel={t("courses.noDataAction", "Go back to Courses")}
+        addActionLabel={t("courses.noDataAddAction", "Go to Add Voca")}
+        onAction={() => router.push("/courses")}
+        onAddAction={() => router.push(`/add-voca?course=${encodeURIComponent(courseId)}`)}
+      />
+    );
   }
 
   async function handleFillEnglish() {
@@ -446,7 +566,7 @@ export default function CourseDaysPage({
       {isJlptGroupRoot ? null : /* ── Flat course (FAMOUS_QUOTE): inline quote table ───────────── */
       isFlat && course ? (
         quotes.length === 0 && !resolvedError ? (
-          <SimpleEmptyState text={t("courses.noData")} />
+          renderEmptyState()
         ) : (
           <WordTable
             words={quotes}
@@ -458,7 +578,7 @@ export default function CourseDaysPage({
         )
       ) : isSingleList && course ? (
         singleListWords.length === 0 && !resolvedError ? (
-          <SimpleEmptyState text={t("courses.noData")} />
+          renderEmptyState()
         ) : (
           <WordTable
             words={singleListWords}
@@ -474,7 +594,7 @@ export default function CourseDaysPage({
         )
       ) : isCollection && course ? (
         collectionSections.length === 0 && !resolvedError ? (
-          <SimpleEmptyState text={t("courses.noData")} />
+          renderEmptyState()
         ) : (
           <Box sx={{ display: "grid", gap: 3 }}>
             {collectionSections
@@ -496,7 +616,7 @@ export default function CourseDaysPage({
         )
       ) : /* ── Standard course: day-card grid ────────────────────────── */
       days.length === 0 && !resolvedError ? (
-        <SimpleEmptyState text={t("courses.noData")} />
+        renderEmptyState()
       ) : (
         <Box
           sx={{

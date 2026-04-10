@@ -6,7 +6,15 @@ const getMock = vi.fn();
 const collectionGetMock = vi.fn();
 
 vi.mock("@/types/course", () => ({
-  COURSES: [],
+  COURSES: [
+    {
+      id: "EXTREMELY_ADVANCED",
+      label: "Extremely Advanced",
+      path: "courses/EXTREMELY_ADVANCED",
+      schema: "extremelyAdvanced",
+      storageMode: "day",
+    },
+  ],
   JLPT_COUNTER_OPTIONS: [
     {
       id: "counter_hon",
@@ -39,6 +47,7 @@ vi.mock("@/lib/firebase/admin", () => ({
       get: collectionGetMock,
     })),
     doc: vi.fn(() => ({
+      get: getMock,
       collection: vi.fn(() => ({
         get: getMock,
       })),
@@ -101,6 +110,58 @@ describe("GET /api/admin/words", () => {
           meaningEnglish: "counter for long objects",
           pronunciation: "ほん",
           imageUrl: "https://example.com/counter.png",
+        },
+      ],
+    });
+  });
+
+  it("returns Extremely Advanced rows without pronunciation metadata", async () => {
+    verifySessionUser.mockResolvedValue({ role: "admin" });
+    getMock
+      .mockResolvedValueOnce({
+        data: () => ({ totalDays: 1 }),
+      })
+      .mockResolvedValueOnce({
+        docs: [
+          {
+            id: "advanced-1",
+            data: () => ({
+              word: "fuddle",
+              meaning: "to confuse",
+              example: "I fuddled away with old friends.",
+              translation: "나는 친구들과 시간을 보냈다.",
+              imageUrl: "https://example.com/fuddle.png",
+            }),
+          },
+        ],
+      });
+
+    const { GET } = await import("./route");
+    const response = await GET(
+      new NextRequest(
+        "http://localhost/api/admin/words?courseId=EXTREMELY_ADVANCED&type=all&missingField=all",
+      ),
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      ok: true,
+      total: 1,
+      limited: false,
+      results: [
+        {
+          id: "advanced-1",
+          courseId: "EXTREMELY_ADVANCED",
+          courseLabel: "Extremely Advanced",
+          schemaVariant: "extremelyAdvanced",
+          type: "standard",
+          dayId: "Day1",
+          sourceHref: "/courses/EXTREMELY_ADVANCED/Day1#advanced-1",
+          primaryText: "fuddle",
+          meaning: "to confuse",
+          pronunciation: null,
+          derivative: null,
+          imageUrl: "https://example.com/fuddle.png",
         },
       ],
     });

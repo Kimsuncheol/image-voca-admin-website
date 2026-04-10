@@ -47,6 +47,23 @@ describe("JLPT affix course paths", () => {
     });
   });
 
+  it("uses the configured env path for Extremely Advanced", async () => {
+    vi.stubEnv(
+      "NEXT_PUBLIC_COURSE_PATH_EXTREMELY_ADVANCED",
+      "/voca/course/EXTREMELY_ADVANCED/course-id",
+    );
+    vi.resetModules();
+
+    const { getCourseById: getDynamicCourseById } = await import("./course");
+    expect(getDynamicCourseById("EXTREMELY_ADVANCED")).toMatchObject({
+      id: "EXTREMELY_ADVANCED",
+      label: "Extremely Advanced",
+      path: "voca/course/EXTREMELY_ADVANCED/course-id",
+      schema: "extremelyAdvanced",
+      storageMode: "day",
+    });
+  });
+
   it("marks affix courses as single-list storage", () => {
     expect(getCourseById("JLPT_PREFIX")?.storageMode).toBe("singleList");
     expect(getCourseById("JLPT_POSTFIX")?.storageMode).toBe("singleList");
@@ -200,6 +217,6 @@ describe("JLPT affix course paths", () => {
     ).toBe("Counter Years");
     expect(
       JLPT_COUNTER_OPTIONS.find((option) => option.id === "counter_ens")?.label,
-    ).toBe("Counter Ens");
+    ).toBe("Counter ¥");
   });
 });

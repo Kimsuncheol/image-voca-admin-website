@@ -1,6 +1,7 @@
 import type { CourseId } from "../types/course.ts";
 import type {
   CollocationWord,
+  ExtremelyAdvancedWord,
   FamousQuoteWord,
   IdiomWord,
   JlptWord,
@@ -31,6 +32,7 @@ interface AdaptCourseWordToWordFinderResultArgs {
   dayId?: string;
   isCollocation: boolean;
   isIdiom?: boolean;
+  isExtremelyAdvanced?: boolean;
   isJlpt?: boolean;
   isFamousQuote?: boolean;
   isPrefix?: boolean;
@@ -71,6 +73,7 @@ export type CourseWordResolvedUpdates = Partial<
       | "translationKorean"
     > &
     Pick<CollocationWord, "example" | "translation" | "imageUrl"> &
+    Pick<ExtremelyAdvancedWord, "example" | "translation" | "imageUrl"> &
     Pick<IdiomWord, "example" | "translation" | "imageUrl"> &
     Pick<FamousQuoteWord, "translation">
 >;
@@ -112,6 +115,7 @@ export function adaptCourseWordToWordFinderResult(
     dayId,
     isCollocation,
     isIdiom,
+    isExtremelyAdvanced,
     isJlpt,
     isFamousQuote,
     isPrefix,
@@ -182,6 +186,28 @@ export function adaptCourseWordToWordFinderResult(
       example: idiom.example || null,
       pronunciation: null,
       imageUrl: idiom.imageUrl || null,
+    };
+  }
+
+  if (isExtremelyAdvanced) {
+    const advanced = word as ExtremelyAdvancedWord;
+
+    return {
+      id: advanced.id,
+      courseId,
+      courseLabel,
+      coursePath,
+      schemaVariant: "extremelyAdvanced",
+      dayId: dayId ?? null,
+      sourceHref: buildCourseWordSourceHref(courseId, advanced.id, dayId),
+      type,
+      primaryText: advanced.word,
+      secondaryText: advanced.meaning || null,
+      meaning: advanced.meaning || null,
+      translation: advanced.translation || null,
+      example: advanced.example || null,
+      pronunciation: null,
+      imageUrl: advanced.imageUrl || null,
     };
   }
 
@@ -308,6 +334,7 @@ export function getWordTableMissingActionField(
   args: {
     isCollocation: boolean;
     isIdiom?: boolean;
+    isExtremelyAdvanced?: boolean;
     isJlpt?: boolean;
     isFamousQuote?: boolean;
     isPrefix?: boolean;
@@ -337,6 +364,7 @@ export function isCourseWordFieldMissing(
   args: {
     isCollocation: boolean;
     isIdiom?: boolean;
+    isExtremelyAdvanced?: boolean;
     isJlpt?: boolean;
     isFamousQuote?: boolean;
     isPrefix?: boolean;
@@ -388,6 +416,28 @@ export function isCourseWordFieldMissing(
         return !hasTrimmedText(idiom.translation);
       case "image":
         return Boolean(args.showImageUrl) && !hasTrimmedText(idiom.imageUrl);
+      case "pronunciation":
+      case "derivative":
+        return false;
+      default:
+        return false;
+    }
+  }
+
+  if (args.isExtremelyAdvanced) {
+    const advanced = word as ExtremelyAdvancedWord;
+
+    switch (field) {
+      case "primaryText":
+        return !hasTrimmedText(advanced.word);
+      case "meaning":
+        return !hasTrimmedText(advanced.meaning);
+      case "example":
+        return !hasTrimmedText(advanced.example);
+      case "translation":
+        return !hasTrimmedText(advanced.translation);
+      case "image":
+        return Boolean(args.showImageUrl) && !hasTrimmedText(advanced.imageUrl);
       case "pronunciation":
       case "derivative":
         return false;
@@ -488,6 +538,7 @@ export function getCourseWordMissingFields(
   args: {
     isCollocation: boolean;
     isIdiom?: boolean;
+    isExtremelyAdvanced?: boolean;
     isJlpt?: boolean;
     isFamousQuote?: boolean;
     isPrefix?: boolean;

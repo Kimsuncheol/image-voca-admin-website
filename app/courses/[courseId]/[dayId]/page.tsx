@@ -351,6 +351,7 @@ export default function DayWordsPage({
   // WordTable switches its column layout based on these flags.
   const isCollocation = course?.schema === "collocation";
   const isIdiom = course?.schema === "idiom";
+  const isExtremelyAdvanced = course?.schema === "extremelyAdvanced";
   const isJlpt = course?.schema === "jlpt";
   const isFamousQuote = course?.schema === "famousQuote";
   const showImageUrl = isSupportedImageGenerationCourseId(courseId);
@@ -1315,6 +1316,7 @@ export default function DayWordsPage({
           words={filteredWords}
       isCollocation={isCollocation}
       isIdiom={isIdiom}
+      isExtremelyAdvanced={isExtremelyAdvanced}
       isJlpt={isJlpt}
       isFamousQuote={isFamousQuote}
       showImageUrl={showImageUrl}

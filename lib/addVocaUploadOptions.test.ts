@@ -50,6 +50,30 @@ test("shows modal with only image generation enabled when enrich generation is u
   });
 });
 
+test("enables image options but not example enrichment for Extremely Advanced uploads", () => {
+  const result = getUploadOptionState({
+    selectedCourse: "EXTREMELY_ADVANCED",
+    imageGenerationEnabled: true,
+    enrichGenerationEnabled: true,
+    uploadWords: undefined,
+  });
+
+  expect(result).toEqual({
+    isImageGenerationEnabled: true,
+    isExampleAndTranslationGenerationEnabled: false,
+    isFuriganaEnabled: false,
+    isPreserveExistingImagesEnabled: true,
+    shouldShowModal: true,
+    defaultOptions: {
+      images: true,
+      examples: false,
+      translations: false,
+      furigana: false,
+      preserveExistingImages: true,
+    },
+  });
+});
+
 test("shows modal with only example and translation generation enabled when image generation is unavailable", () => {
   const result = getUploadOptionState({
     selectedCourse: "COLLOCATIONS",

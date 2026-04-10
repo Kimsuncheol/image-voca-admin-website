@@ -4,6 +4,7 @@ export type CourseId =
   | "CSAT"
   | "TOEFL_IELTS"
   | "TOEIC"
+  | "EXTREMELY_ADVANCED"
   | "JLPT"
   | "JLPT_N1"
   | "JLPT_N2"
@@ -17,7 +18,7 @@ export type CourseId =
   | "IDIOMS"
   | "FAMOUS_QUOTE";
 
-export type CourseSchema = "standard" | "jlpt" | "collocation" | "idiom" | "famousQuote" | "prefix" | "postfix";
+export type CourseSchema = "standard" | "extremelyAdvanced" | "jlpt" | "collocation" | "idiom" | "famousQuote" | "prefix" | "postfix";
 export type CourseStorageMode = "day" | "flat" | "singleList" | "collection";
 export type SingleListSubcollectionName = "prefix" | "postfix";
 export type JlptCounterOptionId =
@@ -259,6 +260,13 @@ export const COURSES: Course[] = [
     label: "TOEIC",
     path: normalizeCoursePath(process.env.NEXT_PUBLIC_COURSE_PATH_TOEIC),
     schema: "standard",
+    storageMode: "day",
+  },
+  {
+    id: "EXTREMELY_ADVANCED",
+    label: "Extremely Advanced",
+    path: normalizeCoursePath(process.env.NEXT_PUBLIC_COURSE_PATH_EXTREMELY_ADVANCED),
+    schema: "extremelyAdvanced",
     storageMode: "day",
   },
   {

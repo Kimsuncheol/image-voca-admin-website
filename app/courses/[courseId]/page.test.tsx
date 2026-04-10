@@ -20,18 +20,38 @@ const {
 } = vi.hoisted(() => ({
   pushMock: vi.fn(),
   replaceMock: vi.fn(),
-  translateMock: vi.fn((key: string, fallback?: string) => {
-    const labels: Record<string, string> = {
-      "courses.title": "Courses",
-      "courses.days": "Days",
-      "courses.fetchError": "Fetch error",
-      "courses.noData": "No data",
-      "common.all": "All",
-      "common.loading": "Loading",
-    };
+  translateMock: vi.fn(
+    (
+      key: string,
+      fallback?: string | { defaultValue?: string; archiveLabel?: string },
+    ) => {
+      const labels: Record<string, string> = {
+        "courses.title": "Courses",
+        "courses.days": "Days",
+        "courses.fetchError": "Fetch error",
+        "courses.noData": "No data",
+        "courses.noDataTitle": "Void Detected",
+        "courses.noDataArchiveMessage":
+          'There is currently no data to display for this section. The archives for "{{archiveLabel}}" appear to be empty or restricted.',
+        "courses.noDataAction": "Go back to Courses",
+        "courses.noDataAddAction": "Go to Add Voca",
+        "common.all": "All",
+        "common.loading": "Loading",
+      };
 
-    return labels[key] ?? fallback ?? key;
-  }),
+      const label =
+        labels[key] ??
+        (typeof fallback === "string" ? fallback : fallback?.defaultValue) ??
+        key;
+
+      return label.replace(
+        "{{archiveLabel}}",
+        fallback && typeof fallback === "object"
+          ? fallback.archiveLabel ?? ""
+          : "",
+      );
+    },
+  ),
   getCourseByIdMock: vi.fn(),
   getCollectionWordsMock: vi.fn(),
   getCourseDaysMock: vi.fn(),
@@ -187,13 +207,64 @@ describe("CourseDaysPage", () => {
     document.body.innerHTML = "";
   });
 
-  it("shows simple text when a standard course has no days", async () => {
+  it("shows a bordered empty state when a standard course has no days", async () => {
     rendered = await renderPage("TOEIC");
 
-    expect(document.body.textContent).toContain("No data");
+    expect(document.querySelector('[data-testid="course-empty-state"]')).not.toBeNull();
+    expect(document.querySelector('[data-testid="course-empty-state-inner"]')).not.toBeNull();
+    expect(document.body.textContent).toContain("Void Detected");
+    expect(document.body.textContent).toContain('archives for "TOEIC - Days" appear to be empty or restricted');
+    const button = Array.from(document.querySelectorAll("button")).find(
+      (element) => element.textContent === "Go back to Courses",
+    );
+    expect(button).not.toBeUndefined();
+
+    act(() => {
+      button?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    expect(pushMock).toHaveBeenCalledWith("/courses");
+
+    const addButton = Array.from(document.querySelectorAll("button")).find(
+      (element) => element.textContent === "Go to Add Voca",
+    );
+    expect(addButton).not.toBeUndefined();
+
+    act(() => {
+      addButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    expect(pushMock).toHaveBeenCalledWith("/add-voca?course=TOEIC");
   });
 
-  it("shows simple text when a single-list course has no words", async () => {
+  it("links an empty Extremely Advanced course to add-voca with its course selected", async () => {
+    getCourseByIdMock.mockReturnValue(
+      createCourse({
+        id: "EXTREMELY_ADVANCED",
+        label: "Extremely Advanced",
+        path: "courses/EXTREMELY_ADVANCED",
+        storageMode: "day",
+        schema: "extremelyAdvanced",
+      }),
+    );
+
+    rendered = await renderPage("EXTREMELY_ADVANCED");
+
+    const addButton = Array.from(document.querySelectorAll("button")).find(
+      (element) => element.textContent === "Go to Add Voca",
+    );
+    expect(addButton).not.toBeUndefined();
+
+    act(() => {
+      addButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    expect(pushMock).toHaveBeenCalledWith(
+      "/add-voca?course=EXTREMELY_ADVANCED",
+    );
+  });
+
+  it("shows a bordered empty state when a single-list course has no words", async () => {
     getCourseByIdMock.mockReturnValue(
       createCourse({
         id: "JLPT_PREFIX",
@@ -206,10 +277,13 @@ describe("CourseDaysPage", () => {
 
     rendered = await renderPage("JLPT_PREFIX");
 
-    expect(document.body.textContent).toContain("No data");
+    expect(document.querySelector('[data-testid="course-empty-state"]')).not.toBeNull();
+    expect(document.body.textContent).toContain("Void Detected");
+    expect(document.body.textContent).toContain("Go back to Courses");
+    expect(document.body.textContent).toContain("Go to Add Voca");
   });
 
-  it("shows simple text when a flat course has no quotes", async () => {
+  it("shows a bordered empty state when a flat course has no quotes", async () => {
     getCourseByIdMock.mockReturnValue(
       createCourse({
         id: "FAMOUS_QUOTE",
@@ -221,7 +295,10 @@ describe("CourseDaysPage", () => {
 
     rendered = await renderPage("FAMOUS_QUOTE");
 
-    expect(document.body.textContent).toContain("No data");
+    expect(document.querySelector('[data-testid="course-empty-state"]')).not.toBeNull();
+    expect(document.body.textContent).toContain("Void Detected");
+    expect(document.body.textContent).toContain("Go back to Courses");
+    expect(document.body.textContent).toContain("Go to Add Voca");
   });
 
   it("renders collection-backed JLPT counters with JLPT table props", async () => {
@@ -306,6 +383,9 @@ describe("CourseDaysPage", () => {
 
     expect(document.body.textContent).toContain("TOEIC:Day1");
     expect(document.body.textContent).toContain("TOEIC:Day2");
-    expect(document.body.textContent).not.toContain("No data");
+    expect(document.body.textContent).not.toContain("Void Detected");
+    expect(document.body.textContent).not.toContain("Go back to Courses");
+    expect(document.body.textContent).not.toContain("Go to Add Voca");
+    expect(document.querySelector('[data-testid="course-empty-state"]')).toBeNull();
   });
 });

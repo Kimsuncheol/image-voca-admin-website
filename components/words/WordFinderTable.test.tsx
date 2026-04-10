@@ -230,6 +230,38 @@ describe("WordFinderTable", () => {
     expect(markup).toContain("concentration");
   });
 
+  it("renders Extremely Advanced results without pronunciation or derivative UI", () => {
+    const markup = renderToStaticMarkup(
+      <WordFinderTable
+        results={[
+          createResult({
+            id: "advanced-1",
+            courseId: "EXTREMELY_ADVANCED",
+            courseLabel: "Extremely Advanced",
+            coursePath: "courses/EXTREMELY_ADVANCED",
+            sourceHref: "/courses/EXTREMELY_ADVANCED/Day1",
+            schemaVariant: "extremelyAdvanced",
+            primaryText: "fuddle",
+            secondaryText: "to confuse",
+            meaning: "to confuse",
+            pronunciation: null,
+            example: "I fuddled away with old friends.",
+            translation: "나는 친구들과 시간을 보냈다.",
+            imageUrl: "https://example.com/fuddle.png",
+          }),
+        ]}
+      />,
+    );
+
+    expect(markup).toContain("fuddle");
+    expect(markup).toContain("to confuse");
+    expect(markup).toContain("나는 친구들과 시간을 보냈다.");
+    expect(markup).toContain("https://example.com/fuddle.png");
+    expect(markup).not.toContain("Pronunciation");
+    expect(markup).not.toContain("Missing pronunciation");
+    expect(markup).not.toContain("Missing derivatives");
+  });
+
   it("renders a prefix result without errors and shows Missing image", () => {
     const markup = renderToStaticMarkup(
       <WordFinderTable

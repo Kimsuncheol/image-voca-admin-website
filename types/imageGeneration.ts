@@ -7,6 +7,7 @@ export type ImageGenerationCourseId = Extract<
   | "CSAT"
   | "TOEFL_IELTS"
   | "TOEIC"
+  | "EXTREMELY_ADVANCED"
   | "JLPT"
   | "JLPT_COUNTER"
   | "JLPT_N1"
@@ -23,6 +24,7 @@ export const SUPPORTED_IMAGE_GENERATION_COURSE_IDS = [
   "CSAT",
   "TOEFL_IELTS",
   "TOEIC",
+  "EXTREMELY_ADVANCED",
   "JLPT",
   "JLPT_COUNTER",
   "JLPT_N1",

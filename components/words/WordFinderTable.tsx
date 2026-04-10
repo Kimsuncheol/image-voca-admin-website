@@ -55,11 +55,22 @@ function isToeflSynonymResult(result: WordFinderResult): boolean {
   return result.courseId === "TOEFL_IELTS" && result.schemaVariant === "standard";
 }
 
+function isExtremelyAdvancedResult(result: WordFinderResult): boolean {
+  return result.schemaVariant === "extremelyAdvanced";
+}
+
+function shouldShowPronunciationColumn(results: WordFinderResult[]): boolean {
+  return results.some((result) => !isExtremelyAdvancedResult(result));
+}
+
 function getColField(
   col: number,
   hasSynonymColumn: boolean,
+  hasPronunciationColumn: boolean,
 ): WordFinderActionField | null {
-  return col === (hasSynonymColumn ? 4 : 3) ? "translation" : null;
+  const translationCol =
+    (hasSynonymColumn ? 2 : 1) + (hasPronunciationColumn ? 1 : 0) + 1;
+  return col === translationCol ? "translation" : null;
 }
 
 interface WordFinderTableProps {
@@ -156,22 +167,29 @@ export default function WordFinderTable({
   const [selectionExtent, setSelectionExtent] = useState<CellPos | null>(null);
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const hasSynonymColumn = useMemo(() => shouldShowSynonymColumn(results), [results]);
-  const translationCol = hasSynonymColumn ? 4 : 3;
+  const hasPronunciationColumn = useMemo(
+    () => shouldShowPronunciationColumn(results),
+    [results],
+  );
+  const translationCol =
+    (hasSynonymColumn ? 2 : 1) + (hasPronunciationColumn ? 1 : 0) + 1;
   const locationCol = translationCol + 2;
-  // cols: 0=primaryText, 1=meaning, 2=synonym?, 3=pronunciation, 4=translation, 5="" (image), 6=location, 7="" (status)
+  // cols: 0=primaryText, 1=meaning, 2=synonym?, 3=pronunciation?, 4=translation, 5="" (image), 6=location, 7="" (status)
   const cellGrid = useMemo(
     () =>
       results.map((r) => [
         r.primaryText,
         r.meaning || r.secondaryText || "",
         ...(hasSynonymColumn ? [isToeflSynonymResult(r) ? r.synonym ?? "" : ""] : []),
-        r.pronunciation || "",
+        ...(hasPronunciationColumn
+          ? [isExtremelyAdvancedResult(r) ? "" : r.pronunciation || ""]
+          : []),
         r.translation ?? "",
         "",
         formatWordFinderLocation(r, ""),
         "",
       ]),
-    [results, hasSynonymColumn],
+    [results, hasSynonymColumn, hasPronunciationColumn],
   );
 
   const isCellSelected = useCallback(
@@ -262,12 +280,16 @@ export default function WordFinderTable({
 
   const handleContextMenuGenerate = useCallback(() => {
     if (!contextMenu || !onMissingFieldClick) return;
-    const field = getColField(contextMenu.col, hasSynonymColumn);
+    const field = getColField(
+      contextMenu.col,
+      hasSynonymColumn,
+      hasPronunciationColumn,
+    );
     if (!field) return;
     const result = results[contextMenu.row];
     if (!result) return;
     onMissingFieldClick(result, field);
-  }, [contextMenu, results, onMissingFieldClick, hasSynonymColumn]);
+  }, [contextMenu, results, onMissingFieldClick, hasSynonymColumn, hasPronunciationColumn]);
 
   const handleContextMenuAddFurigana = useCallback(() => {
     if (!contextMenu || !onAddFuriganaClick) return;
@@ -277,7 +299,9 @@ export default function WordFinderTable({
     onAddFuriganaClick(result, field);
   }, [contextMenu, onAddFuriganaClick, results]);
 
-  const contextMenuField = contextMenu ? getColField(contextMenu.col, hasSynonymColumn) : null;
+  const contextMenuField = contextMenu
+    ? getColField(contextMenu.col, hasSynonymColumn, hasPronunciationColumn)
+    : null;
   const contextMenuAddFuriganaField = contextMenu
     ? getContextMenuAddFuriganaField(results[contextMenu.row], contextMenu.col)
     : null;
@@ -323,7 +347,9 @@ export default function WordFinderTable({
             {hasSynonymColumn && (
               <TableCell>{t("courses.synonym", "Synonym")}</TableCell>
             )}
-            <TableCell>{t("courses.pronunciation")}</TableCell>
+            {hasPronunciationColumn && (
+              <TableCell>{t("courses.pronunciation")}</TableCell>
+            )}
             <TableCell>{t("words.translationLabel")}</TableCell>
             <TableCell>{t("courses.image", "Image")}</TableCell>
             <TableCell>{t("words.location")}</TableCell>
@@ -382,15 +408,19 @@ export default function WordFinderTable({
                   </Typography>
                 </TableCell>
               )}
-              <TableCell
-                sx={{ minWidth: 220, ...selectableCellSx(rowIdx, hasSynonymColumn ? 3 : 2) }}
-                onClick={(e) => handleCellClick(e, rowIdx, hasSynonymColumn ? 3 : 2)}
-                onContextMenu={(e) => handleCellContextMenu(e, rowIdx, hasSynonymColumn ? 3 : 2)}
-              >
-                <Typography variant="body2">
-                  {result.pronunciation || t("words.none")}
-                </Typography>
-              </TableCell>
+              {hasPronunciationColumn && (
+                <TableCell
+                  sx={{ minWidth: 220, ...selectableCellSx(rowIdx, hasSynonymColumn ? 3 : 2) }}
+                  onClick={(e) => handleCellClick(e, rowIdx, hasSynonymColumn ? 3 : 2)}
+                  onContextMenu={(e) => handleCellContextMenu(e, rowIdx, hasSynonymColumn ? 3 : 2)}
+                >
+                  <Typography variant="body2">
+                    {isExtremelyAdvancedResult(result)
+                      ? ""
+                      : result.pronunciation || t("words.none")}
+                  </Typography>
+                </TableCell>
+              )}
               <TableCell
                 sx={{ minWidth: 220, ...selectableCellSx(rowIdx, translationCol) }}
                 onClick={(e) => handleCellClick(e, rowIdx, translationCol)}
@@ -444,7 +474,8 @@ export default function WordFinderTable({
                       onMissingFieldClick,
                     )
                   )}
-                  {result.type === "standard" && (
+                  {result.type === "standard" &&
+                    !isExtremelyAdvancedResult(result) && (
                     renderStatusChip(
                       result,
                       "pronunciation",

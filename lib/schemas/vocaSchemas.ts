@@ -12,6 +12,15 @@ export const standardWordSchema = z.object({
   derivative: z.array(z.object({ word: z.string(), meaning: z.string() })).optional(),
 });
 
+export const extremelyAdvancedWordSchema = z.object({
+  id: z.string().optional(),
+  word: z.string().min(1),
+  meaning: z.string().min(1),
+  example: z.string().optional().default(''),
+  translation: z.string().optional().default(''),
+  imageUrl: z.string().optional(),
+});
+
 export const jlptWordSchema = z.object({
   id: z.string().optional(),
   word: z.string().min(1),
@@ -63,6 +72,7 @@ export const postfixSchema = jlptPrefixPostfixBase.extend({
 });
 
 export type StandardWordInput = z.infer<typeof standardWordSchema>;
+export type ExtremelyAdvancedWordInput = z.infer<typeof extremelyAdvancedWordSchema>;
 export type JlptWordInput = z.infer<typeof jlptWordSchema>;
 export type CollocationWordInput = z.infer<typeof collocationWordSchema>;
 export type IdiomWordInput = z.infer<typeof idiomWordSchema>;

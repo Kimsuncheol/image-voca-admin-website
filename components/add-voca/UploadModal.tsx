@@ -511,6 +511,8 @@ export default function UploadModal({
                       ]
                   : resolvedSchema === "famousQuote"
                     ? ["quote", "author", "translation"]
+                  : resolvedSchema === "extremelyAdvanced"
+                    ? ["word", "meaning", "example", "translation", "imageUrl"]
                     : courseId === "TOEFL_IELTS"
                       ? [
                           "word",
