@@ -485,6 +485,7 @@ export default function UploadModal({
                         "meaningKorean",
                         "pronunciation",
                         "example",
+                        "exampleHurigana",
                         "translationEnglish",
                         "translationKorean",
                         "imageUrl",
