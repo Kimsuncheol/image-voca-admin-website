@@ -63,11 +63,21 @@ function shouldShowPronunciationColumn(results: WordFinderResult[]): boolean {
   return results.some((result) => !isExtremelyAdvancedResult(result));
 }
 
+function shouldShowExampleHuriganaColumn(results: WordFinderResult[]): boolean {
+  return results.some(
+    (result) =>
+      result.schemaVariant === "jlpt" ||
+      result.schemaVariant === "prefix" ||
+      result.schemaVariant === "postfix",
+  );
+}
+
 function getColField(
   col: number,
   hasSynonymColumn: boolean,
   hasPronunciationColumn: boolean,
   isExampleHuriganaMode: boolean,
+  hasExampleHuriganaColumn: boolean,
 ): WordFinderActionField | null {
   if (isExampleHuriganaMode) {
     if (col === 2) return "example";
@@ -77,7 +87,9 @@ function getColField(
 
   const translationCol =
     (hasSynonymColumn ? 2 : 1) + (hasPronunciationColumn ? 1 : 0) + 1;
-  return col === translationCol ? "translation" : null;
+  if (col === translationCol) return "translation";
+  if (hasExampleHuriganaColumn && col === translationCol + 1) return "exampleHurigana";
+  return null;
 }
 
 interface WordFinderTableProps {
@@ -182,9 +194,13 @@ export default function WordFinderTable({
     () => shouldShowPronunciationColumn(results),
     [results],
   );
+  const hasExampleHuriganaColumn = useMemo(
+    () => !isExampleHuriganaMode && shouldShowExampleHuriganaColumn(results),
+    [results, isExampleHuriganaMode],
+  );
   const translationCol =
     (hasSynonymColumn ? 2 : 1) + (hasPronunciationColumn ? 1 : 0) + 1;
-  const locationCol = translationCol + 2;
+  const locationCol = translationCol + (hasExampleHuriganaColumn ? 3 : 2);
   // cols: 0=primaryText, 1=meaning, 2=synonym?, 3=pronunciation?, 4=translation, 5="" (image), 6=location, 7="" (status)
   const cellGrid = useMemo(
     () =>
@@ -206,12 +222,13 @@ export default function WordFinderTable({
                 ? [isExtremelyAdvancedResult(r) ? "" : r.pronunciation || ""]
                 : []),
               r.translation ?? "",
+              ...(hasExampleHuriganaColumn ? [r.exampleHurigana ?? ""] : []),
               "",
               formatWordFinderLocation(r, ""),
               "",
             ],
       ),
-    [results, hasSynonymColumn, hasPronunciationColumn, isExampleHuriganaMode],
+    [results, hasSynonymColumn, hasPronunciationColumn, isExampleHuriganaMode, hasExampleHuriganaColumn],
   );
 
   const isCellSelected = useCallback(
@@ -307,12 +324,13 @@ export default function WordFinderTable({
       hasSynonymColumn,
       hasPronunciationColumn,
       isExampleHuriganaMode,
+      hasExampleHuriganaColumn,
     );
     if (!field) return;
     const result = results[contextMenu.row];
     if (!result) return;
     onMissingFieldClick(result, field);
-  }, [contextMenu, results, onMissingFieldClick, hasSynonymColumn, hasPronunciationColumn, isExampleHuriganaMode]);
+  }, [contextMenu, results, onMissingFieldClick, hasSynonymColumn, hasPronunciationColumn, isExampleHuriganaMode, hasExampleHuriganaColumn]);
 
   const handleContextMenuAddFurigana = useCallback(() => {
     if (!contextMenu || !onAddFuriganaClick) return;
@@ -332,6 +350,7 @@ export default function WordFinderTable({
         hasSynonymColumn,
         hasPronunciationColumn,
         isExampleHuriganaMode,
+        hasExampleHuriganaColumn,
       )
     : null;
   const contextMenuAddFuriganaField = contextMenu
@@ -394,6 +413,9 @@ export default function WordFinderTable({
                   <TableCell>{t("courses.pronunciation")}</TableCell>
                 )}
                 <TableCell>{t("words.translationLabel")}</TableCell>
+                {hasExampleHuriganaColumn && (
+                  <TableCell>{t("words.exampleHuriganaLabel")}</TableCell>
+                )}
               </>
             )}
             <TableCell>{t("courses.image", "Image")}</TableCell>
@@ -498,15 +520,38 @@ export default function WordFinderTable({
                   </TableCell>
                 </>
               ) : (
-                <TableCell
-                  sx={{ minWidth: 220, ...selectableCellSx(rowIdx, translationCol) }}
-                  onClick={(e) => handleCellClick(e, rowIdx, translationCol)}
-                  onContextMenu={(e) => handleCellContextMenu(e, rowIdx, translationCol)}
-                >
-                  <Typography variant="body2" sx={{ whiteSpace: "pre-line" }}>
-                    {insertNumberedBreaks(result.translation || "") || t("words.none")}
-                  </Typography>
-                </TableCell>
+                <>
+                  <TableCell
+                    sx={{ minWidth: 220, ...selectableCellSx(rowIdx, translationCol) }}
+                    onClick={(e) => handleCellClick(e, rowIdx, translationCol)}
+                    onContextMenu={(e) => handleCellContextMenu(e, rowIdx, translationCol)}
+                  >
+                    <Typography variant="body2" sx={{ whiteSpace: "pre-line" }}>
+                      {insertNumberedBreaks(result.translation || "") || t("words.none")}
+                    </Typography>
+                  </TableCell>
+                  {hasExampleHuriganaColumn && (
+                    <TableCell
+                      sx={{ minWidth: 220, ...selectableCellSx(rowIdx, translationCol + 1) }}
+                      onClick={(e) => handleCellClick(e, rowIdx, translationCol + 1)}
+                      onContextMenu={(e) => handleCellContextMenu(e, rowIdx, translationCol + 1)}
+                    >
+                      {result.exampleHurigana ? (
+                        <Typography variant="body2" sx={{ whiteSpace: "pre-line" }}>
+                          {insertNumberedBreaks(result.exampleHurigana) || t("words.none")}
+                        </Typography>
+                      ) : (
+                        renderStatusChip(
+                          result,
+                          "exampleHurigana",
+                          t("words.missingExampleHurigana"),
+                          false,
+                          onMissingFieldClick,
+                        )
+                      )}
+                    </TableCell>
+                  )}
+                </>
               )}
               <TableCell sx={{ minWidth: 120 }}>
                 {result.type === "famousQuote" ? null : result.imageUrl ? (

@@ -104,8 +104,9 @@ function getWordTableColField(
     }
     if (col === 3) return "pronunciation";
     if (col === 4) return "example";
-    if (col === 5 || col === 6) return "translation";
-    if (col === 7) return "image";
+    if (col === 5) return "exampleHurigana";
+    if (col === 6 || col === 7) return "translation";
+    if (col === 8) return "image";
     return null;
   }
   if (isCollocationWord(word)) {
@@ -1439,6 +1440,7 @@ export default function WordTable({
                     <>
                       <TableCell>{t("courses.pronunciation")}</TableCell>
                       <TableCell>{t("courses.example")}</TableCell>
+                      <TableCell>{t("words.exampleHuriganaLabel")}</TableCell>
                       <TableCell>Translation (English)</TableCell>
                       <TableCell>Translation (Korean)</TableCell>
                     </>
@@ -1834,6 +1836,11 @@ export default function WordTable({
                           })}
                         </TableCell>
                         <TableCell {...selectableCellProps(rowIdx, 5)}>
+                          <Typography variant="body2">
+                            {mergedWord.exampleHurigana || t("words.none")}
+                          </Typography>
+                        </TableCell>
+                        <TableCell {...selectableCellProps(rowIdx, 6)}>
                           {renderEditableTextCell(
                             mergedWord,
                             "translationEnglish",
@@ -1844,7 +1851,7 @@ export default function WordTable({
                             },
                           )}
                         </TableCell>
-                        <TableCell {...selectableCellProps(rowIdx, 6)}>
+                        <TableCell {...selectableCellProps(rowIdx, 7)}>
                           {renderEditableTextCell(
                             mergedWord,
                             "translationKorean",
