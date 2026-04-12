@@ -51,7 +51,10 @@ export async function applyFuriganaToJapaneseUploadWords<
 
   const exampleResults =
     exampleTexts.length > 0
-      ? await addFuriganaTextsRobust(exampleTexts)
+      ? await addFuriganaTextsRobust(
+          exampleTexts,
+          schemaType === "jlpt" ? { mode: "hiragana_only" } : undefined,
+        )
       : [];
   const exampleResultByIndex = new Map(
     exampleIndexes.map((wordIndex, resultIndex) => [
@@ -69,7 +72,12 @@ export async function applyFuriganaToJapaneseUploadWords<
 
     const exampleResult = exampleResultByIndex.get(index);
     if (exampleResult?.ok) {
-      nextWord.example = exampleResult.text;
+      if (schemaType === "jlpt") {
+        (nextWord as FuriganaUploadWordMap["jlpt"]).exampleHurigana =
+          exampleResult.text;
+      } else {
+        nextWord.example = exampleResult.text;
+      }
     }
 
     return nextWord;

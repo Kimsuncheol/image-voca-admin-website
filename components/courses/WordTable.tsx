@@ -43,6 +43,7 @@ import { containsKorean } from "@/lib/utils/korean";
 import { insertNumberedBreaks } from "@/lib/utils/textFormat";
 import { supportsDerivativeCourse } from "@/constants/supportedDerivativeCourses";
 import { getCourseById, type CourseId } from "@/types/course";
+import type { CourseDayMissingField } from "@/types/courseDayMissingField";
 import type { CollocationWord, ExtremelyAdvancedWord, IdiomWord, JlptWord, PostfixWord, PrefixWord, StandardWord, Word } from "@/types/word";
 import DerivativeEditDialog from "@/components/courses/DerivativeEditDialog";
 import { isCollocationWord, isFamousQuoteWord, isIdiomWord, isJlptWord, isPostfixWord, isPrefixWord } from "@/types/word";
@@ -86,6 +87,7 @@ function getWordTableColField(
   supportsDerivatives?: boolean,
   hasSynonymColumn = false,
   isExtremelyAdvanced = false,
+  isJlptExampleHuriganaMode = false,
 ): WordFinderActionField | null {
   if (isPrefixWord(word) || isPostfixWord(word)) {
     if (col === 3) return "pronunciation";
@@ -94,6 +96,12 @@ function getWordTableColField(
     return null;
   }
   if (isJlptWord(word)) {
+    if (isJlptExampleHuriganaMode) {
+      if (col === 3) return "example";
+      if (col === 4) return "exampleHurigana";
+      if (showImageUrl && col === 5) return "image";
+      return null;
+    }
     if (col === 3) return "pronunciation";
     if (col === 4) return "example";
     if (col === 5 || col === 6) return "translation";
@@ -170,8 +178,13 @@ function getWordTableColEditField(col: number, word: Word): CourseInlineEditable
 function getWordTableAddFuriganaField(
   col: number,
   word: Word,
+  isJlptExampleHuriganaMode = false,
 ): FuriganaActionField | null {
   if (!(isJlptWord(word) || isPrefixWord(word) || isPostfixWord(word))) {
+    return null;
+  }
+
+  if (isJlptExampleHuriganaMode && isJlptWord(word)) {
     return null;
   }
 
@@ -405,6 +418,7 @@ type WordTableLocalUpdates = Partial<
       | "pronunciation"
       | "pronunciationRoman"
       | "example"
+      | "exampleHurigana"
       | "exampleRoman"
       | "translationEnglish"
       | "translationKorean"
@@ -440,6 +454,7 @@ interface WordTableProps {
   isIdiom?: boolean;
   isExtremelyAdvanced?: boolean;
   isJlpt?: boolean;
+  activeMissingField?: CourseDayMissingField;
   isFamousQuote?: boolean;
   isPrefix?: boolean;
   isPostfix?: boolean;
@@ -465,6 +480,7 @@ export default function WordTable({
   isIdiom,
   isExtremelyAdvanced,
   isJlpt,
+  activeMissingField,
   isFamousQuote,
   isPrefix,
   isPostfix,
@@ -489,6 +505,8 @@ export default function WordTable({
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const [copySnackbar, setCopySnackbar] = useState<{ open: boolean; success: boolean }>({ open: false, success: true });
   const [derivativeDialogWordId, setDerivativeDialogWordId] = useState<string | null>(null);
+  const isJlptExampleHuriganaMode =
+    Boolean(isJlpt) && activeMissingField === "exampleHurigana";
 
   const clearSelection = useCallback(() => {
     setSelectionAnchor(null);
@@ -693,6 +711,9 @@ export default function WordTable({
     }
     if (typeof mappedUpdates.example === "string") {
       fieldUpdates.example = mappedUpdates.example;
+    }
+    if (typeof mappedUpdates.exampleHurigana === "string") {
+      fieldUpdates.exampleHurigana = mappedUpdates.exampleHurigana;
     }
     if (typeof mappedUpdates.exampleRoman === "string") {
       fieldUpdates.exampleRoman = mappedUpdates.exampleRoman;
@@ -974,6 +995,16 @@ export default function WordTable({
     return words.map((word) => {
       const m = { ...word, ...localWordUpdates[word.id] } as Word;
       if (isJlpt && isJlptWord(m)) {
+        if (isJlptExampleHuriganaMode) {
+          return [
+            m.word,
+            m.meaningEnglish,
+            m.meaningKorean,
+            m.example,
+            m.exampleHurigana,
+            ...(showImageUrl ? [""] : []),
+          ];
+        }
         return [
           m.word, m.meaningEnglish, m.meaningKorean,
           m.pronunciation,
@@ -1040,7 +1071,7 @@ export default function WordTable({
             derivativeCell,
           ];
     });
-  }, [words, localWordUpdates, isJlpt, isCollocation, isIdiom, isExtremelyAdvanced, isFamousQuote, isPrefix, isPostfix, hasSynonymColumn, showImageUrl]);
+  }, [words, localWordUpdates, isJlpt, isJlptExampleHuriganaMode, isCollocation, isIdiom, isExtremelyAdvanced, isFamousQuote, isPrefix, isPostfix, hasSynonymColumn, showImageUrl]);
 
   const contextMenuWord = useMemo(() => {
     if (!contextMenu) return null;
@@ -1059,6 +1090,7 @@ export default function WordTable({
         supportsDerivatives,
         hasSynonymColumn,
         isExtremelyAdvanced,
+        isJlptExampleHuriganaMode,
       );
       if (
         field === "derivative" &&
@@ -1076,6 +1108,7 @@ export default function WordTable({
       supportsDerivatives,
       hasSynonymColumn,
       isExtremelyAdvanced,
+      isJlptExampleHuriganaMode,
     ],
   );
 
@@ -1098,11 +1131,15 @@ export default function WordTable({
   const contextMenuAddFuriganaField = useMemo(() => {
     if (!contextMenu || !contextMenuWord) return null;
 
-    const field = getWordTableAddFuriganaField(contextMenu.col, contextMenuWord);
+    const field = getWordTableAddFuriganaField(
+      contextMenu.col,
+      contextMenuWord,
+      isJlptExampleHuriganaMode,
+    );
     if (!field) return null;
 
     return getWordTableAddFuriganaSource(contextMenuWord, field) ? field : null;
-  }, [contextMenu, contextMenuWord]);
+  }, [contextMenu, contextMenuWord, isJlptExampleHuriganaMode]);
 
   const isCellSelected = useCallback(
     (row: number, col: number): boolean => {
@@ -1169,6 +1206,8 @@ export default function WordTable({
       showImageUrl,
       supportsDerivatives,
       hasSynonymColumn,
+      isExtremelyAdvanced,
+      isJlptExampleHuriganaMode,
     );
     if (!field) return;
     if (field === "derivative" && !isMissingField(mergedWord, "derivative")) return;
@@ -1273,7 +1312,11 @@ export default function WordTable({
     if (!word) return;
 
     const mergedWord = { ...word, ...localWordUpdates[word.id] } as Word;
-    const field = getWordTableAddFuriganaField(contextMenu.col, mergedWord);
+    const field = getWordTableAddFuriganaField(
+      contextMenu.col,
+      mergedWord,
+      isJlptExampleHuriganaMode,
+    );
     if (!field) return;
 
     const sourceText = getWordTableAddFuriganaSource(mergedWord, field);
@@ -1308,6 +1351,7 @@ export default function WordTable({
     persistTextField,
     t,
     words,
+    isJlptExampleHuriganaMode,
   ]);
 
   const handleCellClick = useCallback(
@@ -1386,10 +1430,19 @@ export default function WordTable({
                   <TableCell>{t("courses.word")}</TableCell>
                   <TableCell>Meaning (English)</TableCell>
                   <TableCell>Meaning (Korean)</TableCell>
-                  <TableCell>{t("courses.pronunciation")}</TableCell>
-                  <TableCell>{t("courses.example")}</TableCell>
-                  <TableCell>Translation (English)</TableCell>
-                  <TableCell>Translation (Korean)</TableCell>
+                  {isJlptExampleHuriganaMode ? (
+                    <>
+                      <TableCell>{t("courses.example")}</TableCell>
+                      <TableCell>{t("words.exampleHuriganaLabel")}</TableCell>
+                    </>
+                  ) : (
+                    <>
+                      <TableCell>{t("courses.pronunciation")}</TableCell>
+                      <TableCell>{t("courses.example")}</TableCell>
+                      <TableCell>Translation (English)</TableCell>
+                      <TableCell>Translation (Korean)</TableCell>
+                    </>
+                  )}
                   {showImageUrl && <TableCell>{t("courses.image", "Image")}</TableCell>}
                 </>
               ) : isPrefix ? (
@@ -1712,59 +1765,98 @@ export default function WordTable({
                         { emptyLabel: t("courses.missingMeaningValue") },
                       )}
                     </TableCell>
-                    <TableCell
-                      aria-selected={isCellSelected(rowIdx, 3)}
-                      onClick={() => openFieldModal(word.id, "pronunciation")}
-                      onContextMenu={(e) => handleCellContextMenu(e, rowIdx, 3)}
-                      sx={selectableCellSx(rowIdx, 3)}
-                    >
-                      {!isMissingField(mergedWord, "pronunciation") ? (
-                        mergedWord.pronunciation
-                      ) : (
-                        <Tooltip title={t("courses.generatePronunciation")}>
-                          <AutoFixHighIcon fontSize="small" color="action" />
-                        </Tooltip>
-                      )}
-                    </TableCell>
-                    <TableCell
-                      aria-selected={isCellSelected(rowIdx, 4)}
-                      onClick={(e) => handleCellClick(e, rowIdx, 4)}
-                      onContextMenu={(e) => handleCellContextMenu(e, rowIdx, 4)}
-                      sx={{
-                        ...selectableCellSx(rowIdx, 4),
-                        ...(containsKorean(mergedWord.example) && {
-                          outline: "2px solid",
-                          outlineColor: "warning.main",
-                        }),
-                      }}
-                    >
-                      {renderEditableTextCell(mergedWord, "example", mergedWord.example, {
-                        emptyLabel: t("words.none"),
-                        textVariant: "body2",
-                      })}
-                    </TableCell>
-                    <TableCell {...selectableCellProps(rowIdx, 5)}>
-                      {renderEditableTextCell(
-                        mergedWord,
-                        "translationEnglish",
-                        mergedWord.translationEnglish,
-                        {
-                          emptyLabel: t("words.none"),
-                          textVariant: "body2",
-                        },
-                      )}
-                    </TableCell>
-                    <TableCell {...selectableCellProps(rowIdx, 6)}>
-                      {renderEditableTextCell(
-                        mergedWord,
-                        "translationKorean",
-                        mergedWord.translationKorean,
-                        {
-                          emptyLabel: t("words.none"),
-                          textVariant: "body2",
-                        },
-                      )}
-                    </TableCell>
+                    {isJlptExampleHuriganaMode ? (
+                      <>
+                        <TableCell
+                          aria-selected={isCellSelected(rowIdx, 3)}
+                          onClick={(e) => handleCellClick(e, rowIdx, 3)}
+                          onContextMenu={(e) => handleCellContextMenu(e, rowIdx, 3)}
+                          sx={{
+                            ...selectableCellSx(rowIdx, 3),
+                            ...(containsKorean(mergedWord.example) && {
+                              outline: "2px solid",
+                              outlineColor: "warning.main",
+                            }),
+                          }}
+                        >
+                          {renderEditableTextCell(mergedWord, "example", mergedWord.example, {
+                            emptyLabel: t("words.none"),
+                            textVariant: "body2",
+                          })}
+                        </TableCell>
+                        {isMissingField(mergedWord, "exampleHurigana") ? (
+                          <MissingFieldTrigger
+                            wordId={word.id}
+                            field="exampleHurigana"
+                            tooltipKey="words.fillExampleHuriganaAction"
+                          />
+                        ) : (
+                          <TableCell
+                            {...selectableCellProps(rowIdx, 4)}
+                          >
+                            <Typography variant="body2">
+                              {mergedWord.exampleHurigana || t("words.none")}
+                            </Typography>
+                          </TableCell>
+                        )}
+                      </>
+                    ) : (
+                      <>
+                        <TableCell
+                          aria-selected={isCellSelected(rowIdx, 3)}
+                          onClick={() => openFieldModal(word.id, "pronunciation")}
+                          onContextMenu={(e) => handleCellContextMenu(e, rowIdx, 3)}
+                          sx={selectableCellSx(rowIdx, 3)}
+                        >
+                          {!isMissingField(mergedWord, "pronunciation") ? (
+                            mergedWord.pronunciation
+                          ) : (
+                            <Tooltip title={t("courses.generatePronunciation")}>
+                              <AutoFixHighIcon fontSize="small" color="action" />
+                            </Tooltip>
+                          )}
+                        </TableCell>
+                        <TableCell
+                          aria-selected={isCellSelected(rowIdx, 4)}
+                          onClick={(e) => handleCellClick(e, rowIdx, 4)}
+                          onContextMenu={(e) => handleCellContextMenu(e, rowIdx, 4)}
+                          sx={{
+                            ...selectableCellSx(rowIdx, 4),
+                            ...(containsKorean(mergedWord.example) && {
+                              outline: "2px solid",
+                              outlineColor: "warning.main",
+                            }),
+                          }}
+                        >
+                          {renderEditableTextCell(mergedWord, "example", mergedWord.example, {
+                            emptyLabel: t("words.none"),
+                            textVariant: "body2",
+                          })}
+                        </TableCell>
+                        <TableCell {...selectableCellProps(rowIdx, 5)}>
+                          {renderEditableTextCell(
+                            mergedWord,
+                            "translationEnglish",
+                            mergedWord.translationEnglish,
+                            {
+                              emptyLabel: t("words.none"),
+                              textVariant: "body2",
+                            },
+                          )}
+                        </TableCell>
+                        <TableCell {...selectableCellProps(rowIdx, 6)}>
+                          {renderEditableTextCell(
+                            mergedWord,
+                            "translationKorean",
+                            mergedWord.translationKorean,
+                            {
+                              emptyLabel: t("words.none"),
+                              textVariant: "body2",
+                            },
+                          )}
+                        </TableCell>
+                      </>
+                    )}
                     {showImageUrl && (
                     <TableCell>
                         <Box

@@ -25,6 +25,8 @@ vi.mock("react-i18next", () => ({
         "courses.missingMeaningValue": "Missing meaning",
         "words.derivative": "Derivatives",
         "words.generateDerivatives": "Generate derivatives",
+        "words.exampleHuriganaLabel": "Example hurigana",
+        "words.fillExampleHuriganaAction": "Fill example hurigana",
         "words.contextMenuEdit": "Edit",
         "words.none": "None",
       };
@@ -168,6 +170,41 @@ describe("WordTable", () => {
     expect(markup).toContain("本");
     expect(markup).toContain("ほん");
     expect(markup).toContain("https://example.com/counter.png");
+  });
+
+  it("renders the exampleHurigana-focused JLPT layout when that chip is active", () => {
+    const markup = renderToStaticMarkup(
+      <WordTable
+        words={[
+          {
+            id: "jlpt-hurigana-1",
+            word: "猫",
+            meaningEnglish: "cat",
+            meaningKorean: "고양이",
+            pronunciation: "ねこ",
+            pronunciationRoman: "",
+            example: "猫がいる。",
+            exampleHurigana: "",
+            exampleRoman: "",
+            translationEnglish: "There is a cat.",
+            translationKorean: "고양이가 있다.",
+            imageUrl: "https://example.com/jlpt.png",
+          },
+        ]}
+        isCollocation={false}
+        isJlpt
+        activeMissingField="exampleHurigana"
+        showImageUrl
+        courseId="JLPT"
+        coursePath="courses/JLPT"
+        dayId="Day1"
+      />,
+    );
+
+    expect(markup).toContain("Example hurigana");
+    expect(markup).toContain("猫がいる。");
+    expect(markup).toContain("https://example.com/jlpt.png");
+    expect(markup).not.toContain("Translation (English)");
   });
 
   it("renders derivative content and a generate affordance for supported standard rows", () => {

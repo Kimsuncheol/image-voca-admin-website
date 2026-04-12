@@ -15,13 +15,13 @@ describe("applyFuriganaToJapaneseUploadWords", () => {
     vi.clearAllMocks();
   });
 
-  it("applies hiragana-only pronunciation and normal example furigana for JLPT rows", async () => {
+  it("applies hiragana-only pronunciation and exampleHurigana for JLPT rows", async () => {
     addFuriganaTextsRobustMock
       .mockResolvedValueOnce([
         { ok: true, text: "ねこ" },
         { ok: true, text: "いぬ" },
       ])
-      .mockResolvedValueOnce([{ ok: true, text: "猫(ねこ)が好(す)きです" }]);
+      .mockResolvedValueOnce([{ ok: true, text: "ねこがすきです" }]);
 
     await expect(
       applyFuriganaToJapaneseUploadWords(
@@ -33,6 +33,7 @@ describe("applyFuriganaToJapaneseUploadWords", () => {
             pronunciation: "",
             pronunciationRoman: "neko",
             example: "猫が好きです",
+            exampleHurigana: "",
             exampleRoman: "",
             translationEnglish: "",
             translationKorean: "",
@@ -44,6 +45,7 @@ describe("applyFuriganaToJapaneseUploadWords", () => {
             pronunciation: "",
             pronunciationRoman: "inu",
             example: "",
+            exampleHurigana: "",
             exampleRoman: "",
             translationEnglish: "",
             translationKorean: "",
@@ -54,11 +56,13 @@ describe("applyFuriganaToJapaneseUploadWords", () => {
     ).resolves.toEqual([
       expect.objectContaining({
         pronunciation: "ねこ",
-        example: "猫(ねこ)が好(す)きです",
+        example: "猫が好きです",
+        exampleHurigana: "ねこがすきです",
       }),
       expect.objectContaining({
         pronunciation: "いぬ",
         example: "",
+        exampleHurigana: "",
       }),
     ]);
 
@@ -70,6 +74,7 @@ describe("applyFuriganaToJapaneseUploadWords", () => {
     expect(addFuriganaTextsRobustMock).toHaveBeenNthCalledWith(
       2,
       ["猫が好きです"],
+      { mode: "hiragana_only" },
     );
   });
 
@@ -146,6 +151,7 @@ describe("applyFuriganaToJapaneseUploadWords", () => {
             pronunciation: "existing-pronunciation",
             pronunciationRoman: "neko",
             example: "existing example",
+            exampleHurigana: "existing hiragana",
             exampleRoman: "",
             translationEnglish: "",
             translationKorean: "",
@@ -157,6 +163,7 @@ describe("applyFuriganaToJapaneseUploadWords", () => {
       expect.objectContaining({
         pronunciation: "existing-pronunciation",
         example: "existing example",
+        exampleHurigana: "existing hiragana",
       }),
     ]);
   });

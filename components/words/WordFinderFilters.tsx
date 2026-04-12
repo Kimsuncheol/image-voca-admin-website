@@ -141,6 +141,9 @@ export default function WordFinderFilters({
               {t("words.missingPronunciation")}
             </MenuItem>
             <MenuItem value="example">{t("words.missingExample")}</MenuItem>
+            <MenuItem value="exampleHurigana">
+              {t("words.missingExampleHurigana")}
+            </MenuItem>
             <MenuItem value="translation">{t("words.missingTranslation")}</MenuItem>
             <MenuItem value="derivative">{t("words.missingDerivative")}</MenuItem>
           </Select>

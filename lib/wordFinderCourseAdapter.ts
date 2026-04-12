@@ -49,6 +49,7 @@ export type CourseWordResolvedUpdates = Partial<
       | "pronunciation"
       | "pronunciationRoman"
       | "example"
+      | "exampleHurigana"
       | "exampleRoman"
       | "translationEnglish"
       | "translationKorean"
@@ -238,6 +239,7 @@ export function adaptCourseWordToWordFinderResult(
       translationEnglish: jlpt.translationEnglish || null,
       translationKorean: jlpt.translationKorean || null,
       example: jlpt.example || null,
+      exampleHurigana: jlpt.exampleHurigana || null,
       exampleRoman: jlpt.exampleRoman || null,
       pronunciation: jlpt.pronunciation || null,
       pronunciationRoman: jlpt.pronunciationRoman || null,
@@ -347,6 +349,7 @@ export function getWordTableMissingActionField(
     "image",
     "pronunciation",
     "example",
+    "exampleHurigana",
     "translation",
     "derivative",
   ];
@@ -458,6 +461,8 @@ export function isCourseWordFieldMissing(
         return !hasTrimmedText(jlpt.pronunciation);
       case "example":
         return !hasTrimmedText(jlpt.example);
+      case "exampleHurigana":
+        return hasTrimmedText(jlpt.example) && !hasTrimmedText(jlpt.exampleHurigana);
       case "furigana":
         return hasTrimmedText(jlpt.example) && !hasParentheticalFurigana(jlpt.example);
       case "translation":
@@ -481,6 +486,7 @@ export function isCourseWordFieldMissing(
       case "meaning": return !hasTrimmedText(p.meaningEnglish) || !hasTrimmedText(p.meaningKorean);
       case "pronunciation": return !hasTrimmedText(p.pronunciation);
       case "example": return !hasTrimmedText(p.example);
+      case "exampleHurigana":
       case "furigana": return false;
       case "translation": return !hasTrimmedText(p.translationEnglish) || !hasTrimmedText(p.translationKorean);
       case "image":
@@ -497,6 +503,7 @@ export function isCourseWordFieldMissing(
       case "meaning": return !hasTrimmedText(p.meaningEnglish) || !hasTrimmedText(p.meaningKorean);
       case "pronunciation": return !hasTrimmedText(p.pronunciation);
       case "example": return !hasTrimmedText(p.example);
+      case "exampleHurigana":
       case "furigana": return false;
       case "translation": return !hasTrimmedText(p.translationEnglish) || !hasTrimmedText(p.translationKorean);
       case "image":
@@ -517,6 +524,7 @@ export function isCourseWordFieldMissing(
       return !hasTrimmedText(standard.pronunciation);
     case "example":
       return !hasTrimmedText(standard.example);
+    case "exampleHurigana":
     case "furigana":
       return false;
     case "translation":
@@ -552,6 +560,7 @@ export function getCourseWordMissingFields(
     "meaning",
     "pronunciation",
     "example",
+    "exampleHurigana",
     "furigana",
     "translation",
     "derivative",
@@ -576,6 +585,9 @@ export function applyCourseWordResolvedUpdates(
   }
   if (typeof updates.example === "string") {
     next.example = updates.example;
+  }
+  if (typeof updates.exampleHurigana === "string" && isJlptWord(word)) {
+    next.exampleHurigana = updates.exampleHurigana;
   }
   if (typeof updates.exampleRoman === "string" && (isJlptWord(word) || isPrefixWord(word) || isPostfixWord(word))) {
     next.exampleRoman = updates.exampleRoman;

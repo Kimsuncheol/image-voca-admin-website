@@ -58,6 +58,7 @@ const JLPT_HEADERS = [
   'meaning(korean)',
   'pronunciation',
   'example',
+  'examplehurigana',
   'translation(english)',
   'translation(korean)',
 ] as const;
@@ -219,6 +220,7 @@ function normalizeRow(row: Record<string, unknown>, schemaType: SchemaType): Rec
       '_5',
     ];
     const exampleAliases = ['example', 'example sentence', '_6'];
+    const exampleHuriganaAliases = ['examplehurigana', 'example hurigana', 'example_hurigana', 'examplefurigana', 'example furigana', 'example_furigana', '_11'];
     const exampleRomanAliases = ['example(roman)', 'example roman', 'example_roman', '_10'];
     const translationEnglishAliases = [
       'translation(english)',
@@ -244,6 +246,7 @@ function normalizeRow(row: Record<string, unknown>, schemaType: SchemaType): Rec
       else if (pronunciationAliases.includes(cleanKey)) normalized['pronunciation'] = cleanValue;
       else if (pronunciationRomanAliases.includes(cleanKey)) normalized['pronunciationRoman'] = cleanValue;
       else if (exampleAliases.includes(cleanKey)) normalized['example'] = cleanValue;
+      else if (exampleHuriganaAliases.includes(cleanKey)) normalized['exampleHurigana'] = cleanValue;
       else if (exampleRomanAliases.includes(cleanKey)) normalized['exampleRoman'] = cleanValue;
       else if (translationEnglishAliases.includes(cleanKey)) normalized['translationEnglish'] = cleanValue;
       else if (translationKoreanAliases.includes(cleanKey)) normalized['translationKorean'] = cleanValue;
@@ -257,6 +260,7 @@ function normalizeRow(row: Record<string, unknown>, schemaType: SchemaType): Rec
     normalized['pronunciation'] = normalized['pronunciation'] ?? '';
     normalized['pronunciationRoman'] = normalized['pronunciationRoman'] ?? '';
     normalized['example'] = normalized['example'] ?? '';
+    normalized['exampleHurigana'] = normalized['exampleHurigana'] ?? '';
     normalized['exampleRoman'] = normalized['exampleRoman'] ?? '';
     normalized['translationEnglish'] = normalized['translationEnglish'] ?? '';
     normalized['translationKorean'] = normalized['translationKorean'] ?? '';
@@ -673,7 +677,10 @@ const KNOWN_FIELDS = new Set([
   'pronunciation', 'pronounciation',
   'synonym',
   'pronunciation(roman)', 'pronunciation roman', 'roman',
-  'explanation', 'example', 'example sentence', 'example(roman)', 'example roman', 'translation',
+  'explanation', 'example', 'example sentence',
+  'examplehurigana', 'example hurigana', 'example_hurigana',
+  'examplefurigana', 'example furigana', 'example_furigana',
+  'example(roman)', 'example roman', 'translation',
   'translation(english)', 'translation english', 'translation(korean)', 'translation korean',
   'imageurl', 'image url', 'image_url',
   'quote', 'author', 'language',
@@ -779,8 +786,8 @@ function processParsedArray(
     });
     rows = rowsFromFirstNonEmpty.slice(1);
   } else {
-    // Positional fallback: support up to 8 columns for JLPT uploads.
-    headers = ['_1', '_2', '_3', '_4', '_5', '_6', '_7', '_8', '_9'];
+    // Positional fallback supports the widest row shape we accept.
+    headers = ['_1', '_2', '_3', '_4', '_5', '_6', '_7', '_8', '_9', '_10', '_11'];
     rows = rowsFromFirstNonEmpty;
 
     // Detect empty or numeric leading column (common in Google Sheets exports

@@ -379,6 +379,7 @@ function WordsPageContent({
           {limited && <Alert severity="warning">{t("words.resultsLimited")}</Alert>}
           <WordFinderTable
             results={results}
+            activeMissingField={missingField}
             onMissingFieldClick={handleMissingFieldClick}
             onAddFuriganaClick={handleAddFuriganaClick}
           />

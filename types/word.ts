@@ -35,6 +35,7 @@ export interface JlptWord {
   pronunciationRoman: string;
   example: string;
   exampleRoman: string;
+  exampleHurigana: string;
   translationEnglish: string;
   translationKorean: string;
   imageUrl?: string;

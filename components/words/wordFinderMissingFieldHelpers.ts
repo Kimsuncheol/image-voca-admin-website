@@ -12,6 +12,8 @@ export function getFieldLabel(field: WordFinderActionField, t: TFunction): strin
       return t("courses.pronunciation");
     case "example":
       return t("courses.example");
+    case "exampleHurigana":
+      return t("words.exampleHuriganaLabel");
     case "derivative":
       return t("words.derivative");
     case "translation":
@@ -29,6 +31,8 @@ export function getGenerateButtonLabel(field: WordFinderActionField, t: TFunctio
       return t("words.generatePronunciationAction");
     case "example":
       return t("words.generateNewExamples");
+    case "exampleHurigana":
+      return t("words.fillExampleHuriganaAction");
     case "derivative":
       return t("words.generateDerivatives");
     case "translation":
@@ -46,6 +50,8 @@ export function getSharedButtonLabel(field: WordFinderActionField, t: TFunction)
       return t("words.useSharedPronunciation");
     case "example":
       return t("words.useSharedExamples");
+    case "exampleHurigana":
+      return t("words.useSharedExampleHurigana");
     case "derivative":
       return t("words.useSharedAction");
     case "translation":
@@ -87,6 +93,12 @@ export function getGenerateDisabledReason(
       return t("words.pronunciationGenerationUnavailableForPhrase");
     }
     return null;
+  }
+
+  if (field === "exampleHurigana") {
+    return hasTrimmedText(result.example)
+      ? null
+      : t("words.exampleHuriganaUnavailable");
   }
 
   if (field === "derivative") {

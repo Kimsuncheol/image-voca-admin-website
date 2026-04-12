@@ -145,6 +145,10 @@ function getMissingFieldOptions(
   }
 
   if (isJlpt) {
+    options.push({
+      value: "exampleHurigana",
+      label: t("courses.missingExampleHurigana"),
+    });
     options.push({ value: "furigana", label: t("courses.missingFurigana") });
     options.push({ value: "exampleHasKorean", label: t("courses.exampleHasKorean") });
   }
@@ -157,7 +161,9 @@ function getBulkActionLabel(
   t: (key: string, options?: Record<string, unknown>) => string,
 ): string {
   if (action.kind === "add-furigana") {
-    return t("words.addFuriganaAction");
+    return action.field === "exampleHurigana"
+      ? t("words.fillExampleHuriganaAction")
+      : t("words.addFuriganaAction");
   }
 
   if (action.kind === "jlpt-example-correction") {
@@ -328,7 +334,9 @@ export default function DayWordsPage({
   const [missingField, setMissingField] = useState<CourseDayMissingField>("all");
   const [exitingWordIds, setExitingWordIds] = useState<Set<string>>(new Set());
   const [bulkLoadingField, setBulkLoadingField] =
-    useState<CourseDayBulkGeneratableField | CourseDayBulkPreviewField | "furigana" | null>(null);
+    useState<
+      CourseDayBulkGeneratableField | CourseDayBulkPreviewField | "furigana" | "exampleHurigana" | null
+    >(null);
   const [jlptExampleCorrectionLoading, setJlptExampleCorrectionLoading] =
     useState(false);
   const [bulkFeedback, setBulkFeedback] = useState<BulkFeedback | null>(null);
@@ -518,6 +526,17 @@ export default function DayWordsPage({
             result.id,
             "example",
             updates.example,
+          ),
+        );
+      }
+      if (typeof updates.exampleHurigana === "string" && result.dayId) {
+        tasks.push(
+          updateWordField(
+            result.coursePath,
+            result.dayId,
+            result.id,
+            "exampleHurigana",
+            updates.exampleHurigana,
           ),
         );
       }
@@ -1014,12 +1033,18 @@ export default function DayWordsPage({
       return;
     }
 
-    const eligible = filteredResults.filter(
-      (result) =>
-        result.schemaVariant === "jlpt" &&
-        hasTrimmedText(result.example) &&
-        !hasParentheticalFurigana(result.example),
-    );
+    const targetField = bulkAction.field;
+    const eligible = filteredResults.filter((result) => {
+      if (result.schemaVariant !== "jlpt" || !hasTrimmedText(result.example)) {
+        return false;
+      }
+
+      if (targetField === "exampleHurigana") {
+        return !hasTrimmedText(result.exampleHurigana);
+      }
+
+      return !hasParentheticalFurigana(result.example);
+    });
 
     if (eligible.length === 0) {
       setBulkFeedback({
@@ -1029,12 +1054,15 @@ export default function DayWordsPage({
       return;
     }
 
-    setBulkLoadingField("furigana");
+    setBulkLoadingField(
+      targetField === "exampleHurigana" ? "exampleHurigana" : "furigana",
+    );
     setBulkFeedback(null);
 
     try {
       const results = await addFuriganaTextsRobust(
         eligible.map((result) => result.example!),
+        targetField === "exampleHurigana" ? { mode: "hiragana_only" } : undefined,
       );
 
       let updated = 0;
@@ -1050,9 +1078,12 @@ export default function DayWordsPage({
         }
 
         try {
-          const example = outcome.text;
-          await persistResolvedUpdates(result, { example });
-          applyResolvedUpdatesToState(result.id, { example });
+          const updates =
+            targetField === "exampleHurigana"
+              ? { exampleHurigana: outcome.text }
+              : { example: outcome.text };
+          await persistResolvedUpdates(result, updates);
+          applyResolvedUpdatesToState(result.id, updates);
           updated += 1;
         } catch {
           failed += 1;
@@ -1225,7 +1256,7 @@ export default function DayWordsPage({
                   bulkAction.kind === "derivative-preview") &&
                   bulkLoadingField === bulkAction.field) ||
                 (bulkAction.kind === "add-furigana" &&
-                  bulkLoadingField === "furigana") ||
+                  bulkLoadingField === bulkAction.field) ||
                 (bulkAction.kind === "jlpt-example-correction" &&
                   jlptExampleCorrectionLoading) ? (
                   <CircularProgress size={16} color="inherit" />
@@ -1314,12 +1345,13 @@ export default function DayWordsPage({
         //   true  → collocation columns: phrase, meaning, explanation, example
         <WordTable
           words={filteredWords}
-      isCollocation={isCollocation}
-      isIdiom={isIdiom}
-      isExtremelyAdvanced={isExtremelyAdvanced}
-      isJlpt={isJlpt}
-      isFamousQuote={isFamousQuote}
-      showImageUrl={showImageUrl}
+          isCollocation={isCollocation}
+          isIdiom={isIdiom}
+          isExtremelyAdvanced={isExtremelyAdvanced}
+          isJlpt={isJlpt}
+          activeMissingField={missingField}
+          isFamousQuote={isFamousQuote}
+          showImageUrl={showImageUrl}
       courseId={course.id}
       coursePath={course.path}
       dayId={dayId}

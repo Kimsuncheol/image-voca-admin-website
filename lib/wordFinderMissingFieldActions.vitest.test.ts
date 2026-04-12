@@ -78,6 +78,15 @@ describe("wordFinderMissingFieldActions JLPT", () => {
     );
   });
 
+  it("treats exampleHurigana as missing only when the example exists without it", () => {
+    const missing = createJlptResult({ exampleHurigana: "" });
+    const present = createJlptResult({ exampleHurigana: "ねこがいる。" });
+
+    expect(isWordFinderFieldMissing(missing, "exampleHurigana")).toBe(true);
+    expect(isWordFinderFieldMissing(present, "exampleHurigana")).toBe(false);
+    expect(getWordFinderFieldValue(present, "exampleHurigana")).toBe("ねこがいる。");
+  });
+
   it("uses imageUrl missing state for JLPT rows", () => {
     const missing = createJlptResult({ imageUrl: null });
     const present = createJlptResult({ imageUrl: "https://example.com/jlpt.png" });

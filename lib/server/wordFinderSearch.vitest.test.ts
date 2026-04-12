@@ -51,4 +51,34 @@ describe("wordFinderSearch derivatives", () => {
       ),
     ).toBe(false);
   });
+
+  it("matches missing exampleHurigana only for JLPT rows with an example", () => {
+    expect(
+      matchesMissingField(
+        createResult({
+          courseId: "JLPT",
+          courseLabel: "JLPT",
+          coursePath: "courses/JLPT",
+          schemaVariant: "jlpt",
+          example: "猫がいる。",
+          exampleHurigana: "",
+        }),
+        "exampleHurigana",
+      ),
+    ).toBe(true);
+
+    expect(
+      matchesMissingField(
+        createResult({
+          courseId: "JLPT",
+          courseLabel: "JLPT",
+          coursePath: "courses/JLPT",
+          schemaVariant: "jlpt",
+          example: "猫がいる。",
+          exampleHurigana: "ねこがいる。",
+        }),
+        "exampleHurigana",
+      ),
+    ).toBe(false);
+  });
 });

@@ -30,6 +30,7 @@ export const jlptWordSchema = z.object({
   pronunciationRoman: z.string().optional().default(""),
   example: z.string().optional().default(""),
   exampleRoman: z.string().optional().default(""),
+  exampleHurigana: z.string().min(1),
   translationEnglish: z.string().optional().default(""),
   translationKorean: z.string().optional().default(""),
   imageUrl: z.string().optional(),

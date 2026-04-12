@@ -157,6 +157,7 @@ describe("csvParser language validation", () => {
           "meaning(korean)",
           "pronunciation",
           "example",
+          "examplehurigana",
           "translation(english)",
           "translation(korean)",
         ],
@@ -166,6 +167,7 @@ describe("csvParser language validation", () => {
           "고양이",
           "ねこ",
           "猫がいる。",
+          "ねこがいる。",
           "There is a cat.",
           "고양이가 있다.",
         ],
@@ -239,6 +241,7 @@ describe("csvParser JLPT schema", () => {
         pronunciation: "ねこ",
         pronunciationRoman: "",
         example: "猫がいる。",
+        exampleHurigana: "ねこがいる。",
         exampleRoman: "",
         translationEnglish: "There is a cat.",
         translationKorean: "고양이가 있다.",
@@ -263,6 +266,7 @@ describe("csvParser JLPT schema", () => {
       "meaning(korean)",
       "pronunciation",
       "example",
+      "examplehurigana",
       "translation(english)",
       "translation(korean)",
     ]);
@@ -271,9 +275,9 @@ describe("csvParser JLPT schema", () => {
   it("skips a stray JLPT header row that slips into the data", () => {
     const headerRow = [
       "word", "meaning(english)", "meaning(korean)", "pronunciation",
-      "example", "translation(english)", "translation(korean)",
+      "example", "examplehurigana", "translation(english)", "translation(korean)",
     ];
-    const result = parseRowArrays([headerRow, headerRow, ["猫","cat","고양이","ねこ","猫がいる。","There is a cat.","고양이가 있다."]], "jlpt");
+    const result = parseRowArrays([headerRow, headerRow, ["猫","cat","고양이","ねこ","猫がいる。","ねこがいる。","There is a cat.","고양이가 있다."]], "jlpt");
 
     expect(result.errors).toHaveLength(0);
     expect(result.words).toHaveLength(1);
@@ -287,8 +291,9 @@ describe("csvParser JLPT schema", () => {
           "meaning(english)",
           "meaning(korean)",
           "pronunciation",
-          "pronunciation(roman)",
           "example",
+          "examplehurigana",
+          "pronunciation(roman)",
           "translation(english)",
           "translation(korean)",
         ],
@@ -297,8 +302,9 @@ describe("csvParser JLPT schema", () => {
           "cat",
           "고양이",
           "ねこ",
-          "neko",
           "猫がいる。",
+          "ねこがいる。",
+          "neko",
           "There is a cat.",
           "고양이가 있다.",
         ],
@@ -318,6 +324,7 @@ describe("csvParser JLPT schema", () => {
           "meaning(korean)",
           "pronunciation",
           "example",
+          "examplehurigana",
           "example(roman)",
           "translation(english)",
           "translation(korean)",
@@ -328,6 +335,7 @@ describe("csvParser JLPT schema", () => {
           "고양이",
           "ねこ",
           "猫がいる。",
+          "ねこがいる。",
           "neko ga iru.",
           "There is a cat.",
           "고양이가 있다.",
@@ -348,6 +356,7 @@ describe("csvParser JLPT schema", () => {
           "meaning(korean)",
           "pronunciation",
           "example",
+          "examplehurigana",
           "translation(english)",
           "translation(korean)",
           "imageUrl",
@@ -358,6 +367,7 @@ describe("csvParser JLPT schema", () => {
           "고양이",
           "ねこ",
           "猫がいる。",
+          "ねこがいる。",
           "There is a cat.",
           "고양이가 있다.",
           "https://example.com/jlpt.png",
@@ -370,6 +380,7 @@ describe("csvParser JLPT schema", () => {
     expect(result.words[0]).toMatchObject({
       word: "猫",
       pronunciationRoman: "",
+      exampleHurigana: "ねこがいる。",
       exampleRoman: "",
       imageUrl: "https://example.com/jlpt.png",
     });

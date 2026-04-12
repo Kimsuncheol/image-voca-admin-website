@@ -38,9 +38,11 @@ vi.mock("react-i18next", () => ({
         "courses.missingAll": "All missing fields",
         "courses.missingDerivative": "Missing derivatives",
         "courses.missingFurigana": "Missing furigana",
+        "courses.missingExampleHurigana": "Missing example hurigana",
         "courses.generateMissingDerivatives": "Generate missing derivatives",
         "words.clearFilters": "Clear filters",
         "words.addFuriganaAction": "Add furigana",
+        "words.fillExampleHuriganaAction": "Fill example hurigana",
         "courses.bulkGenerateNoEligible": "No eligible rows",
         "words.generateActionError": "Generation failed",
         "courses.title": "Courses",
@@ -442,5 +444,91 @@ describe("DayWordsPage derivative bulk action", () => {
       "鳥(とり)が好(す)きです",
     );
     expect(container.textContent).toContain("Updated 2. Failed 1. Skipped 0.");
+  });
+
+  it("filters JLPT rows by missing example hurigana and fills them with hiragana-only furigana", async () => {
+    getDayWordsMock.mockResolvedValue([
+      {
+        id: "w1",
+        word: "猫",
+        meaningEnglish: "cat",
+        meaningKorean: "고양이",
+        pronunciation: "ねこ",
+        pronunciationRoman: "neko",
+        example: "猫が好きです",
+        exampleHurigana: "",
+        exampleRoman: "",
+        translationEnglish: "I like cats.",
+        translationKorean: "고양이를 좋아합니다.",
+      },
+      {
+        id: "w2",
+        word: "犬",
+        meaningEnglish: "dog",
+        meaningKorean: "개",
+        pronunciation: "いぬ",
+        pronunciationRoman: "inu",
+        example: "犬が好きです",
+        exampleHurigana: "いぬがすきです",
+        exampleRoman: "",
+        translationEnglish: "I like dogs.",
+        translationKorean: "개를 좋아합니다.",
+      },
+    ]);
+    addFuriganaTextsRobustMock.mockResolvedValue([
+      { ok: true, text: "ねこがすきです" },
+    ]);
+
+    container = document.createElement("div");
+    document.body.appendChild(container);
+    root = createRoot(container);
+
+    await act(async () => {
+      root?.render(
+        <Suspense fallback={<div>Loading…</div>}>
+          <DayWordsPage
+            params={Promise.resolve({ courseId: "JLPT_N1", dayId: "Day1" })}
+          />
+        </Suspense>,
+      );
+    });
+
+    await flushPromises();
+
+    const missingExampleHuriganaButton = findClickableByText("Missing example hurigana");
+    expect(missingExampleHuriganaButton).not.toBeNull();
+
+    await act(async () => {
+      missingExampleHuriganaButton?.dispatchEvent(
+        new MouseEvent("click", { bubbles: true }),
+      );
+    });
+
+    await flushPromises();
+
+    expect(document.querySelector("[data-testid='word-table']")?.textContent).toBe("w1");
+
+    const fillExampleHuriganaButton = findClickableByText("Fill example hurigana");
+    expect(fillExampleHuriganaButton).not.toBeNull();
+
+    await act(async () => {
+      fillExampleHuriganaButton?.dispatchEvent(
+        new MouseEvent("click", { bubbles: true }),
+      );
+    });
+
+    await flushPromises();
+
+    expect(addFuriganaTextsRobustMock).toHaveBeenCalledWith(
+      ["猫が好きです"],
+      { mode: "hiragana_only" },
+    );
+    expect(updateWordFieldMock).toHaveBeenCalledWith(
+      "courses/JLPT_N1",
+      "Day1",
+      "w1",
+      "exampleHurigana",
+      "ねこがすきです",
+    );
   });
 });

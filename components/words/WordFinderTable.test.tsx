@@ -50,10 +50,12 @@ vi.mock("react-i18next", () => ({
         "words.missingPronunciation": "Missing pronunciation",
         "words.hasExample": "Has example",
         "words.missingExample": "Missing example",
+        "words.missingExampleHurigana": "Missing example hurigana",
         "words.hasTranslation": "Has translation",
         "words.missingTranslation": "Missing translation",
         "words.hasDerivative": "Has derivatives",
         "words.missingDerivative": "Missing derivatives",
+        "words.exampleHuriganaLabel": "Example hurigana",
         "words.openSource": "Open source",
         "words.noDay": "No day",
         "words.none": "None",
@@ -208,6 +210,44 @@ describe("WordFinderTable", () => {
     expect(markup).toContain("本");
     expect(markup).toContain("Has pronunciation");
     expect(markup).toContain("Has example");
+  });
+
+  it("shows the exampleHurigana column only in the dedicated missing-field mode", () => {
+    const markup = renderToStaticMarkup(
+      <WordFinderTable
+        activeMissingField="exampleHurigana"
+        results={[
+          createResult({
+            id: "jlpt-eh-1",
+            courseId: "JLPT",
+            courseLabel: "JLPT",
+            coursePath: "courses/JLPT",
+            sourceHref: "/courses/JLPT/Day1",
+            dayId: "Day1",
+            schemaVariant: "jlpt",
+            primaryText: "猫",
+            secondaryText: "cat / 고양이",
+            meaning: "cat / 고양이",
+            meaningEnglish: "cat",
+            meaningKorean: "고양이",
+            example: "猫がいる。",
+            exampleHurigana: "",
+            pronunciation: "ねこ",
+            translation: "There is a cat. / 고양이가 있다.",
+            translationEnglish: "There is a cat.",
+            translationKorean: "고양이가 있다.",
+            imageUrl: "https://example.com/jlpt.png",
+          }),
+        ]}
+      />,
+    );
+
+    expect(markup).toContain("Example hurigana");
+    expect(markup).toContain("猫がいる。");
+    expect(markup).toContain("Missing example hurigana");
+    expect(markup).toContain("https://example.com/jlpt.png");
+    expect(markup).not.toContain(">Translation<");
+    expect(markup).not.toContain(">Status<");
   });
 
   it("renders a synonym column for TOEFL / IELTS standard results", () => {

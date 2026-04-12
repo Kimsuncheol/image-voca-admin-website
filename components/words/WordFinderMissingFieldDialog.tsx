@@ -270,6 +270,7 @@ export default function WordFinderMissingFieldDialog({
             | "pronunciation"
             | "pronunciationRoman"
             | "example"
+            | "exampleHurigana"
             | "exampleRoman"
             | "translation"
             | "translationEnglish"
@@ -280,6 +281,7 @@ export default function WordFinderMissingFieldDialog({
               entry[0] === "pronunciation" ||
               entry[0] === "pronunciationRoman" ||
               entry[0] === "example" ||
+              entry[0] === "exampleHurigana" ||
               entry[0] === "exampleRoman" ||
               entry[0] === "translation" ||
               entry[0] === "translationEnglish" ||
@@ -440,6 +442,19 @@ export default function WordFinderMissingFieldDialog({
           throw new Error(t("words.generateActionError"));
         }
         await handleResolved({ pronunciation });
+        return;
+      }
+
+      if (field === "exampleHurigana") {
+        if (!hasTrimmedText(result.example)) {
+          throw new Error(t("words.exampleHuriganaUnavailable"));
+        }
+
+        const exampleHurigana = await addFuriganaText(result.example, {
+          mode: "hiragana_only",
+        });
+
+        await handleResolved({ exampleHurigana });
         return;
       }
 

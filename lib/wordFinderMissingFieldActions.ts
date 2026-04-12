@@ -39,9 +39,17 @@ export function getWordFinderFieldValue(
     case "image":
       return result.imageUrl;
     case "pronunciation":
-      return result.pronunciation;
+      return result.schemaVariant === "jlpt" ||
+        result.schemaVariant === "prefix" ||
+        result.schemaVariant === "postfix"
+        ? [result.pronunciation, result.pronunciationRoman]
+            .filter((value): value is string => Boolean(value))
+            .join(" / ") || null
+        : result.pronunciation;
     case "example":
       return result.example;
+    case "exampleHurigana":
+      return result.exampleHurigana ?? null;
     case "derivative":
       return hasDerivativeEntries(result.derivative)
         ? result.derivative
@@ -67,13 +75,30 @@ export function isWordFinderFieldMissing(
     case "image":
       return result.type !== "famousQuote" && !result.imageUrl;
     case "pronunciation":
-      return (
-        result.type === "standard" &&
-        result.schemaVariant !== "extremelyAdvanced" &&
-        !result.pronunciation
-      );
+      if (
+        result.type !== "standard" ||
+        result.schemaVariant === "extremelyAdvanced"
+      ) {
+        return false;
+      }
+
+      if (
+        result.schemaVariant === "jlpt" ||
+        result.schemaVariant === "prefix" ||
+        result.schemaVariant === "postfix"
+      ) {
+        return !result.pronunciation || !result.pronunciationRoman;
+      }
+
+      return !result.pronunciation;
     case "example":
       return result.type !== "famousQuote" && !result.example;
+    case "exampleHurigana":
+      return (
+        result.schemaVariant === "jlpt" &&
+        Boolean(result.example) &&
+        !result.exampleHurigana
+      );
     case "derivative":
       return (
         supportsDerivativeGenerationForResult(result) &&

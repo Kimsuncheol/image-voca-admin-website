@@ -94,6 +94,12 @@ export function matchesMissingField(
       );
     case "example":
       return result.type !== "famousQuote" && !result.example;
+    case "exampleHurigana":
+      return (
+        result.schemaVariant === "jlpt" &&
+        Boolean(result.example) &&
+        !result.exampleHurigana
+      );
     case "derivative":
       return (
         supportsDerivativeGenerationForResult(result) &&

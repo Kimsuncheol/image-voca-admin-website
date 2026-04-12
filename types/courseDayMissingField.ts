@@ -6,6 +6,7 @@ export type CourseDayMissingField =
   | "example"
   | "furigana"
   | "exampleHasKorean"
+  | "exampleHurigana"
   | "translation"
   | "derivative"
   | "image";

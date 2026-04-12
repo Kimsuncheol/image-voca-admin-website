@@ -45,6 +45,14 @@ function hasTrimmedText(value: string | null | undefined): value is string {
 }
 
 function wordNeedsFurigana(word: FuriganaUploadWord): boolean {
+  if ("word" in word && "exampleHurigana" in word) {
+    if (!hasTrimmedText(word.pronunciation)) {
+      return true;
+    }
+
+    return hasTrimmedText(word.example) && !hasTrimmedText(word.exampleHurigana);
+  }
+
   if (!hasTrimmedText(word.pronunciation)) {
     return true;
   }
