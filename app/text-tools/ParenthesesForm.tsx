@@ -35,7 +35,7 @@ export default function ParenthesesForm({
   networkErrorMsg,
   checkboxOptions,
   horizontal = false,
-  validateInput,
+  validate,
 }: {
   apiPath: string;
   submitLabel: string;
@@ -47,13 +47,14 @@ export default function ParenthesesForm({
   networkErrorMsg: string;
   checkboxOptions?: CheckboxOptionConfig[];
   horizontal?: boolean;
-  validateInput?: (value: string) => boolean;
+  validate?: (text: string) => string | null;
 }) {
   const { t } = useTranslation();
   const [input, setInput] = useState("");
   const [output, setOutput] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [inputValidationError, setInputValidationError] = useState<string | null>(null);
   const [checkboxValues, setCheckboxValues] = useState<Record<string, boolean>>(
     getDefaultCheckboxValues(checkboxOptions),
   );
@@ -66,12 +67,24 @@ export default function ParenthesesForm({
     setCheckboxValues(getDefaultCheckboxValues(checkboxOptions));
   }, [checkboxOptions]);
 
+  useEffect(() => {
+    setInputValidationError(null);
+  }, [validate]);
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     if (!input.trim()) {
       setError(inputRequiredMsg);
       return;
+    }
+
+    if (validate) {
+      const validationMsg = validate(input);
+      if (validationMsg) {
+        setInputValidationError(validationMsg);
+        return;
+      }
     }
 
     setLoading(true);
@@ -117,6 +130,7 @@ export default function ParenthesesForm({
     setInput("");
     setOutput("");
     setError("");
+    setInputValidationError(null);
     setCheckboxValues(getDefaultCheckboxValues(checkboxOptions));
   }
 
@@ -129,19 +143,25 @@ export default function ParenthesesForm({
     }
   }
 
-  const inputInvalid =
-    !!validateInput && input.trim().length > 0 && !validateInput(input);
-
   const inputSection = (
     <Stack spacing={2} flex={1}>
       <TextField
         label={inputLabel}
         value={input}
-        onChange={(event) => setInput(event.target.value)}
+        onChange={(event) => {
+          const val = event.target.value;
+          setInput(val);
+          if (validate && val.trim()) {
+            setInputValidationError(validate(val));
+          } else {
+            setInputValidationError(null);
+          }
+        }}
         multiline
         minRows={5}
         fullWidth
-        error={inputInvalid}
+        error={!!inputValidationError}
+        helperText={inputValidationError ?? undefined}
       />
 
       {(checkboxOptions ?? []).map((option) => (
@@ -163,11 +183,7 @@ export default function ParenthesesForm({
       ))}
 
       <Stack direction="row" spacing={2}>
-        <Button
-          type="submit"
-          variant="contained"
-          disabled={loading || (validateInput ? !validateInput(input) : false)}
-        >
+        <Button type="submit" variant="contained" disabled={loading}>
           {loading ? loadingLabel : submitLabel}
         </Button>
         <Button

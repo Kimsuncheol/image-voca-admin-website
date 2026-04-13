@@ -26,6 +26,9 @@ type ToolGroup =
 type ParenthesesAction = "generate" | "remove";
 type FuriganaAction = "add" | "remove";
 
+const PARENTHESES_REGEX = /[()（）[\]【】〔〕「」『』〈〉《》〖〗｛｝]/;
+const OTHER_LANGUAGE_REGEX = /[a-zA-Z\uAC00-\uD7A3]/;
+
 export default function TextToolsPage() {
   const { t } = useTranslation();
   const { user, authLoading } = useAdminGuard();
@@ -37,14 +40,6 @@ export default function TextToolsPage() {
 
   if (authLoading) return null;
   if (user?.role !== "admin" && user?.role !== "super-admin") return null;
-
-  function hasOtherLangChars(text: string) {
-    return /[a-zA-Zㄱ-ㅎㅏ-ㅣ가-힣]/.test(text);
-  }
-
-  function hasParentheses(text: string) {
-    return /[()（）「」【】『』〔〕\[\]]/.test(text);
-  }
 
   const sharedFormProps = {
     loadingLabel: t("textTools.loading"),
@@ -117,10 +112,16 @@ export default function TextToolsPage() {
                 ? t("textTools.generateAction")
                 : t("textTools.removeAction")
             }
-            validateInput={
-              parenthesesAction === "generate"
-                ? (value) => value.trim().length > 0 && !hasOtherLangChars(value)
-                : (value) => value.trim().length > 0 && hasParentheses(value) && !hasOtherLangChars(value)
+            validate={
+              parenthesesAction === "remove"
+                ? (text) =>
+                    PARENTHESES_REGEX.test(text)
+                      ? null
+                      : t("textTools.inputNoParentheses")
+                : (text) =>
+                    PARENTHESES_REGEX.test(text)
+                      ? t("textTools.inputHasParentheses")
+                      : null
             }
             {...sharedFormProps}
           />
@@ -134,6 +135,13 @@ export default function TextToolsPage() {
           horizontal
           apiPath="/api/text/romanize"
           submitLabel={t("textTools.romanizeAction")}
+          validate={(text) => {
+            if (PARENTHESES_REGEX.test(text))
+              return t("textTools.inputHasParentheses");
+            if (OTHER_LANGUAGE_REGEX.test(text))
+              return t("textTools.inputOtherLanguageChars");
+            return null;
+          }}
           {...sharedFormProps}
         />
       );
@@ -163,6 +171,20 @@ export default function TextToolsPage() {
                 ? t("textTools.addFuriganaAction")
                 : t("textTools.removeFuriganaAction")
             }
+            validate={
+              furiganaAction === "add"
+                ? (text) => {
+                    if (PARENTHESES_REGEX.test(text))
+                      return t("textTools.inputHasParentheses");
+                    if (OTHER_LANGUAGE_REGEX.test(text))
+                      return t("textTools.inputOtherLanguageChars");
+                    return null;
+                  }
+                : (text) =>
+                    PARENTHESES_REGEX.test(text)
+                      ? null
+                      : t("textTools.inputNoParentheses")
+            }
             checkboxOptions={
               furiganaAction === "remove"
                 ? [
@@ -184,11 +206,6 @@ export default function TextToolsPage() {
                         checked ? { mode: "hiragana_only" } : {},
                     },
                   ]
-            }
-            validateInput={
-              furiganaAction === "remove"
-                ? (value) => value.trim().length > 0 && !hasParentheses(value)
-                : undefined
             }
             {...sharedFormProps}
           />
@@ -223,6 +240,11 @@ export default function TextToolsPage() {
             invalidInputTitle={t("textTools.vocabularyBatchInvalidInputTitle")}
             errorTitle={t("textTools.vocabularyBatchErrorTitle")}
             unknownErrorMsg={t("textTools.vocabularyBatchUnknownError")}
+            validate={(text) =>
+              PARENTHESES_REGEX.test(text)
+                ? t("textTools.inputHasParentheses")
+                : null
+            }
           />
         </Stack>
       );
@@ -233,6 +255,11 @@ export default function TextToolsPage() {
         horizontal
         apiPath="/api/text/translate"
         submitLabel={t("textTools.translateAction")}
+        validate={(text) =>
+          PARENTHESES_REGEX.test(text)
+            ? t("textTools.inputHasParentheses")
+            : null
+        }
         {...sharedFormProps}
       />
     );

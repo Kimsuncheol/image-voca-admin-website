@@ -96,6 +96,7 @@ export default function VocabularyBatchLookup({
   unknownErrorMsg,
   standbyTitle,
   standbyDescription,
+  validate,
 }: {
   apiPath: string;
   submitLabel: string;
@@ -120,12 +121,14 @@ export default function VocabularyBatchLookup({
   unknownErrorMsg: string;
   standbyTitle: string;
   standbyDescription: string;
+  validate?: (text: string) => string | null;
 }) {
   const { t } = useTranslation();
   const [input, setInput] = useState("");
   const [results, setResults] = useState<VocabularyBatchResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [inputValidationError, setInputValidationError] = useState<string | null>(null);
   const [selectionRanges, setSelectionRanges] = useState<TableSelectionRange[]>([]);
   const [selectionAnchor, setSelectionAnchor] = useState<TableCellCoords | null>(null);
   const [dragState, setDragState] = useState<{
@@ -197,6 +200,14 @@ export default function VocabularyBatchLookup({
       return;
     }
 
+    if (validate) {
+      const validationMsg = validate(input);
+      if (validationMsg) {
+        setInputValidationError(validationMsg);
+        return;
+      }
+    }
+
     setLoading(true);
     setError("");
     setResults([]);
@@ -228,6 +239,7 @@ export default function VocabularyBatchLookup({
     setInput("");
     setResults([]);
     setError("");
+    setInputValidationError(null);
     clearSelection();
   }
 
@@ -601,11 +613,20 @@ export default function VocabularyBatchLookup({
           <TextField
             label={inputLabel}
             value={input}
-            onChange={(event) => setInput(event.target.value)}
+            onChange={(event) => {
+              const val = event.target.value;
+              setInput(val);
+              if (validate && val.trim()) {
+                setInputValidationError(validate(val));
+              } else {
+                setInputValidationError(null);
+              }
+            }}
             multiline
             minRows={6}
             fullWidth
-            helperText={inputHelpText}
+            error={!!inputValidationError}
+            helperText={inputValidationError ?? inputHelpText}
           />
 
           <Stack direction="row" spacing={2}>
