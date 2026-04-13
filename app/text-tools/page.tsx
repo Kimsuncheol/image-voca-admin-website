@@ -283,9 +283,9 @@ export default function TextToolsPage() {
             onChange={(_, value: ToolGroup) => setGroup(value)}
             sx={{ borderBottom: 1, borderColor: "divider", px: 2 }}
           >
-            <Tab label={t("textTools.tabParentheses")} value="parentheses" />
-            <Tab label={t("textTools.tabRomanize")} value="romanize" />
             <Tab label={t("textTools.tabFurigana")} value="furigana" />
+            <Tab label={t("textTools.tabRomanize")} value="romanize" />
+            <Tab label={t("textTools.tabParentheses")} value="parentheses" />
             <Tab label={t("textTools.tabTranslate")} value="translate" />
             <Tab label={t("textTools.tabVocabulary")} value="vocabulary" />
           </Tabs>
