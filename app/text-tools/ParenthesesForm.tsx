@@ -129,6 +129,9 @@ export default function ParenthesesForm({
     }
   }
 
+  const inputInvalid =
+    !!validateInput && input.trim().length > 0 && !validateInput(input);
+
   const inputSection = (
     <Stack spacing={2} flex={1}>
       <TextField
@@ -138,6 +141,7 @@ export default function ParenthesesForm({
         multiline
         minRows={5}
         fullWidth
+        error={inputInvalid}
       />
 
       {(checkboxOptions ?? []).map((option) => (
