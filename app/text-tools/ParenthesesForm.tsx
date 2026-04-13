@@ -35,6 +35,7 @@ export default function ParenthesesForm({
   networkErrorMsg,
   checkboxOptions,
   horizontal = false,
+  validateInput,
 }: {
   apiPath: string;
   submitLabel: string;
@@ -46,6 +47,7 @@ export default function ParenthesesForm({
   networkErrorMsg: string;
   checkboxOptions?: CheckboxOptionConfig[];
   horizontal?: boolean;
+  validateInput?: (value: string) => boolean;
 }) {
   const { t } = useTranslation();
   const [input, setInput] = useState("");
@@ -157,7 +159,11 @@ export default function ParenthesesForm({
       ))}
 
       <Stack direction="row" spacing={2}>
-        <Button type="submit" variant="contained" disabled={loading}>
+        <Button
+          type="submit"
+          variant="contained"
+          disabled={loading || (validateInput ? !validateInput(input) : false)}
+        >
           {loading ? loadingLabel : submitLabel}
         </Button>
         <Button

@@ -38,6 +38,14 @@ export default function TextToolsPage() {
   if (authLoading) return null;
   if (user?.role !== "admin" && user?.role !== "super-admin") return null;
 
+  function hasOtherLangChars(text: string) {
+    return /[a-zA-Zㄱ-ㅎㅏ-ㅣ가-힣]/.test(text);
+  }
+
+  function hasParentheses(text: string) {
+    return /[()（）「」【】『』〔〕\[\]]/.test(text);
+  }
+
   const sharedFormProps = {
     loadingLabel: t("textTools.loading"),
     resetLabel: t("textTools.resetAction"),
@@ -109,6 +117,11 @@ export default function TextToolsPage() {
                 ? t("textTools.generateAction")
                 : t("textTools.removeAction")
             }
+            validateInput={
+              parenthesesAction === "generate"
+                ? (value) => value.trim().length > 0 && !hasOtherLangChars(value)
+                : (value) => value.trim().length > 0 && hasParentheses(value) && !hasOtherLangChars(value)
+            }
             {...sharedFormProps}
           />
         </Stack>
@@ -171,6 +184,11 @@ export default function TextToolsPage() {
                         checked ? { mode: "hiragana_only" } : {},
                     },
                   ]
+            }
+            validateInput={
+              furiganaAction === "remove"
+                ? (value) => value.trim().length > 0 && !hasParentheses(value)
+                : undefined
             }
             {...sharedFormProps}
           />
