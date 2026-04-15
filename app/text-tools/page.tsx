@@ -33,7 +33,7 @@ export default function TextToolsPage() {
   const { t } = useTranslation();
   const { user, authLoading } = useAdminGuard();
 
-  const [group, setGroup] = useState<ToolGroup>("parentheses");
+  const [group, setGroup] = useState<ToolGroup>("furigana");
   const [parenthesesAction, setParenthesesAction] =
     useState<ParenthesesAction>("generate");
   const [furiganaAction, setFuriganaAction] = useState<FuriganaAction>("add");
