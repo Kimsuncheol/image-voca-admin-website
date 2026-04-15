@@ -559,7 +559,10 @@
     "vocabularyCommonLabel": "일상 표현",
     "vocabularyUncommonLabel": "비일상 표현",
     "vocabularyStandbyTitle": "어휘 검색",
-    "vocabularyStandbyDescription": "단어를 입력하고 검색을 누르면 결과가 여기에 표시됩니다."
+    "vocabularyStandbyDescription": "단어를 입력하고 검색을 누르면 결과가 여기에 표시됩니다.",
+    "tabRemoveEqualSign": "등호 제거",
+    "removeEqualSignAction": "등호 제거",
+    "inputNoEqualSign": "텍스트에 등호(=)가 없습니다."
   },
   "notFound": {
     "title": "404",

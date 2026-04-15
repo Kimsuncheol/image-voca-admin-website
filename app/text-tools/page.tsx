@@ -22,7 +22,8 @@ type ToolGroup =
   | "romanize"
   | "furigana"
   | "translate"
-  | "vocabulary";
+  | "vocabulary"
+  | "removeEqualSign";
 type ParenthesesAction = "generate" | "remove";
 type FuriganaAction = "add" | "remove";
 
@@ -250,6 +251,20 @@ export default function TextToolsPage() {
       );
     }
 
+    if (group === "removeEqualSign") {
+      return (
+        <ParenthesesForm
+          horizontal
+          apiPath="/api/text/remove-equal-sign"
+          submitLabel={t("textTools.removeEqualSignAction")}
+          validate={(text) =>
+            text.includes("=") ? null : t("textTools.inputNoEqualSign")
+          }
+          {...sharedFormProps}
+        />
+      );
+    }
+
     return (
       <ParenthesesForm
         horizontal
@@ -288,6 +303,7 @@ export default function TextToolsPage() {
             <Tab label={t("textTools.tabParentheses")} value="parentheses" />
             <Tab label={t("textTools.tabTranslate")} value="translate" />
             <Tab label={t("textTools.tabVocabulary")} value="vocabulary" />
+            <Tab label={t("textTools.tabRemoveEqualSign")} value="removeEqualSign" />
           </Tabs>
 
           <CardContent>{renderCurrentForm()}</CardContent>
