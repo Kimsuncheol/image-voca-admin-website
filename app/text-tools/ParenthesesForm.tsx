@@ -34,6 +34,7 @@ export default function ParenthesesForm({
   inputRequiredMsg,
   networkErrorMsg,
   checkboxOptions,
+  extraPayload,
   horizontal = false,
   validate,
 }: {
@@ -46,6 +47,7 @@ export default function ParenthesesForm({
   inputRequiredMsg: string;
   networkErrorMsg: string;
   checkboxOptions?: CheckboxOptionConfig[];
+  extraPayload?: Record<string, unknown>;
   horizontal?: boolean;
   validate?: (text: string) => string | null;
 }) {
@@ -100,6 +102,7 @@ export default function ParenthesesForm({
             option.buildPayload(checkboxValues[option.key] ?? option.defaultValue),
           ),
         ),
+        ...(extraPayload ?? {}),
       };
 
       const response = await fetch(apiPath, {

@@ -562,7 +562,9 @@
     "vocabularyStandbyDescription": "Enter a word and click search, and the result will appear here.",
     "tabRemoveEqualSign": "Remove Equal Sign",
     "removeEqualSignAction": "Remove Equal Sign",
-    "inputNoEqualSign": "The text does not contain any equal signs."
+    "inputNoEqualSign": "The text does not contain any equal signs.",
+    "subtabLeft": "Left",
+    "subtabRight": "Right"
   },
   "notFound": {
     "title": "404",

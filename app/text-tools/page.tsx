@@ -26,6 +26,7 @@ type ToolGroup =
   | "removeEqualSign";
 type ParenthesesAction = "generate" | "remove";
 type FuriganaAction = "add" | "remove";
+type RemoveSide = "left" | "right";
 
 const PARENTHESES_REGEX = /[()（）[\]【】〔〕「」『』〈〉《》〖〗｛｝]/;
 const OTHER_LANGUAGE_REGEX = /[a-zA-Z\uAC00-\uD7A3]/;
@@ -38,6 +39,7 @@ export default function TextToolsPage() {
   const [parenthesesAction, setParenthesesAction] =
     useState<ParenthesesAction>("generate");
   const [furiganaAction, setFuriganaAction] = useState<FuriganaAction>("add");
+  const [removeSide, setRemoveSide] = useState<RemoveSide>("left");
 
   if (authLoading) return null;
   if (user?.role !== "admin" && user?.role !== "super-admin") return null;
@@ -253,15 +255,27 @@ export default function TextToolsPage() {
 
     if (group === "removeEqualSign") {
       return (
-        <ParenthesesForm
-          horizontal
-          apiPath="/api/text/remove-equal-sign"
-          submitLabel={t("textTools.removeEqualSignAction")}
-          validate={(text) =>
-            text.includes("=") ? null : t("textTools.inputNoEqualSign")
-          }
-          {...sharedFormProps}
-        />
+        <Stack spacing={2}>
+          {renderActionChips<RemoveSide>({
+            actions: [
+              { value: "left", label: t("textTools.subtabLeft") },
+              { value: "right", label: t("textTools.subtabRight") },
+            ],
+            current: removeSide,
+            onSelect: setRemoveSide,
+          })}
+
+          <ParenthesesForm
+            horizontal
+            apiPath="/api/text/remove-equal-sign"
+            submitLabel={t("textTools.removeEqualSignAction")}
+            extraPayload={{ remove_side: removeSide }}
+            validate={(text) =>
+              text.includes("=") ? null : t("textTools.inputNoEqualSign")
+            }
+            {...sharedFormProps}
+          />
+        </Stack>
       );
     }
 
