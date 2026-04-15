@@ -563,6 +563,7 @@
     "tabRemoveEqualSign": "등호 제거",
     "removeEqualSignAction": "등호 제거",
     "inputNoEqualSign": "텍스트에 등호(=)가 없습니다.",
+    "inputNoSplitter": "텍스트에 구분자(=  -  :  ;  ,  .  /  (  )  [  ]  *  \"  ')가 없습니다.",
     "subtabLeft": "왼쪽",
     "subtabRight": "오른쪽",
     "removeEqualSignStripLeadingSpecialsOption": "앞쪽 특수 문자 제거"

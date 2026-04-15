@@ -30,6 +30,7 @@ type RemoveSide = "left" | "right";
 
 const PARENTHESES_REGEX = /[()（）[\]【】〔〕「」『』〈〉《》〖〗｛｝]/;
 const OTHER_LANGUAGE_REGEX = /[a-zA-Z\uAC00-\uD7A3]/;
+const SPLITTER_REGEX = /[=\-:;,./()\[\]*"']/;
 
 export default function TextToolsPage() {
   const { t } = useTranslation();
@@ -285,7 +286,7 @@ export default function TextToolsPage() {
                 : undefined
             }
             validate={(text) =>
-              text.includes("=") ? null : t("textTools.inputNoEqualSign")
+              SPLITTER_REGEX.test(text) ? null : t("textTools.inputNoSplitter")
             }
             {...sharedFormProps}
           />

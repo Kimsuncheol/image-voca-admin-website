@@ -563,6 +563,7 @@
     "tabRemoveEqualSign": "Remove Equal Sign",
     "removeEqualSignAction": "Remove Equal Sign",
     "inputNoEqualSign": "The text does not contain any equal signs.",
+    "inputNoSplitter": "The text does not contain any splitter characters (=  -  :  ;  ,  .  /  (  )  [  ]  *  \"  ').",
     "subtabLeft": "Left",
     "subtabRight": "Right",
     "removeEqualSignStripLeadingSpecialsOption": "Strip leading special characters"
