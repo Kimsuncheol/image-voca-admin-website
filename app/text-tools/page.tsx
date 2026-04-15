@@ -270,6 +270,20 @@ export default function TextToolsPage() {
             apiPath="/api/text/remove-equal-sign"
             submitLabel={t("textTools.removeEqualSignAction")}
             extraPayload={{ remove_side: removeSide }}
+            checkboxOptions={
+              removeSide === "right"
+                ? [
+                    {
+                      key: "strip_leading_specials",
+                      label: t("textTools.removeEqualSignStripLeadingSpecialsOption"),
+                      defaultValue: false,
+                      buildPayload: (checked: boolean) => ({
+                        strip_leading_specials: checked,
+                      }),
+                    },
+                  ]
+                : undefined
+            }
             validate={(text) =>
               text.includes("=") ? null : t("textTools.inputNoEqualSign")
             }

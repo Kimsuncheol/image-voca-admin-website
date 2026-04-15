@@ -564,7 +564,8 @@
     "removeEqualSignAction": "Remove Equal Sign",
     "inputNoEqualSign": "The text does not contain any equal signs.",
     "subtabLeft": "Left",
-    "subtabRight": "Right"
+    "subtabRight": "Right",
+    "removeEqualSignStripLeadingSpecialsOption": "Strip leading special characters"
   },
   "notFound": {
     "title": "404",
