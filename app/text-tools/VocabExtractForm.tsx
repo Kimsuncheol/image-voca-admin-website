@@ -271,6 +271,26 @@ export default function VocabExtractForm({
     return entry[columnKey];
   }
 
+  function renderCellContent(value: string) {
+    const lines = value.split("\n").filter((line) => line.trim() !== "");
+    if (lines.length <= 1) {
+      return <Typography variant="body2">{value}</Typography>;
+    }
+    return (
+      <Stack spacing={0}>
+        {lines.map((line, i) => (
+          <Typography
+            key={i}
+            variant="body2"
+            sx={/^\d+\./.test(line.trim()) ? { pl: "1.5em", textIndent: "-1.5em" } : undefined}
+          >
+            {line}
+          </Typography>
+        ))}
+      </Stack>
+    );
+  }
+
   function serializeSelectionRanges(ranges: TableSelectionRange[]) {
     return ranges
       .map((range) => {
@@ -426,9 +446,7 @@ export default function VocabExtractForm({
                               },
                             }}
                           >
-                            <Typography variant="body2" sx={{ whiteSpace: "pre-line" }}>
-                              {getCellValue(entry, col)}
-                            </Typography>
+                            {renderCellContent(getCellValue(entry, col))}
                           </TableCell>
                         );
                       })}
