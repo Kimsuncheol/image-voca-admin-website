@@ -271,10 +271,18 @@ export default function VocabExtractForm({
     return entry[columnKey];
   }
 
+  function preprocessCellValue(value: string): string {
+    return value.replace(
+      /([가-힣a-zA-Z])\s*(\([^)]*(?:의 겸손|humble)[^)]*\))/g,
+      "$1\n$2",
+    );
+  }
+
   function renderCellContent(value: string) {
-    const lines = value.split("\n").filter((line) => line.trim() !== "");
+    const processed = preprocessCellValue(value);
+    const lines = processed.split("\n").filter((line) => line.trim() !== "");
     if (lines.length <= 1) {
-      return <Typography variant="body2">{value}</Typography>;
+      return <Typography variant="body2">{processed}</Typography>;
     }
     const hasNumberedLines = lines.some((line) => /^\d+\./.test(line.trim()));
     return (
@@ -289,7 +297,7 @@ export default function VocabExtractForm({
                 isNumbered
                   ? { pl: "1.5em", textIndent: "-1.5em" }
                   : hasNumberedLines
-                    ? { pl: "1.5em" }
+                    ? { pl: "1em" }
                     : undefined
               }
             >
