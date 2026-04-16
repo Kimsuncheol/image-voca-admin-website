@@ -17,10 +17,6 @@ vi.mock("react-i18next", () => ({
         "dashboard.wordFinderDesc": "Search vocabulary across courses and days",
         "dashboard.userManagement": "User Management",
         "dashboard.userManagementDesc": "Manage users and roles",
-        "dashboard.ads": "Advertisements",
-        "dashboard.adsDesc": "Manage video advertisements",
-        "dashboard.promotionCodes": "Promotion Codes",
-        "dashboard.promotionCodesDesc": "Generate and manage promotion codes",
         "dashboard.textTools": "Text Tools",
         "dashboard.textToolsDesc":
           "Parentheses, romanization, furigana, and translation utilities",

@@ -17,8 +17,6 @@ import PostAddIcon from "@mui/icons-material/PostAdd";
 import MenuBookIcon from "@mui/icons-material/MenuBook";
 import SearchIcon from "@mui/icons-material/Search";
 import PeopleIcon from "@mui/icons-material/People";
-import OndemandVideoIcon from "@mui/icons-material/OndemandVideo";
-import LocalOfferIcon from "@mui/icons-material/LocalOffer";
 import AutoFixHighIcon from "@mui/icons-material/AutoFixHigh";
 import AutoStoriesIcon from "@mui/icons-material/AutoStories";
 import SettingsIcon from "@mui/icons-material/Settings";
@@ -69,16 +67,6 @@ export function useNavItems(): NavItem[] {
       title: t("dashboard.userManagement", "Users"),
       icon: <PeopleIcon />,
       href: "/users",
-    },
-    {
-      title: t("dashboard.ads", "Ads"),
-      icon: <OndemandVideoIcon />,
-      href: "/ads",
-    },
-    {
-      title: t("dashboard.promotionCodes", "Promotion Codes"),
-      icon: <LocalOfferIcon />,
-      href: "/promotion-codes",
     },
     {
       title: t("dashboard.textTools", "Text Tools"),
