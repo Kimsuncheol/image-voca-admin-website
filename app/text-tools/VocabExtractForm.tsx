@@ -276,17 +276,27 @@ export default function VocabExtractForm({
     if (lines.length <= 1) {
       return <Typography variant="body2">{value}</Typography>;
     }
+    const hasNumberedLines = lines.some((line) => /^\d+\./.test(line.trim()));
     return (
       <Stack spacing={0}>
-        {lines.map((line, i) => (
-          <Typography
-            key={i}
-            variant="body2"
-            sx={/^\d+\./.test(line.trim()) ? { pl: "1.5em", textIndent: "-1.5em" } : undefined}
-          >
-            {line}
-          </Typography>
-        ))}
+        {lines.map((line, i) => {
+          const isNumbered = /^\d+\./.test(line.trim());
+          return (
+            <Typography
+              key={i}
+              variant="body2"
+              sx={
+                isNumbered
+                  ? { pl: "1.5em", textIndent: "-1.5em" }
+                  : hasNumberedLines
+                    ? { pl: "1.5em" }
+                    : undefined
+              }
+            >
+              {line}
+            </Typography>
+          );
+        })}
       </Stack>
     );
   }
