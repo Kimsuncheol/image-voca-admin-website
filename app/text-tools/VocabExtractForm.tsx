@@ -363,7 +363,26 @@ export default function VocabExtractForm({
 
             <TableContainer
               onKeyDown={handleSelectionKeyDown}
-              sx={{ userSelect: dragState ? "none" : "auto" }}
+              sx={{
+                userSelect: dragState ? "none" : "auto",
+                overflowX: "auto",
+                pb: 2,
+                "&::-webkit-scrollbar": {
+                  height: 8,
+                },
+                "&::-webkit-scrollbar-track": {
+                  backgroundColor: "transparent",
+                },
+                "&::-webkit-scrollbar-thumb": {
+                  backgroundColor: "action.disabled",
+                  borderRadius: 10,
+                  border: "2px solid transparent",
+                  backgroundClip: "content-box",
+                  "&:hover": {
+                    backgroundColor: "action.active",
+                  },
+                },
+              }}
             >
               <Table size="small">
                 <TableHead>
