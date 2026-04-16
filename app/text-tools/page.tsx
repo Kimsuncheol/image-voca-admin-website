@@ -15,6 +15,7 @@ import PageLayout from "@/components/layout/PageLayout";
 import { useAdminGuard } from "@/hooks/useAdminGuard";
 
 import ParenthesesForm from "./ParenthesesForm";
+import VocabExtractForm from "./VocabExtractForm";
 import VocabularyBatchLookup from "./VocabularyBatchLookup";
 
 type ToolGroup =
@@ -23,6 +24,7 @@ type ToolGroup =
   | "furigana"
   | "translate"
   | "vocabulary"
+  | "vocabExtract"
   | "removeEqualSign";
 type ParenthesesAction = "generate" | "remove";
 type FuriganaAction = "add" | "remove";
@@ -254,6 +256,35 @@ export default function TextToolsPage() {
       );
     }
 
+    if (group === "vocabExtract") {
+      return (
+        <VocabExtractForm
+          submitLabel={t("textTools.vocabExtractAction")}
+          loadingLabel={t("textTools.loading")}
+          resetLabel={t("textTools.resetAction")}
+          exampleLabel={t("textTools.vocabExtractExampleLabel")}
+          exampleHelpText={t("textTools.vocabExtractExampleHelpText")}
+          meaningKoreanLabel={t("textTools.vocabExtractMeaningKoreanLabel")}
+          meaningKoreanHelpText={t("textTools.vocabExtractMeaningKoreanHelpText")}
+          inputRequiredMsg={t("textTools.vocabExtractInputRequired")}
+          lineMismatchMsg={t("textTools.vocabExtractLineMismatch")}
+          tooManyPairsMsg={t("textTools.vocabExtractTooManyPairs")}
+          networkErrorMsg={t("textTools.networkError")}
+          standbyTitle={t("textTools.vocabExtractStandbyTitle")}
+          standbyDescription={t("textTools.vocabExtractStandbyDescription")}
+          resultTitle={t("textTools.vocabExtractResultTitle")}
+          wordLabel={t("textTools.vocabExtractWordLabel")}
+          meaningEnglishLabel={t("textTools.vocabExtractMeaningEnglishLabel")}
+          meaningKoreanResultLabel={t("textTools.vocabExtractMeaningKoreanResultLabel")}
+          pronunciationLabel={t("textTools.vocabExtractPronunciationLabel")}
+          exampleResultLabel={t("textTools.vocabExtractExampleResultLabel")}
+          translationEnglishLabel={t("textTools.vocabExtractTranslationEnglishLabel")}
+          translationKoreanLabel={t("textTools.vocabExtractTranslationKoreanLabel")}
+          exampleHiraganaLabel={t("textTools.vocabExtractExampleHiraganaLabel")}
+        />
+      );
+    }
+
     if (group === "removeEqualSign") {
       return (
         <Stack spacing={2}>
@@ -330,6 +361,7 @@ export default function TextToolsPage() {
             <Tab label={t("textTools.tabFurigana")} value="furigana" />
             <Tab label={t("textTools.tabRemoveEqualSign")} value="removeEqualSign" />
             <Tab label={t("textTools.tabVocabulary")} value="vocabulary" />
+            <Tab label={t("textTools.tabVocabExtract")} value="vocabExtract" />
             <Tab label={t("textTools.tabRomanize")} value="romanize" />
             <Tab label={t("textTools.tabParentheses")} value="parentheses" />
             <Tab label={t("textTools.tabTranslate")} value="translate" />
