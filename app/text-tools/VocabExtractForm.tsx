@@ -415,7 +415,6 @@ export default function VocabExtractForm({
                             sx={{
                               cursor: "cell",
                               userSelect: "none",
-                              whiteSpace: "nowrap",
                               backgroundColor: selected ? "action.selected" : "inherit",
                               boxShadow: selected
                                 ? (theme) => `inset 0 0 0 2px ${theme.palette.primary.main}`
@@ -427,7 +426,7 @@ export default function VocabExtractForm({
                               },
                             }}
                           >
-                            <Typography variant="body2">
+                            <Typography variant="body2" sx={{ whiteSpace: "pre-line" }}>
                               {getCellValue(entry, col)}
                             </Typography>
                           </TableCell>
