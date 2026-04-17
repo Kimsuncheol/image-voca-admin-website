@@ -31,7 +31,8 @@ export async function POST(req: NextRequest) {
   const subcollName = quiz_type === "matching" ? "matching" : "fill_in_the_blank";
   const collectionPath = `${courseConfig.path}/Day${day}/Day${day}-quiz/${subcollName}`;
 
-  const docRef = await adminDb.collection(collectionPath).add(quiz_data);
+  const docRef = adminDb.collection(collectionPath).doc("data");
+  await docRef.set(quiz_data);
 
   return NextResponse.json({ id: docRef.id });
 }
