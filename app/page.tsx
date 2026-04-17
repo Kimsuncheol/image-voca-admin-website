@@ -24,8 +24,6 @@ import PostAddIcon from "@mui/icons-material/PostAdd";
 import MenuBookIcon from "@mui/icons-material/MenuBook";
 import SearchIcon from "@mui/icons-material/Search";
 import PeopleIcon from "@mui/icons-material/People";
-import OndemandVideoIcon from "@mui/icons-material/OndemandVideo";
-import LocalOfferIcon from "@mui/icons-material/LocalOffer";
 import AutoFixHighIcon from "@mui/icons-material/AutoFixHigh";
 import AutoStoriesIcon from "@mui/icons-material/AutoStories";
 import SettingsIcon from "@mui/icons-material/Settings";
@@ -68,18 +66,7 @@ export default function Home() {
       icon: <PeopleIcon />,
       href: "/users",
     },
-    {
-      title: t("dashboard.ads"),
-      description: t("dashboard.adsDesc"),
-      icon: <OndemandVideoIcon />,
-      href: "/ads",
-    },
-    {
-      title: t("dashboard.promotionCodes"),
-      description: t("dashboard.promotionCodesDesc"),
-      icon: <LocalOfferIcon />,
-      href: "/promotion-codes",
-    },
+
     {
       title: t("dashboard.textTools"),
       description: t("dashboard.textToolsDesc"),

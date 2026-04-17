@@ -18,8 +18,7 @@ vi.mock("react-i18next", () => ({
         "dashboard.userManagement": "User Management",
         "dashboard.userManagementDesc": "Manage users and roles",
         "dashboard.textTools": "Text Tools",
-        "dashboard.textToolsDesc":
-          "Parentheses, romanization, furigana, and translation utilities",
+        "dashboard.textToolsDesc": "Parentheses, romanization, and furigana utilities",
         "dashboard.settings": "Settings",
         "dashboard.settingsDesc": "Configure AI models for generation",
       };
@@ -55,9 +54,7 @@ describe("Dashboard page", () => {
     const markup = renderToStaticMarkup(<Home />);
 
     expect(markup).toContain("Text Tools");
-    expect(markup).toContain(
-      "Parentheses, romanization, furigana, and translation utilities",
-    );
+    expect(markup).toContain("Parentheses, romanization, and furigana utilities");
     expect(markup).toContain("/text-tools");
   });
 });

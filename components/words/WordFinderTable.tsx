@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState, type MouseEvent } from "react";
+import { useCallback, useMemo, useRef, useState, type KeyboardEvent, type MouseEvent } from "react";
 import Box from "@mui/material/Box";
 import Chip from "@mui/material/Chip";
 import Paper from "@mui/material/Paper";
@@ -13,6 +13,7 @@ import TableContainer from "@mui/material/TableContainer";
 import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import Typography from "@mui/material/Typography";
+import type { Theme } from "@mui/material/styles";
 import { useTranslation } from "react-i18next";
 
 import CellContextMenu from "@/components/shared/CellContextMenu";
@@ -24,6 +25,15 @@ import { supportsDerivativeGenerationForResult } from "@/lib/derivativeGeneratio
 import type { WordFinderResult } from "@/types/wordFinder";
 import type { WordFinderActionField, WordFinderMissingField } from "@/types/wordFinder";
 import { insertNumberedBreaks } from "@/lib/utils/textFormat";
+import {
+  findSpreadsheetBoundary,
+  focusSpreadsheetCell,
+  getArrowDirection,
+  isEditableEventTarget,
+  isPlatformJumpModifier,
+  moveCell,
+  type CellCoord,
+} from "@/lib/utils/spreadsheetNavigation";
 
 type FuriganaActionField = Extract<WordFinderActionField, "pronunciation" | "example">;
 
@@ -33,10 +43,7 @@ const singleLineWordTextSx = {
   wordBreak: "keep-all",
 };
 
-interface CellPos {
-  row: number;
-  col: number;
-}
+type CellPos = CellCoord;
 
 interface ContextMenuState {
   anchorPosition: { top: number; left: number };
@@ -185,6 +192,8 @@ export default function WordFinderTable({
 }: WordFinderTableProps) {
   const { t } = useTranslation();
   const router = useRouter();
+  const tableContainerRef = useRef<HTMLDivElement | null>(null);
+  const [activeCell, setActiveCell] = useState<CellPos | null>(null);
   const [selectionAnchor, setSelectionAnchor] = useState<CellPos | null>(null);
   const [selectionExtent, setSelectionExtent] = useState<CellPos | null>(null);
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
@@ -201,6 +210,10 @@ export default function WordFinderTable({
   const translationCol =
     (hasSynonymColumn ? 2 : 1) + (hasPronunciationColumn ? 1 : 0) + 1;
   const locationCol = translationCol + (hasExampleHuriganaColumn ? 3 : 2);
+  const imageCol = isExampleHuriganaMode
+    ? 4
+    : translationCol + (hasExampleHuriganaColumn ? 2 : 1);
+  const statusCol = locationCol + 1;
   // cols: 0=primaryText, 1=meaning, 2=synonym?, 3=pronunciation?, 4=translation, 5="" (image), 6=location, 7="" (status)
   const cellGrid = useMemo(
     () =>
@@ -266,15 +279,26 @@ export default function WordFinderTable({
     (row: number, col: number) => ({
       cursor: "pointer",
       bgcolor: isCellSelected(row, col) ? "action.selected" : undefined,
+      boxShadow:
+        activeCell?.row === row && activeCell.col === col
+          ? (theme: Theme) => `inset 0 0 0 2px ${theme.palette.primary.main}`
+          : undefined,
       "&:hover": { bgcolor: isCellSelected(row, col) ? "action.selected" : "action.hover" },
+      "&:focus-visible": {
+        outline: "2px solid",
+        outlineColor: "primary.main",
+        outlineOffset: -2,
+      },
     }),
-    [isCellSelected],
+    [activeCell, isCellSelected],
   );
 
   const handleCellClick = useCallback(
-    (e: MouseEvent, row: number, col: number) => {
+    (e: MouseEvent<HTMLTableCellElement>, row: number, col: number) => {
+      e.stopPropagation();
+      e.currentTarget.focus();
+      setActiveCell({ row, col });
       if (e.shiftKey && selectionAnchor) {
-        e.stopPropagation();
         setSelectionExtent({ row, col });
       } else {
         setSelectionAnchor({ row, col });
@@ -284,25 +308,98 @@ export default function WordFinderTable({
     [selectionAnchor],
   );
 
-  useEffect(() => {
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        setSelectionAnchor(null);
-        setSelectionExtent(null);
+  const handleCellFocus = useCallback(
+    (row: number, col: number) => {
+      const cell = { row, col };
+      setActiveCell(cell);
+      if (!selectionAnchor || !selectionExtent) {
+        setSelectionAnchor(cell);
+        setSelectionExtent(cell);
+      }
+    },
+    [selectionAnchor, selectionExtent],
+  );
+
+  const clearSelection = useCallback(() => {
+    setActiveCell(null);
+    setSelectionAnchor(null);
+    setSelectionExtent(null);
+  }, []);
+
+  const getCellId = useCallback(
+    (row: number, col: number) => `word-finder-cell-${row}-${col}`,
+    [],
+  );
+
+  const getCellTabIndex = useCallback(
+    (row: number, col: number) => {
+      if (!activeCell) return row === 0 && col === 0 ? 0 : -1;
+      return activeCell.row === row && activeCell.col === col ? 0 : -1;
+    },
+    [activeCell],
+  );
+
+  const handleSpreadsheetKeyDown = useCallback(
+    (event: KeyboardEvent<HTMLDivElement>) => {
+      if (isEditableEventTarget(event.target)) return;
+
+      if (event.key === "Escape") {
+        if (!activeCell && !selectionAnchor && !selectionExtent) return;
+        event.preventDefault();
+        clearSelection();
         return;
       }
-      if (e.key === "c" && (e.metaKey || e.ctrlKey) && selectionAnchor && selectionExtent) {
-        e.preventDefault();
+
+      if (
+        event.key.toLowerCase() === "c" &&
+        (event.metaKey || event.ctrlKey) &&
+        selectionAnchor &&
+        selectionExtent
+      ) {
+        event.preventDefault();
         copyRangeToClipboard(selectionAnchor, selectionExtent);
+        return;
       }
-    };
-    document.addEventListener("keydown", onKeyDown);
-    return () => document.removeEventListener("keydown", onKeyDown);
-  }, [selectionAnchor, selectionExtent, copyRangeToClipboard]);
+
+      const direction = getArrowDirection(event.key);
+      if (!direction) return;
+
+      const currentCell =
+        activeCell ??
+        selectionExtent ??
+        selectionAnchor ??
+        (cellGrid.length > 0 && cellGrid[0]?.length ? { row: 0, col: 0 } : null);
+      if (!currentCell) return;
+
+      event.preventDefault();
+
+      const nextCell = isPlatformJumpModifier(event)
+        ? findSpreadsheetBoundary(cellGrid, currentCell, direction)
+        : moveCell(cellGrid, currentCell, direction);
+      const anchor = event.shiftKey ? selectionAnchor ?? currentCell : nextCell;
+
+      setActiveCell(nextCell);
+      setSelectionAnchor(anchor);
+      setSelectionExtent(nextCell);
+      requestAnimationFrame(() => {
+        focusSpreadsheetCell(tableContainerRef.current, nextCell);
+      });
+    },
+    [
+      activeCell,
+      cellGrid,
+      clearSelection,
+      copyRangeToClipboard,
+      selectionAnchor,
+      selectionExtent,
+    ],
+  );
 
   const handleCellContextMenu = useCallback(
-    (e: MouseEvent, row: number, col: number) => {
+    (e: MouseEvent<HTMLTableCellElement>, row: number, col: number) => {
       e.preventDefault();
+      e.stopPropagation();
+      setActiveCell({ row, col });
       if (!isCellSelected(row, col)) {
         setSelectionAnchor({ row, col });
         setSelectionExtent({ row, col });
@@ -310,6 +407,32 @@ export default function WordFinderTable({
       setContextMenu({ anchorPosition: { top: e.clientY, left: e.clientX }, row, col });
     },
     [isCellSelected],
+  );
+
+  const selectableCellProps = useCallback(
+    (row: number, col: number) => ({
+      id: getCellId(row, col),
+      "data-spreadsheet-cell": "true",
+      "data-row": row,
+      "data-col": col,
+      role: "gridcell",
+      tabIndex: getCellTabIndex(row, col),
+      "aria-selected": isCellSelected(row, col),
+      onFocus: () => handleCellFocus(row, col),
+      onClick: (e: MouseEvent<HTMLTableCellElement>) => handleCellClick(e, row, col),
+      onContextMenu: (e: MouseEvent<HTMLTableCellElement>) =>
+        handleCellContextMenu(e, row, col),
+      sx: selectableCellSx(row, col),
+    }),
+    [
+      getCellId,
+      getCellTabIndex,
+      handleCellClick,
+      handleCellContextMenu,
+      handleCellFocus,
+      isCellSelected,
+      selectableCellSx,
+    ],
   );
 
   const handleContextMenuCopy = useCallback(() => {
@@ -364,8 +487,14 @@ export default function WordFinderTable({
   return (
     <>
     <TableContainer
+      ref={tableContainerRef}
       component={Paper}
       variant="outlined"
+      onKeyDown={handleSpreadsheetKeyDown}
+      role="grid"
+      aria-activedescendant={
+        activeCell ? getCellId(activeCell.row, activeCell.col) : undefined
+      }
       sx={{
         "&::-webkit-scrollbar": { height: 6 },
         "&::-webkit-scrollbar-track": {
@@ -431,9 +560,8 @@ export default function WordFinderTable({
               sx={{ cursor: "pointer" }}
             >
               <TableCell
+                {...selectableCellProps(rowIdx, 0)}
                 sx={{ minWidth: 220, ...selectableCellSx(rowIdx, 0) }}
-                onClick={(e) => handleCellClick(e, rowIdx, 0)}
-                onContextMenu={(e) => handleCellContextMenu(e, rowIdx, 0)}
               >
                 <Stack spacing={0.75}>
                   <Typography fontWeight={600} sx={singleLineWordTextSx}>
@@ -447,9 +575,8 @@ export default function WordFinderTable({
                 </Stack>
               </TableCell>
               <TableCell
+                {...selectableCellProps(rowIdx, 1)}
                 sx={{ minWidth: 260, ...selectableCellSx(rowIdx, 1) }}
-                onClick={(e) => handleCellClick(e, rowIdx, 1)}
-                onContextMenu={(e) => handleCellContextMenu(e, rowIdx, 1)}
               >
                 <Stack spacing={0.5}>
                   <Typography variant="body2" sx={{ whiteSpace: "pre-line" }}>
@@ -464,9 +591,8 @@ export default function WordFinderTable({
               </TableCell>
               {!isExampleHuriganaMode && hasSynonymColumn && (
                 <TableCell
+                  {...selectableCellProps(rowIdx, 2)}
                   sx={{ minWidth: 180, ...selectableCellSx(rowIdx, 2) }}
-                  onClick={(e) => handleCellClick(e, rowIdx, 2)}
-                  onContextMenu={(e) => handleCellContextMenu(e, rowIdx, 2)}
                 >
                   <Typography variant="body2" sx={{ whiteSpace: "pre-line" }}>
                     {isToeflSynonymResult(result)
@@ -477,9 +603,8 @@ export default function WordFinderTable({
               )}
               {!isExampleHuriganaMode && hasPronunciationColumn && (
                 <TableCell
+                  {...selectableCellProps(rowIdx, hasSynonymColumn ? 3 : 2)}
                   sx={{ minWidth: 220, ...selectableCellSx(rowIdx, hasSynonymColumn ? 3 : 2) }}
-                  onClick={(e) => handleCellClick(e, rowIdx, hasSynonymColumn ? 3 : 2)}
-                  onContextMenu={(e) => handleCellContextMenu(e, rowIdx, hasSynonymColumn ? 3 : 2)}
                 >
                   <Typography variant="body2">
                     {isExtremelyAdvancedResult(result)
@@ -491,18 +616,16 @@ export default function WordFinderTable({
               {isExampleHuriganaMode ? (
                 <>
                   <TableCell
+                    {...selectableCellProps(rowIdx, 2)}
                     sx={{ minWidth: 220, ...selectableCellSx(rowIdx, 2) }}
-                    onClick={(e) => handleCellClick(e, rowIdx, 2)}
-                    onContextMenu={(e) => handleCellContextMenu(e, rowIdx, 2)}
                   >
                     <Typography variant="body2" sx={{ whiteSpace: "pre-line" }}>
                       {insertNumberedBreaks(result.example || "") || t("words.none")}
                     </Typography>
                   </TableCell>
                   <TableCell
+                    {...selectableCellProps(rowIdx, 3)}
                     sx={{ minWidth: 220, ...selectableCellSx(rowIdx, 3) }}
-                    onClick={(e) => handleCellClick(e, rowIdx, 3)}
-                    onContextMenu={(e) => handleCellContextMenu(e, rowIdx, 3)}
                   >
                     {result.exampleHurigana ? (
                       <Typography variant="body2" sx={{ whiteSpace: "pre-line" }}>
@@ -522,9 +645,8 @@ export default function WordFinderTable({
               ) : (
                 <>
                   <TableCell
+                    {...selectableCellProps(rowIdx, translationCol)}
                     sx={{ minWidth: 220, ...selectableCellSx(rowIdx, translationCol) }}
-                    onClick={(e) => handleCellClick(e, rowIdx, translationCol)}
-                    onContextMenu={(e) => handleCellContextMenu(e, rowIdx, translationCol)}
                   >
                     <Typography variant="body2" sx={{ whiteSpace: "pre-line" }}>
                       {insertNumberedBreaks(result.translation || "") || t("words.none")}
@@ -532,9 +654,8 @@ export default function WordFinderTable({
                   </TableCell>
                   {hasExampleHuriganaColumn && (
                     <TableCell
+                      {...selectableCellProps(rowIdx, translationCol + 1)}
                       sx={{ minWidth: 220, ...selectableCellSx(rowIdx, translationCol + 1) }}
-                      onClick={(e) => handleCellClick(e, rowIdx, translationCol + 1)}
-                      onContextMenu={(e) => handleCellContextMenu(e, rowIdx, translationCol + 1)}
                     >
                       {result.exampleHurigana ? (
                         <Typography variant="body2" sx={{ whiteSpace: "pre-line" }}>
@@ -553,7 +674,10 @@ export default function WordFinderTable({
                   )}
                 </>
               )}
-              <TableCell sx={{ minWidth: 120 }}>
+              <TableCell
+                {...selectableCellProps(rowIdx, imageCol)}
+                sx={{ minWidth: 120, ...selectableCellSx(rowIdx, imageCol) }}
+              >
                 {result.type === "famousQuote" ? null : result.imageUrl ? (
                   <Box
                     component="img"
@@ -578,23 +702,21 @@ export default function WordFinderTable({
                 )}
               </TableCell>
               <TableCell
+                {...selectableCellProps(rowIdx, isExampleHuriganaMode ? 5 : locationCol)}
                 sx={{
                   minWidth: 180,
                   ...selectableCellSx(rowIdx, isExampleHuriganaMode ? 5 : locationCol),
                 }}
-                onClick={(e) =>
-                  handleCellClick(e, rowIdx, isExampleHuriganaMode ? 5 : locationCol)
-                }
-                onContextMenu={(e) =>
-                  handleCellContextMenu(e, rowIdx, isExampleHuriganaMode ? 5 : locationCol)
-                }
               >
                 <Typography variant="body2">
                   {formatWordFinderLocation(result, t("words.noDay"))}
                 </Typography>
               </TableCell>
               {!isExampleHuriganaMode && (
-              <TableCell sx={{ minWidth: 220 }}>
+              <TableCell
+                {...selectableCellProps(rowIdx, statusCol)}
+                sx={{ minWidth: 220, ...selectableCellSx(rowIdx, statusCol) }}
+              >
                 <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap>
                   {result.type !== "famousQuote" && (
                     renderStatusChip(

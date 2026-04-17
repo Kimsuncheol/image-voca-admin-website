@@ -1,9 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, type ClipboardEvent, type MouseEvent, type ReactNode } from "react";
+import { useCallback, useMemo, useRef, useState, type ClipboardEvent, type KeyboardEvent, type MouseEvent, type ReactNode } from "react";
 import Table from "@mui/material/Table";
 import TableBody from "@mui/material/TableBody";
-import TableCell from "@mui/material/TableCell";
+import TableCell, { type TableCellProps } from "@mui/material/TableCell";
 import TableContainer from "@mui/material/TableContainer";
 import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
@@ -14,6 +14,7 @@ import Alert from "@mui/material/Alert";
 import Snackbar from "@mui/material/Snackbar";
 import Typography from "@mui/material/Typography";
 import Tooltip from "@mui/material/Tooltip";
+import type { Theme } from "@mui/material/styles";
 import AddPhotoAlternateIcon from "@mui/icons-material/AddPhotoAlternate";
 import AutoFixHighIcon from "@mui/icons-material/AutoFixHigh";
 import CloseIcon from "@mui/icons-material/Close";
@@ -41,10 +42,19 @@ import {
 } from "@/lib/derivativeGeneration";
 import { containsKorean } from "@/lib/utils/korean";
 import { insertNumberedBreaks } from "@/lib/utils/textFormat";
+import {
+  findSpreadsheetBoundary,
+  focusSpreadsheetCell,
+  getArrowDirection,
+  isEditableEventTarget,
+  isPlatformJumpModifier,
+  moveCell,
+  type CellCoord,
+} from "@/lib/utils/spreadsheetNavigation";
 import { supportsDerivativeCourse } from "@/constants/supportedDerivativeCourses";
 import { getCourseById, type CourseId } from "@/types/course";
 import type { CourseDayMissingField } from "@/types/courseDayMissingField";
-import type { CollocationWord, ExtremelyAdvancedWord, IdiomWord, JlptWord, PostfixWord, PrefixWord, StandardWord, Word } from "@/types/word";
+import type { CollocationWord, ExtremelyAdvancedWord, JlptWord, PostfixWord, PrefixWord, StandardWord, Word } from "@/types/word";
 import DerivativeEditDialog from "@/components/courses/DerivativeEditDialog";
 import { isCollocationWord, isFamousQuoteWord, isIdiomWord, isJlptWord, isPostfixWord, isPrefixWord } from "@/types/word";
 import {
@@ -293,27 +303,48 @@ function ExampleCell({
   onClick,
   onContextMenu,
   selected,
+  spreadsheetProps,
 }: {
   text: string | undefined;
   onClick?: (e: MouseEvent<HTMLTableCellElement>) => void;
   onContextMenu?: (e: MouseEvent<HTMLTableCellElement>) => void;
   selected?: boolean;
+  spreadsheetProps?: TableCellProps;
 }) {
   const cellSx = {
     cursor: onClick ? "pointer" : undefined,
     bgcolor: selected ? "action.selected" : undefined,
     "&:hover": onClick ? { bgcolor: selected ? "action.selected" : "action.hover" } : undefined,
   };
-  if (!text) return <TableCell onClick={onClick} onContextMenu={onContextMenu} sx={cellSx} />;
+  const sx = [
+    ...(Array.isArray(spreadsheetProps?.sx)
+      ? spreadsheetProps.sx
+      : spreadsheetProps?.sx
+        ? [spreadsheetProps.sx]
+        : []),
+    cellSx,
+  ];
+  if (!text) {
+    return (
+      <TableCell
+        {...spreadsheetProps}
+        aria-selected={selected}
+        onClick={onClick}
+        onContextMenu={onContextMenu}
+        sx={sx}
+      />
+    );
+  }
 
   const lines = text.split(DIALOGUE_SPLIT_REGEX);
 
   return (
     <TableCell
+      {...spreadsheetProps}
       aria-selected={selected}
       onClick={onClick}
       onContextMenu={onContextMenu}
-      sx={cellSx}
+      sx={sx}
     >
       <Box
         sx={{
@@ -438,10 +469,7 @@ interface EditingCellState {
   error: string;
 }
 
-interface CellPos {
-  row: number;
-  col: number;
-}
+type CellPos = CellCoord;
 
 interface ContextMenuState {
   anchorPosition: { top: number; left: number };
@@ -495,12 +523,14 @@ export default function WordTable({
   onWordFieldsUpdated,
 }: WordTableProps) {
   const { t } = useTranslation();
+  const tableContainerRef = useRef<HTMLDivElement | null>(null);
   const [localWordUpdates, setLocalWordUpdates] = useState<Record<string, WordTableLocalUpdates>>(
     {},
   );
   const [activeWordId, setActiveWordId] = useState("");
   const [activeField, setActiveField] = useState<WordFinderActionField | null>(null);
   const [editingCell, setEditingCell] = useState<EditingCellState | null>(null);
+  const [activeCell, setActiveCell] = useState<CellPos | null>(null);
   const [selectionAnchor, setSelectionAnchor] = useState<CellPos | null>(null);
   const [selectionExtent, setSelectionExtent] = useState<CellPos | null>(null);
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
@@ -510,6 +540,7 @@ export default function WordTable({
     Boolean(isJlpt) && activeMissingField === "exampleHurigana";
 
   const clearSelection = useCallback(() => {
+    setActiveCell(null);
     setSelectionAnchor(null);
     setSelectionExtent(null);
     setContextMenu(null);
@@ -939,15 +970,22 @@ export default function WordTable({
     wordId,
     field,
     tooltipKey,
+    row,
+    col,
     icon = <AutoFixHighIcon fontSize="small" />,
   }: {
     wordId: string;
     field: WordFinderActionField;
     tooltipKey: string;
+    row?: number;
+    col?: number;
     icon?: ReactNode;
   }) {
+    const spreadsheetProps =
+      row !== undefined && col !== undefined ? selectableCellProps(row, col) : undefined;
+
     return (
-      <TableCell>
+      <TableCell {...spreadsheetProps}>
         <Tooltip title={t(tooltipKey)}>
           <IconButton
             size="small"
@@ -1010,8 +1048,10 @@ export default function WordTable({
           m.word, m.meaningEnglish, m.meaningKorean,
           m.pronunciation,
           m.example,
-          m.translationEnglish, m.translationKorean,
-          "", // image
+          m.exampleHurigana,
+          m.translationEnglish,
+          m.translationKorean,
+          ...(showImageUrl ? [""] : []),
         ];
       }
       if (isPrefix && isPrefixWord(m)) {
@@ -1031,10 +1071,23 @@ export default function WordTable({
         ];
       }
       if (isCollocation && isCollocationWord(m)) {
-        return [m.collocation, m.meaning, m.explanation, m.example, m.translation, ""];
+        return [
+          m.collocation,
+          m.meaning,
+          m.explanation,
+          m.example,
+          m.translation,
+          ...(showImageUrl ? [""] : []),
+        ];
       }
       if (isIdiom && isIdiomWord(m)) {
-        return [m.idiom, m.meaning, m.example, m.translation, ""];
+        return [
+          m.idiom,
+          m.meaning,
+          m.example,
+          m.translation,
+          ...(showImageUrl ? [""] : []),
+        ];
       }
       if (isFamousQuote && isFamousQuoteWord(m)) {
         return [m.quote, m.author, m.translation, m.language ?? ''];
@@ -1179,8 +1232,10 @@ export default function WordTable({
   );
 
   const handleCellContextMenu = useCallback(
-    (e: MouseEvent, row: number, col: number) => {
+    (e: MouseEvent<HTMLTableCellElement>, row: number, col: number) => {
       e.preventDefault();
+      e.stopPropagation();
+      setActiveCell({ row, col });
       if (!isCellSelected(row, col)) {
         setSelectionAnchor({ row, col });
         setSelectionExtent({ row, col });
@@ -1226,6 +1281,8 @@ export default function WordTable({
     showImageUrl,
     supportsDerivatives,
     hasSynonymColumn,
+    isExtremelyAdvanced,
+    isJlptExampleHuriganaMode,
   ]);
 
   const handleContextMenuEdit = useCallback(() => {
@@ -1356,8 +1413,10 @@ export default function WordTable({
   ]);
 
   const handleCellClick = useCallback(
-    (e: MouseEvent, row: number, col: number) => {
+    (e: MouseEvent<HTMLTableCellElement>, row: number, col: number) => {
       e.stopPropagation();
+      e.currentTarget.focus();
+      setActiveCell({ row, col });
       if (e.shiftKey && selectionAnchor) {
         setSelectionExtent({ row, col });
       } else {
@@ -1372,40 +1431,150 @@ export default function WordTable({
     (row: number, col: number) => ({
       cursor: "pointer",
       bgcolor: isCellSelected(row, col) ? "action.selected" : undefined,
+      boxShadow:
+        activeCell?.row === row && activeCell.col === col
+          ? (theme: Theme) => `inset 0 0 0 2px ${theme.palette.primary.main}`
+          : undefined,
       "&:hover": { bgcolor: isCellSelected(row, col) ? "action.selected" : "action.hover" },
+      "&:focus-visible": {
+        outline: "2px solid",
+        outlineColor: "primary.main",
+        outlineOffset: -2,
+      },
     }),
-    [isCellSelected],
+    [activeCell, isCellSelected],
+  );
+
+  const handleCellFocus = useCallback(
+    (row: number, col: number) => {
+      const cell = { row, col };
+      setActiveCell(cell);
+      if (!selectionAnchor || !selectionExtent) {
+        setSelectionAnchor(cell);
+        setSelectionExtent(cell);
+      }
+    },
+    [selectionAnchor, selectionExtent],
+  );
+
+  const getCellId = useCallback(
+    (row: number, col: number) => `word-table-cell-${row}-${col}`,
+    [],
+  );
+
+  const getCellTabIndex = useCallback(
+    (row: number, col: number) => {
+      if (!activeCell) return row === 0 && col === 0 ? 0 : -1;
+      return activeCell.row === row && activeCell.col === col ? 0 : -1;
+    },
+    [activeCell],
   );
 
   const selectableCellProps = useCallback(
-    (row: number, col: number) => ({
-      "aria-selected": isCellSelected(row, col),
-      onClick: (e: MouseEvent) => handleCellClick(e, row, col),
-      onContextMenu: (e: MouseEvent) => handleCellContextMenu(e, row, col),
-      sx: selectableCellSx(row, col),
-    }),
-    [handleCellClick, handleCellContextMenu, isCellSelected, selectableCellSx],
+    (
+      row: number,
+      col: number,
+      options?: { omitUnselectedAria?: boolean },
+    ) => {
+      const selected = isCellSelected(row, col);
+      return {
+        id: getCellId(row, col),
+        "data-spreadsheet-cell": "true",
+        "data-row": row,
+        "data-col": col,
+        role: "gridcell",
+        tabIndex: getCellTabIndex(row, col),
+        "aria-selected": selected
+          ? true
+          : options?.omitUnselectedAria
+            ? undefined
+            : false,
+        onFocus: () => handleCellFocus(row, col),
+        onClick: (e: MouseEvent<HTMLTableCellElement>) => handleCellClick(e, row, col),
+        onContextMenu: (e: MouseEvent<HTMLTableCellElement>) =>
+          handleCellContextMenu(e, row, col),
+        sx: selectableCellSx(row, col),
+      };
+    },
+    [
+      getCellId,
+      getCellTabIndex,
+      handleCellClick,
+      handleCellContextMenu,
+      handleCellFocus,
+      isCellSelected,
+      selectableCellSx,
+    ],
   );
 
-  useEffect(() => {
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        setSelectionAnchor(null);
-        setSelectionExtent(null);
+  const handleSpreadsheetKeyDown = useCallback(
+    (event: KeyboardEvent<HTMLDivElement>) => {
+      if (editingCell || isEditableEventTarget(event.target)) return;
+
+      if (event.key === "Escape") {
+        if (!activeCell && !selectionAnchor && !selectionExtent) return;
+        event.preventDefault();
+        clearSelection();
         return;
       }
-      if (!editingCell && e.key === "c" && (e.metaKey || e.ctrlKey) && selectionAnchor && selectionExtent) {
-        e.preventDefault();
+
+      if (
+        event.key.toLowerCase() === "c" &&
+        (event.metaKey || event.ctrlKey) &&
+        selectionAnchor &&
+        selectionExtent
+      ) {
+        event.preventDefault();
         void copyRangeToClipboard(selectionAnchor, selectionExtent);
+        return;
       }
-    };
-    document.addEventListener("keydown", onKeyDown);
-    return () => document.removeEventListener("keydown", onKeyDown);
-  }, [selectionAnchor, selectionExtent, copyRangeToClipboard, editingCell]);
+
+      const direction = getArrowDirection(event.key);
+      if (!direction) return;
+
+      const currentCell =
+        activeCell ??
+        selectionExtent ??
+        selectionAnchor ??
+        (cellGrid.length > 0 && cellGrid[0]?.length ? { row: 0, col: 0 } : null);
+      if (!currentCell) return;
+
+      event.preventDefault();
+
+      const nextCell = isPlatformJumpModifier(event)
+        ? findSpreadsheetBoundary(cellGrid, currentCell, direction)
+        : moveCell(cellGrid, currentCell, direction);
+      const anchor = event.shiftKey ? selectionAnchor ?? currentCell : nextCell;
+
+      setActiveCell(nextCell);
+      setSelectionAnchor(anchor);
+      setSelectionExtent(nextCell);
+      requestAnimationFrame(() => {
+        focusSpreadsheetCell(tableContainerRef.current, nextCell);
+      });
+    },
+    [
+      activeCell,
+      cellGrid,
+      clearSelection,
+      copyRangeToClipboard,
+      editingCell,
+      selectionAnchor,
+      selectionExtent,
+    ],
+  );
 
   return (
     <>
-      <TableContainer component={Paper}>
+      <TableContainer
+        ref={tableContainerRef}
+        component={Paper}
+        onKeyDown={handleSpreadsheetKeyDown}
+        role="grid"
+        aria-activedescendant={
+          activeCell ? getCellId(activeCell.row, activeCell.col) : undefined
+        }
+      >
         <Table>
           <TableHead>
             <TableRow>
@@ -1541,6 +1710,7 @@ export default function WordTable({
                     {!isMissingField(mergedWord, "example") ? (
                       <ExampleCell
                         text={getResolvedTextField(word.id, "example") || mergedWord.example}
+                        spreadsheetProps={selectableCellProps(rowIdx, 3)}
                         onClick={(e) => handleCellClick(e, rowIdx, 3)}
                         onContextMenu={(e) => handleCellContextMenu(e, rowIdx, 3)}
                         selected={isCellSelected(rowIdx, 3)}
@@ -1550,6 +1720,8 @@ export default function WordTable({
                         wordId={word.id}
                         field="example"
                         tooltipKey="words.generateNewExamples"
+                        row={rowIdx}
+                        col={3}
                       />
                     )}
                     {!isMissingField(mergedWord, "translation") ? (
@@ -1557,6 +1729,7 @@ export default function WordTable({
                         text={
                           getResolvedTextField(word.id, "translation") || mergedWord.translation
                         }
+                        spreadsheetProps={selectableCellProps(rowIdx, 4)}
                         onClick={(e) => handleCellClick(e, rowIdx, 4)}
                         onContextMenu={(e) => handleCellContextMenu(e, rowIdx, 4)}
                         selected={isCellSelected(rowIdx, 4)}
@@ -1566,10 +1739,12 @@ export default function WordTable({
                         wordId={word.id}
                         field="translation"
                         tooltipKey="words.generateNewTranslations"
+                        row={rowIdx}
+                        col={4}
                       />
                     )}
                     {showImageUrl && (
-                    <TableCell>
+                    <TableCell {...selectableCellProps(rowIdx, 5, { omitUnselectedAria: true })}>
                         <Box
                           sx={{
                             position: "relative",
@@ -1581,7 +1756,10 @@ export default function WordTable({
                             <IconButton
                               size="small"
                               aria-label={t("words.generateNewImage")}
-                              onClick={() => openFieldModal(word.id, "image")}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                openFieldModal(word.id, "image");
+                              }}
                               sx={{ p: 0 }}
                             >
                               {!isMissingField(mergedWord, "image") ? (
@@ -1649,6 +1827,7 @@ export default function WordTable({
                     {!isMissingField(mergedWord, "example") ? (
                       <ExampleCell
                         text={getResolvedTextField(word.id, "example") || mergedWord.example}
+                        spreadsheetProps={selectableCellProps(rowIdx, 2)}
                         onClick={(e) => handleCellClick(e, rowIdx, 2)}
                         onContextMenu={(e) => handleCellContextMenu(e, rowIdx, 2)}
                         selected={isCellSelected(rowIdx, 2)}
@@ -1658,6 +1837,8 @@ export default function WordTable({
                         wordId={word.id}
                         field="example"
                         tooltipKey="words.generateNewExamples"
+                        row={rowIdx}
+                        col={2}
                       />
                     )}
                     {!isMissingField(mergedWord, "translation") ? (
@@ -1665,6 +1846,7 @@ export default function WordTable({
                         text={
                           getResolvedTextField(word.id, "translation") || mergedWord.translation
                         }
+                        spreadsheetProps={selectableCellProps(rowIdx, 3)}
                         onClick={(e) => handleCellClick(e, rowIdx, 3)}
                         onContextMenu={(e) => handleCellContextMenu(e, rowIdx, 3)}
                         selected={isCellSelected(rowIdx, 3)}
@@ -1674,10 +1856,12 @@ export default function WordTable({
                         wordId={word.id}
                         field="translation"
                         tooltipKey="words.generateNewTranslations"
+                        row={rowIdx}
+                        col={3}
                       />
                     )}
                     {showImageUrl && (
-                    <TableCell>
+                    <TableCell {...selectableCellProps(rowIdx, 4, { omitUnselectedAria: true })}>
                         <Box
                           sx={{
                             position: "relative",
@@ -1689,7 +1873,10 @@ export default function WordTable({
                             <IconButton
                               size="small"
                               aria-label={t("words.generateNewImage")}
-                              onClick={() => openFieldModal(word.id, "image")}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                openFieldModal(word.id, "image");
+                              }}
                               sx={{ p: 0 }}
                             >
                               {!isMissingField(mergedWord, "image") ? (
@@ -1770,7 +1957,7 @@ export default function WordTable({
                     {isJlptExampleHuriganaMode ? (
                       <>
                         <TableCell
-                          aria-selected={isCellSelected(rowIdx, 3)}
+                          {...selectableCellProps(rowIdx, 3)}
                           onClick={(e) => handleCellClick(e, rowIdx, 3)}
                           onContextMenu={(e) => handleCellContextMenu(e, rowIdx, 3)}
                           sx={{
@@ -1791,6 +1978,8 @@ export default function WordTable({
                             wordId={word.id}
                             field="exampleHurigana"
                             tooltipKey="words.fillExampleHuriganaAction"
+                            row={rowIdx}
+                            col={4}
                           />
                         ) : (
                           <TableCell
@@ -1805,8 +1994,11 @@ export default function WordTable({
                     ) : (
                       <>
                         <TableCell
-                          aria-selected={isCellSelected(rowIdx, 3)}
-                          onClick={() => openFieldModal(word.id, "pronunciation")}
+                          {...selectableCellProps(rowIdx, 3)}
+                          onClick={(e) => {
+                            handleCellClick(e, rowIdx, 3);
+                            openFieldModal(word.id, "pronunciation");
+                          }}
                           onContextMenu={(e) => handleCellContextMenu(e, rowIdx, 3)}
                           sx={selectableCellSx(rowIdx, 3)}
                         >
@@ -1819,7 +2011,7 @@ export default function WordTable({
                           )}
                         </TableCell>
                         <TableCell
-                          aria-selected={isCellSelected(rowIdx, 4)}
+                          {...selectableCellProps(rowIdx, 4)}
                           onClick={(e) => handleCellClick(e, rowIdx, 4)}
                           onContextMenu={(e) => handleCellContextMenu(e, rowIdx, 4)}
                           sx={{
@@ -1865,7 +2057,11 @@ export default function WordTable({
                       </>
                     )}
                     {showImageUrl && (
-                    <TableCell>
+                    <TableCell
+                      {...selectableCellProps(rowIdx, isJlptExampleHuriganaMode ? 5 : 8, {
+                        omitUnselectedAria: true,
+                      })}
+                    >
                         <Box
                           sx={{
                             position: "relative",
@@ -1877,7 +2073,10 @@ export default function WordTable({
                             <IconButton
                               size="small"
                               aria-label={t("words.generateNewImage")}
-                              onClick={() => openFieldModal(word.id, "image")}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                openFieldModal(word.id, "image");
+                              }}
                               sx={{ p: 0 }}
                             >
                               {!isMissingField(mergedWord, "image") ? (
@@ -1935,7 +2134,15 @@ export default function WordTable({
                     <TableCell {...selectableCellProps(rowIdx, 2)}>
                       {renderEditableTextCell(mergedWord, "meaningKorean", mergedWord.meaningKorean, { emptyLabel: t("courses.missingMeaningValue") })}
                     </TableCell>
-                    <TableCell aria-selected={isCellSelected(rowIdx, 3)} onClick={() => openFieldModal(word.id, "pronunciation")} onContextMenu={(e) => handleCellContextMenu(e, rowIdx, 3)} sx={selectableCellSx(rowIdx, 3)}>
+                    <TableCell
+                      {...selectableCellProps(rowIdx, 3)}
+                      onClick={(e) => {
+                        handleCellClick(e, rowIdx, 3);
+                        openFieldModal(word.id, "pronunciation");
+                      }}
+                      onContextMenu={(e) => handleCellContextMenu(e, rowIdx, 3)}
+                      sx={selectableCellSx(rowIdx, 3)}
+                    >
                       {!isMissingField(mergedWord, "pronunciation") ? mergedWord.pronunciation : <Tooltip title={t("courses.generatePronunciation")}><AutoFixHighIcon fontSize="small" color="action" /></Tooltip>}
                     </TableCell>
                     <TableCell {...selectableCellProps(rowIdx, 4)}>
@@ -1959,7 +2166,15 @@ export default function WordTable({
                     <TableCell {...selectableCellProps(rowIdx, 2)}>
                       {renderEditableTextCell(mergedWord, "meaningKorean", mergedWord.meaningKorean, { emptyLabel: t("courses.missingMeaningValue") })}
                     </TableCell>
-                    <TableCell aria-selected={isCellSelected(rowIdx, 3)} onClick={() => openFieldModal(word.id, "pronunciation")} onContextMenu={(e) => handleCellContextMenu(e, rowIdx, 3)} sx={selectableCellSx(rowIdx, 3)}>
+                    <TableCell
+                      {...selectableCellProps(rowIdx, 3)}
+                      onClick={(e) => {
+                        handleCellClick(e, rowIdx, 3);
+                        openFieldModal(word.id, "pronunciation");
+                      }}
+                      onContextMenu={(e) => handleCellContextMenu(e, rowIdx, 3)}
+                      sx={selectableCellSx(rowIdx, 3)}
+                    >
                       {!isMissingField(mergedWord, "pronunciation") ? mergedWord.pronunciation : <Tooltip title={t("courses.generatePronunciation")}><AutoFixHighIcon fontSize="small" color="action" /></Tooltip>}
                     </TableCell>
                     <TableCell {...selectableCellProps(rowIdx, 4)}>
@@ -1989,6 +2204,8 @@ export default function WordTable({
                         wordId={word.id}
                         field="translation"
                         tooltipKey="words.useSharedTranslations"
+                        row={rowIdx}
+                        col={2}
                       />
                     )}
                     <TableCell {...selectableCellProps(rowIdx, 3)}>
@@ -2013,6 +2230,7 @@ export default function WordTable({
                     {!isMissingField(mergedWord, "example") ? (
                       <ExampleCell
                         text={getResolvedTextField(word.id, "example") || (mergedWord as ExtremelyAdvancedWord).example}
+                        spreadsheetProps={selectableCellProps(rowIdx, 2)}
                         onClick={(e) => handleCellClick(e, rowIdx, 2)}
                         onContextMenu={(e) => handleCellContextMenu(e, rowIdx, 2)}
                         selected={isCellSelected(rowIdx, 2)}
@@ -2022,6 +2240,8 @@ export default function WordTable({
                         wordId={word.id}
                         field="example"
                         tooltipKey="courses.generateExample"
+                        row={rowIdx}
+                        col={2}
                       />
                     )}
                     {!isMissingField(mergedWord, "translation") ? (
@@ -2030,6 +2250,7 @@ export default function WordTable({
                           getResolvedTextField(word.id, "translation") ||
                           (mergedWord as ExtremelyAdvancedWord).translation
                         }
+                        spreadsheetProps={selectableCellProps(rowIdx, 3)}
                         onClick={(e) => handleCellClick(e, rowIdx, 3)}
                         onContextMenu={(e) => handleCellContextMenu(e, rowIdx, 3)}
                         selected={isCellSelected(rowIdx, 3)}
@@ -2039,10 +2260,12 @@ export default function WordTable({
                         wordId={word.id}
                         field="translation"
                         tooltipKey="courses.generateTranslation"
+                        row={rowIdx}
+                        col={3}
                       />
                     )}
                     {showImageUrl && (
-                      <TableCell>
+                      <TableCell {...selectableCellProps(rowIdx, 4, { omitUnselectedAria: true })}>
                         <Box
                           sx={{
                             position: "relative",
@@ -2054,7 +2277,10 @@ export default function WordTable({
                             <IconButton
                               size="small"
                               aria-label={t("words.generateNewImage")}
-                              onClick={() => openFieldModal(word.id, "image")}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                openFieldModal(word.id, "image");
+                              }}
                               sx={{ p: 0 }}
                             >
                               {!isMissingField(mergedWord, "image") ? (
@@ -2124,8 +2350,11 @@ export default function WordTable({
                       </TableCell>
                     )}
                     <TableCell
-                      aria-selected={isCellSelected(rowIdx, hasSynonymColumn ? 3 : 2)}
-                      onClick={() => openFieldModal(word.id, "pronunciation")}
+                      {...selectableCellProps(rowIdx, hasSynonymColumn ? 3 : 2)}
+                      onClick={(e) => {
+                        handleCellClick(e, rowIdx, hasSynonymColumn ? 3 : 2);
+                        openFieldModal(word.id, "pronunciation");
+                      }}
                       onContextMenu={(e) => handleCellContextMenu(e, rowIdx, hasSynonymColumn ? 3 : 2)}
                       sx={selectableCellSx(rowIdx, hasSynonymColumn ? 3 : 2)}
                     >
@@ -2140,6 +2369,7 @@ export default function WordTable({
                     {!isMissingField(mergedWord, "example") ? (
                       <ExampleCell
                         text={getResolvedTextField(word.id, "example") || mergedWord.example}
+                        spreadsheetProps={selectableCellProps(rowIdx, hasSynonymColumn ? 4 : 3)}
                         onClick={(e) => handleCellClick(e, rowIdx, hasSynonymColumn ? 4 : 3)}
                         onContextMenu={(e) => handleCellContextMenu(e, rowIdx, hasSynonymColumn ? 4 : 3)}
                         selected={isCellSelected(rowIdx, hasSynonymColumn ? 4 : 3)}
@@ -2149,6 +2379,8 @@ export default function WordTable({
                         wordId={word.id}
                         field="example"
                         tooltipKey="courses.generateExample"
+                        row={rowIdx}
+                        col={hasSynonymColumn ? 4 : 3}
                       />
                     )}
                     {!isMissingField(mergedWord, "translation") ? (
@@ -2156,6 +2388,7 @@ export default function WordTable({
                         text={
                           getResolvedTextField(word.id, "translation") || mergedWord.translation
                         }
+                        spreadsheetProps={selectableCellProps(rowIdx, hasSynonymColumn ? 5 : 4)}
                         onClick={(e) => handleCellClick(e, rowIdx, hasSynonymColumn ? 5 : 4)}
                         onContextMenu={(e) => handleCellContextMenu(e, rowIdx, hasSynonymColumn ? 5 : 4)}
                         selected={isCellSelected(rowIdx, hasSynonymColumn ? 5 : 4)}
@@ -2165,10 +2398,16 @@ export default function WordTable({
                         wordId={word.id}
                         field="translation"
                         tooltipKey="courses.generateTranslation"
+                        row={rowIdx}
+                        col={hasSynonymColumn ? 5 : 4}
                       />
                     )}
                     {showImageUrl && (
-                      <TableCell>
+                      <TableCell
+                        {...selectableCellProps(rowIdx, hasSynonymColumn ? 6 : 5, {
+                          omitUnselectedAria: true,
+                        })}
+                      >
                         <Box
                           sx={{
                             position: "relative",
@@ -2180,7 +2419,10 @@ export default function WordTable({
                             <IconButton
                               size="small"
                               aria-label={t("words.generateNewImage")}
-                              onClick={() => openFieldModal(word.id, "image")}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                openFieldModal(word.id, "image");
+                              }}
                               sx={{ p: 0 }}
                             >
                               {!isMissingField(mergedWord, "image") ? (
@@ -2229,6 +2471,9 @@ export default function WordTable({
                     {(() => {
                       const derivatives = (mergedWord as StandardWord).derivative;
                       const hasDeriv = derivatives && derivatives.length > 0;
+                      const derivativeCol = hasSynonymColumn
+                        ? (showImageUrl ? 7 : 6)
+                        : (showImageUrl ? 6 : 5);
                       const canGenerateDerivative =
                         supportsDerivatives &&
                         isDerivativeGenerationEligibleResult({
@@ -2240,18 +2485,20 @@ export default function WordTable({
                         });
                       return (
                         <TableCell
+                          {...selectableCellProps(rowIdx, derivativeCol, {
+                            omitUnselectedAria: true,
+                          })}
                           onContextMenu={(e) =>
                             handleCellContextMenu(
                               e,
                               rowIdx,
-                              hasSynonymColumn
-                                ? (showImageUrl ? 7 : 6)
-                                : (showImageUrl ? 6 : 5),
+                              derivativeCol,
                             )
                           }
                           onClick={
                             supportsDerivatives
-                              ? () => {
+                              ? (e) => {
+                                  e.stopPropagation();
                                   clearSelection();
                                   setDerivativeDialogWordId(word.id);
                                 }
@@ -2260,10 +2507,11 @@ export default function WordTable({
                           sx={
                             supportsDerivatives
                               ? {
+                                  ...selectableCellSx(rowIdx, derivativeCol),
                                   cursor: "pointer",
                                   "&:hover": { bgcolor: "action.hover" },
                                 }
-                              : undefined
+                              : selectableCellSx(rowIdx, derivativeCol)
                           }
                         >
                           {hasDeriv ? (
@@ -2292,7 +2540,8 @@ export default function WordTable({
                                     ? t("words.generateDerivatives")
                                     : t("words.contextMenuEdit", "Edit")
                                 }
-                                onClick={() => {
+                                onClick={(e) => {
+                                  e.stopPropagation();
                                   clearSelection();
                                   setDerivativeDialogWordId(word.id);
                                 }}

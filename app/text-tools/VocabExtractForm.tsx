@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, KeyboardEvent, MouseEvent, useEffect, useRef, useState } from "react";
+import { FormEvent, KeyboardEvent, MouseEvent, useEffect, useMemo, useRef, useState } from "react";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
@@ -18,6 +18,17 @@ import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import ExtractIcon from "@mui/icons-material/AutoAwesome";
 import { useTranslation } from "react-i18next";
+
+import {
+  findSpreadsheetBoundary,
+  focusSpreadsheetCell,
+  getArrowDirection,
+  isEditableEventTarget,
+  isPlatformJumpModifier,
+  moveCell,
+  type CellCoord,
+  type SpreadsheetGrid,
+} from "@/lib/utils/spreadsheetNavigation";
 
 type VocabEntry = {
   word: string;
@@ -55,10 +66,7 @@ const TABLE_COLUMNS: TableColumnKey[] = [
   "example_hiragana",
 ];
 
-type TableCellCoords = {
-  row: number;
-  col: number;
-};
+type TableCellCoords = CellCoord;
 
 type TableSelectionRange = {
   start: TableCellCoords;
@@ -151,6 +159,7 @@ export default function VocabExtractForm({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [validationError, setValidationError] = useState<string | null>(null);
+  const [activeCell, setActiveCell] = useState<TableCellCoords | null>(null);
   const [selectionRanges, setSelectionRanges] = useState<TableSelectionRange[]>([]);
   const [selectionAnchor, setSelectionAnchor] = useState<TableCellCoords | null>(null);
   const [dragState, setDragState] = useState<{
@@ -158,6 +167,7 @@ export default function VocabExtractForm({
     current: TableCellCoords;
     additive: boolean;
   } | null>(null);
+  const tableContainerRef = useRef<HTMLDivElement | null>(null);
   const dragStateRef = useRef<typeof dragState>(null);
   const [copySnackbar, setCopySnackbar] = useState<{ open: boolean; success: boolean }>({
     open: false,
@@ -176,6 +186,7 @@ export default function VocabExtractForm({
       currentDragState.additive ? [...prev, committedRange] : [committedRange],
     );
     setSelectionAnchor(currentDragState.start);
+    setActiveCell(currentDragState.current);
     dragStateRef.current = null;
     setDragState(null);
   }
@@ -192,6 +203,7 @@ export default function VocabExtractForm({
   }, [dragState]);
 
   function clearSelection() {
+    setActiveCell(null);
     setSelectionRanges([]);
     setSelectionAnchor(null);
     dragStateRef.current = null;
@@ -271,6 +283,14 @@ export default function VocabExtractForm({
     return entry[columnKey];
   }
 
+  const cellGrid = useMemo<SpreadsheetGrid>(
+    () =>
+      results.map((entry) =>
+        TABLE_COLUMNS.map((columnKey) => getCellValue(entry, columnKey)),
+      ),
+    [results],
+  );
+
   function preprocessCellValue(value: string): string {
     return value.replace(
       /([가-힣a-zA-Z])\s*(\([^)]*(?:의 겸손|humble)[^)]*\))/g,
@@ -334,6 +354,7 @@ export default function VocabExtractForm({
     if (event.button !== 0) return;
     event.preventDefault();
     event.currentTarget.focus();
+    setActiveCell(cell);
 
     const additive = event.metaKey || event.ctrlKey;
     const startCell = event.shiftKey && selectionAnchor ? selectionAnchor : cell;
@@ -354,6 +375,14 @@ export default function VocabExtractForm({
 
   function handleCellMouseUp() {
     commitDragSelection();
+  }
+
+  function handleCellFocus(cell: TableCellCoords) {
+    setActiveCell(cell);
+    if (selectionRanges.length === 0) {
+      setSelectionAnchor(cell);
+      setSelectionRanges([normalizeSelectionRange(cell, cell)]);
+    }
   }
 
   const columnLabels: Record<TableColumnKey, string> = {
@@ -384,11 +413,57 @@ export default function VocabExtractForm({
     }
 
     function handleSelectionKeyDown(event: KeyboardEvent<HTMLDivElement>) {
+      if (isEditableEventTarget(event.target)) return;
+
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "c") {
         if (selectionRanges.length === 0) return;
         event.preventDefault();
         void handleCopy(serializeSelectionRanges(selectionRanges));
+        return;
       }
+
+      if (event.key === "Escape") {
+        if (!activeCell && selectionRanges.length === 0) return;
+        event.preventDefault();
+        clearSelection();
+        return;
+      }
+
+      const direction = getArrowDirection(event.key);
+      if (!direction) return;
+
+      const currentCell =
+        activeCell ??
+        selectionAnchor ??
+        (cellGrid.length > 0 && cellGrid[0]?.length ? { row: 0, col: 0 } : null);
+      if (!currentCell) return;
+
+      event.preventDefault();
+
+      const nextCell = isPlatformJumpModifier(event)
+        ? findSpreadsheetBoundary(cellGrid, currentCell, direction)
+        : moveCell(cellGrid, currentCell, direction);
+      const anchor = event.shiftKey ? selectionAnchor ?? currentCell : nextCell;
+
+      setActiveCell(nextCell);
+      setSelectionAnchor(anchor);
+      setSelectionRanges([normalizeSelectionRange(anchor, nextCell)]);
+      requestAnimationFrame(() => {
+        focusSpreadsheetCell(tableContainerRef.current, nextCell);
+      });
+    }
+
+    function isActiveCell(rowIndex: number, colIndex: number) {
+      return activeCell?.row === rowIndex && activeCell.col === colIndex;
+    }
+
+    function getCellTabIndex(rowIndex: number, colIndex: number) {
+      if (!activeCell) return rowIndex === 0 && colIndex === 0 ? 0 : -1;
+      return isActiveCell(rowIndex, colIndex) ? 0 : -1;
+    }
+
+    function getCellId(rowIndex: number, colIndex: number) {
+      return `vocab-extract-cell-${rowIndex}-${colIndex}`;
     }
 
     return (
@@ -400,7 +475,12 @@ export default function VocabExtractForm({
             </Typography>
 
             <TableContainer
+              ref={tableContainerRef}
               onKeyDown={handleSelectionKeyDown}
+              role="grid"
+              aria-activedescendant={
+                activeCell ? getCellId(activeCell.row, activeCell.col) : undefined
+              }
               sx={{
                 userSelect: dragState ? "none" : "auto",
                 overflowX: "auto",
@@ -438,11 +518,20 @@ export default function VocabExtractForm({
                     <TableRow key={rowIndex}>
                       {TABLE_COLUMNS.map((col, colIndex) => {
                         const selected = isSelected(rowIndex, colIndex);
+                        const active = isActiveCell(rowIndex, colIndex);
                         return (
                           <TableCell
                             key={col}
-                            tabIndex={0}
+                            id={getCellId(rowIndex, colIndex)}
+                            data-spreadsheet-cell="true"
+                            data-row={rowIndex}
+                            data-col={colIndex}
+                            tabIndex={getCellTabIndex(rowIndex, colIndex)}
+                            role="gridcell"
                             aria-selected={selected || undefined}
+                            onFocus={() =>
+                              handleCellFocus({ row: rowIndex, col: colIndex })
+                            }
                             onMouseDown={(event) =>
                               handleCellMouseDown({ row: rowIndex, col: colIndex }, event)
                             }
@@ -454,9 +543,11 @@ export default function VocabExtractForm({
                               cursor: "cell",
                               userSelect: "none",
                               backgroundColor: selected ? "action.selected" : "inherit",
-                              boxShadow: selected
+                              boxShadow: active
                                 ? (theme) => `inset 0 0 0 2px ${theme.palette.primary.main}`
-                                : "none",
+                                : selected
+                                  ? (theme) => `inset 0 0 0 1px ${theme.palette.primary.light}`
+                                  : "none",
                               "&:focus-visible": {
                                 outline: "2px solid",
                                 outlineColor: "primary.main",

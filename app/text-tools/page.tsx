@@ -22,7 +22,6 @@ type ToolGroup =
   | "parentheses"
   | "romanize"
   | "furigana"
-  | "translate"
   | "vocabulary"
   | "vocabExtract"
   | "removeEqualSign";
@@ -324,20 +323,7 @@ export default function TextToolsPage() {
         </Stack>
       );
     }
-
-    return (
-      <ParenthesesForm
-        horizontal
-        apiPath="/api/text/translate"
-        submitLabel={t("textTools.translateAction")}
-        validate={(text) =>
-          PARENTHESES_REGEX.test(text)
-            ? t("textTools.inputHasParentheses")
-            : null
-        }
-        {...sharedFormProps}
-      />
-    );
+    return null;
   }
 
   return (
@@ -364,7 +350,6 @@ export default function TextToolsPage() {
             <Tab label={t("textTools.tabVocabulary")} value="vocabulary" />
             <Tab label={t("textTools.tabRomanize")} value="romanize" />
             <Tab label={t("textTools.tabParentheses")} value="parentheses" />
-            <Tab label={t("textTools.tabTranslate")} value="translate" />
           </Tabs>
 
           <CardContent>{renderCurrentForm()}</CardContent>

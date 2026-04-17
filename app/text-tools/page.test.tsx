@@ -21,7 +21,6 @@ vi.mock("react-i18next", () => ({
         "textTools.tabParentheses": "Parentheses",
         "textTools.tabRomanize": "Romanize",
         "textTools.tabFurigana": "Furigana",
-        "textTools.tabTranslate": "Translate",
         "textTools.tabVocabulary": "Vocabulary",
         "textTools.subtabGenerate": "Generate",
         "textTools.subtabRemove": "Remove",
@@ -34,7 +33,6 @@ vi.mock("react-i18next", () => ({
         "textTools.removeFuriganaAction": "Remove Furigana",
         "textTools.removeFuriganaRemoveBracketsOption":
           "Remove brackets at the same time.",
-        "textTools.translateAction": "Translate",
         "textTools.vocabularyAction": "Lookup Vocabulary",
         "textTools.vocabularyBatchAction": "Lookup Multiple Vocabulary Items",
         "textTools.vocabularyBatchInputLabel": "Vocabulary Items",
@@ -170,7 +168,6 @@ describe("TextToolsPage", () => {
     expect(document.body.textContent).toContain("Parentheses");
     expect(document.body.textContent).toContain("Romanize");
     expect(document.body.textContent).toContain("Furigana");
-    expect(document.body.textContent).toContain("Translate");
     expect(document.body.textContent).toContain("Vocabulary");
     expect(document.body.textContent).toContain("Generate");
     expect(document.body.textContent).toContain("Remove");
