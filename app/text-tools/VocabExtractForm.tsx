@@ -283,6 +283,9 @@ export default function VocabExtractForm({
     return entry[columnKey];
   }
 
+  const exampleCount = useMemo(() => parseLines(exampleInput).length, [exampleInput]);
+  const meaningKoreanCount = useMemo(() => parseLines(meaningKoreanInput).length, [meaningKoreanInput]);
+
   const cellGrid = useMemo<SpreadsheetGrid>(
     () =>
       results.map((entry) =>
@@ -584,7 +587,16 @@ export default function VocabExtractForm({
             multiline
             minRows={6}
             fullWidth
-            helperText={validationError ?? exampleHelpText}
+            helperText={
+              <Box component="span" sx={{ display: "flex", justifyContent: "space-between" }}>
+                <span>{validationError ?? exampleHelpText}</span>
+                {exampleCount > 0 && (
+                  <Box component="span" sx={{ color: exampleCount > 20 ? "error.main" : undefined }}>
+                    {exampleCount} / 20
+                  </Box>
+                )}
+              </Box>
+            }
             error={!!validationError}
           />
 
@@ -598,7 +610,16 @@ export default function VocabExtractForm({
             multiline
             minRows={6}
             fullWidth
-            helperText={meaningKoreanHelpText}
+            helperText={
+              <Box component="span" sx={{ display: "flex", justifyContent: "space-between" }}>
+                <span>{meaningKoreanHelpText}</span>
+                {meaningKoreanCount > 0 && (
+                  <Box component="span" sx={{ color: meaningKoreanCount > 20 ? "error.main" : undefined }}>
+                    {meaningKoreanCount} / 20
+                  </Box>
+                )}
+              </Box>
+            }
           />
         </Stack>
 
