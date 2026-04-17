@@ -26,6 +26,7 @@ import SearchIcon from "@mui/icons-material/Search";
 import PeopleIcon from "@mui/icons-material/People";
 import AutoFixHighIcon from "@mui/icons-material/AutoFixHigh";
 import AutoStoriesIcon from "@mui/icons-material/AutoStories";
+import QuizIcon from "@mui/icons-material/Quiz";
 import SettingsIcon from "@mui/icons-material/Settings";
 import { useTranslation } from "react-i18next";
 
@@ -72,6 +73,12 @@ export default function Home() {
       description: t("dashboard.textToolsDesc"),
       icon: <AutoFixHighIcon />,
       href: "/text-tools",
+    },
+    {
+      title: t("quizGenerator.title"),
+      description: t("quizGenerator.description"),
+      icon: <QuizIcon />,
+      href: "/quiz-generator",
     },
     {
       title: t("manga.title"),
