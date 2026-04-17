@@ -4,5 +4,5 @@
  * The leading `1.` at the start of the string is unaffected.
  */
 export function insertNumberedBreaks(text: string): string {
-  return text.replace(/ (\d+\.)/g, "\n$1");
+  return (text ?? "").replace(/ (\d+\.)/g, "\n$1");
 }

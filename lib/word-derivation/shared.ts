@@ -4,7 +4,7 @@ import type {
 } from "@/types/vocabulary";
 
 export function normalizeVocabularyWord(value: string): string {
-  return value.trim().toLowerCase().replace(/^[^a-z]+|[^a-z-]+$/g, "");
+  return (value ?? "").trim().toLowerCase().replace(/^[^a-z]+|[^a-z-]+$/g, "");
 }
 
 export function isSingleTokenWord(value: string): boolean {
