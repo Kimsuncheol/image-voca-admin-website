@@ -534,7 +534,11 @@
     "answerKey": "정답",
     "question": "문제",
     "showAnswer": "정답 보기",
-    "hideAnswer": "정답 숨기기"
+    "hideAnswer": "정답 숨기기",
+    "add": "추가",
+    "adding": "추가 중…",
+    "addSuccess": "퀴즈가 저장되었습니다.",
+    "addError": "퀴즈 저장에 실패했습니다. 다시 시도해주세요."
   },
   "notFound": {
     "title": "404",

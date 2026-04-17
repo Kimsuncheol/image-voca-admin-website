@@ -2,6 +2,7 @@
 
 import { FormEvent, useState } from "react";
 import Alert from "@mui/material/Alert";
+import Snackbar from "@mui/material/Snackbar";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Card from "@mui/material/Card";
@@ -29,7 +30,6 @@ type Course =
   | "CSAT"
   | "CSAT_IDIOMS"
   | "TOEIC"
-  | "TOEFL_IELTS"
   | "TOEFL_ITELS"
   | "EXTREMELY_ADVANCED"
   | "COLLOCATION"
@@ -78,7 +78,6 @@ const COURSES: Course[] = [
   "CSAT",
   "CSAT_IDIOMS",
   "TOEIC",
-  "TOEFL_IELTS",
   "TOEFL_ITELS",
   "EXTREMELY_ADVANCED",
   "COLLOCATION",
@@ -137,6 +136,10 @@ export default function QuizGeneratorForm({
   questionLabel,
   showAnswerLabel,
   hideAnswerLabel,
+  addLabel,
+  addingLabel,
+  addSuccessMsg,
+  addErrorMsg,
 }: {
   submitLabel: string;
   loadingLabel: string;
@@ -161,6 +164,10 @@ export default function QuizGeneratorForm({
   questionLabel: string;
   showAnswerLabel: string;
   hideAnswerLabel: string;
+  addLabel: string;
+  addingLabel: string;
+  addSuccessMsg: string;
+  addErrorMsg: string;
 }) {
   const [quizType, setQuizType] = useState<QuizType>("matching");
   const [language, setLanguage] = useState<Language>("english");
@@ -172,6 +179,9 @@ export default function QuizGeneratorForm({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [shownAnswers, setShownAnswers] = useState<Set<string>>(new Set());
+  const [adding, setAdding] = useState(false);
+  const [saveError, setSaveError] = useState("");
+  const [saveSuccess, setSaveSuccess] = useState(false);
 
   function toggleAnswer(questionId: string) {
     setShownAnswers((prev) => {
@@ -224,7 +234,41 @@ export default function QuizGeneratorForm({
   function handleReset() {
     setResult(null);
     setError("");
+    setSaveError("");
+    setSaveSuccess(false);
     setShownAnswers(new Set());
+  }
+
+  async function handleAdd() {
+    if (!result) return;
+    setAdding(true);
+    setSaveError("");
+    setSaveSuccess(false);
+
+    try {
+      const response = await fetch("/api/admin/quiz-save", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          quiz_type: result.quiz_type,
+          course,
+          level: course === "JLPT" ? level : null,
+          day,
+          quiz_data: result,
+        }),
+      });
+
+      if (!response.ok) {
+        setSaveError(addErrorMsg);
+        return;
+      }
+
+      setSaveSuccess(true);
+    } catch {
+      setSaveError(addErrorMsg);
+    } finally {
+      setAdding(false);
+    }
   }
 
   function renderMatchingResult(data: MatchingQuizResponse) {
@@ -425,7 +469,15 @@ export default function QuizGeneratorForm({
                 labelId="language-label"
                 value={language}
                 label={languageLabel}
-                onChange={(e) => setLanguage(e.target.value as Language)}
+                onChange={(e) => {
+                  const newLang = e.target.value as Language;
+                  setLanguage(newLang);
+                  if (newLang === "japanese") {
+                    setCourse("JLPT");
+                  } else if (newLang === "english" && course === "JLPT") {
+                    setCourse("TOEIC");
+                  }
+                }}
               >
                 <MenuItem value="english">{englishLabel}</MenuItem>
                 <MenuItem value="japanese">{japaneseLabel}</MenuItem>
@@ -444,7 +496,7 @@ export default function QuizGeneratorForm({
                   setCourse(e.target.value as Course);
                 }}
               >
-                {COURSES.map((c) => (
+                {COURSES.filter((c) => (language === "english" ? c !== "JLPT" : c === "JLPT")).map((c) => (
                   <MenuItem key={c} value={c}>
                     {c}
                   </MenuItem>
@@ -503,15 +555,27 @@ export default function QuizGeneratorForm({
         </Grid>
 
         <Stack direction="row" spacing={2}>
-          <Button type="submit" variant="contained" disabled={loading}>
+          <Button type="submit" variant="contained" disabled={loading || adding}>
             {loading ? loadingLabel : submitLabel}
           </Button>
-          <Button type="button" variant="outlined" onClick={handleReset} disabled={loading}>
+          <Button type="button" variant="outlined" onClick={handleReset} disabled={loading || adding}>
             {resetLabel}
           </Button>
+          {result !== null && (
+            <Button
+              type="button"
+              variant="contained"
+              color="success"
+              disabled={adding || loading}
+              onClick={() => void handleAdd()}
+            >
+              {adding ? addingLabel : addLabel}
+            </Button>
+          )}
         </Stack>
 
         {error ? <Alert severity="error">{error}</Alert> : null}
+        {saveError ? <Alert severity="error">{saveError}</Alert> : null}
 
         {result === null && !error ? (
           <Card
@@ -616,6 +680,17 @@ export default function QuizGeneratorForm({
           renderResult()
         )}
       </Stack>
+
+      <Snackbar
+        open={saveSuccess}
+        autoHideDuration={3000}
+        onClose={() => setSaveSuccess(false)}
+        anchorOrigin={{ vertical: "top", horizontal: "center" }}
+      >
+        <Alert severity="success" onClose={() => setSaveSuccess(false)}>
+          {addSuccessMsg}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 }

@@ -534,7 +534,11 @@
     "answerKey": "Answer Key",
     "question": "Question",
     "showAnswer": "Show Answer",
-    "hideAnswer": "Hide Answer"
+    "hideAnswer": "Hide Answer",
+    "add": "Add",
+    "adding": "Adding…",
+    "addSuccess": "Quiz saved successfully.",
+    "addError": "Failed to save quiz. Please try again."
   },
   "notFound": {
     "title": "404",

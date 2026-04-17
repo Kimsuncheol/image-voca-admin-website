@@ -47,6 +47,10 @@ export default function QuizGeneratorPage() {
         questionLabel={t("quizGenerator.question")}
         showAnswerLabel={t("quizGenerator.showAnswer")}
         hideAnswerLabel={t("quizGenerator.hideAnswer")}
+        addLabel={t("quizGenerator.add")}
+        addingLabel={t("quizGenerator.adding")}
+        addSuccessMsg={t("quizGenerator.addSuccess")}
+        addErrorMsg={t("quizGenerator.addError")}
       />
     </PageLayout>
   );

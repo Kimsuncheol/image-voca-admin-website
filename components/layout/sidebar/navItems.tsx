@@ -20,6 +20,7 @@ import PeopleIcon from "@mui/icons-material/People";
 import AutoFixHighIcon from "@mui/icons-material/AutoFixHigh";
 import AutoStoriesIcon from "@mui/icons-material/AutoStories";
 import SettingsIcon from "@mui/icons-material/Settings";
+import QuizIcon from "@mui/icons-material/Quiz";
 import { useTranslation } from "react-i18next";
 
 /** Shape of a single sidebar navigation entry. */
@@ -59,6 +60,16 @@ export function useNavItems(): NavItem[] {
       href: "/courses",
     },
     {
+      title: t("dashboard.textTools", "Text Tools"),
+      icon: <AutoFixHighIcon />,
+      href: "/text-tools",
+    },
+    {
+      title: t("dashboard.quizGenerator", "Quiz Generator"),
+      icon: <QuizIcon />,
+      href: "/quiz-generator",
+    },
+    {
       title: t("dashboard.wordFinder", "Word Finder"),
       icon: <SearchIcon />,
       href: "/words",
@@ -67,11 +78,6 @@ export function useNavItems(): NavItem[] {
       title: t("dashboard.userManagement", "Users"),
       icon: <PeopleIcon />,
       href: "/users",
-    },
-    {
-      title: t("dashboard.textTools", "Text Tools"),
-      icon: <AutoFixHighIcon />,
-      href: "/text-tools",
     },
     {
       title: t("manga.title", "Manga"),
