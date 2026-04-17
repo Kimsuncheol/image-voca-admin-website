@@ -787,7 +787,7 @@ export default function QuizGeneratorForm({
             />
           </Grid>
 
-          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+          <Grid size={{ xs: 12, sm: 6, md: 3 }} sx={{ display: "none" }}>
             <TextField
               label={countLabel}
               type="number"
