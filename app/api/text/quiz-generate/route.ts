@@ -7,6 +7,11 @@ type QuizGenerateBody = {
   meaning_language?: string;
 };
 
+type MatchingChoiceText = string | {
+  meaningEnglish: string;
+  meaningKorean: string;
+};
+
 type MatchingQuizResponse = {
   quiz_type?: string;
   language?: string;
@@ -18,9 +23,7 @@ type MatchingQuizResponse = {
   }>;
   choices?: Array<{
     id?: string;
-    text?: string;
-    meaningEnglish?: string;
-    meaningKorean?: string;
+    text?: MatchingChoiceText;
   }>;
   answer_key?: Array<{
     item_id?: string;
@@ -32,11 +35,20 @@ function hasText(value: unknown): value is string {
   return typeof value === "string" && value.trim().length > 0;
 }
 
-function formatJapaneseMatchingChoiceText(
+function buildJapaneseMeaningPairText(
   item: NonNullable<MatchingQuizResponse["items"]>[number] | undefined,
-  fallback: string | undefined,
-): string | undefined {
-  return hasText(item?.text) ? item.text.trim() : fallback;
+  fallback: MatchingChoiceText | undefined,
+): MatchingChoiceText | undefined {
+  const fallbackText = typeof fallback === "string" ? fallback : "";
+
+  return {
+    meaningEnglish: hasText(item?.meaningEnglish)
+      ? item.meaningEnglish.trim()
+      : fallbackText,
+    meaningKorean: hasText(item?.meaningKorean)
+      ? item.meaningKorean.trim()
+      : fallbackText,
+  };
 }
 
 function normalizeMatchingChoiceText(
@@ -72,14 +84,8 @@ function normalizeMatchingChoiceText(
       const item = itemsById.get(itemIdByChoiceId.get(choice.id));
 
       return {
-        ...choice,
-        text: formatJapaneseMatchingChoiceText(item, choice.text),
-        meaningEnglish: hasText(item?.meaningEnglish)
-          ? item.meaningEnglish.trim()
-          : choice.meaningEnglish,
-        meaningKorean: hasText(item?.meaningKorean)
-          ? item.meaningKorean.trim()
-          : choice.meaningKorean,
+        id: choice.id,
+        text: buildJapaneseMeaningPairText(item, choice.text),
       };
     }),
   };

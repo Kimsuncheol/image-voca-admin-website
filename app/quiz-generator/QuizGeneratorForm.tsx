@@ -39,12 +39,13 @@ type JlptLevel = "N1" | "N2" | "N3" | "N4" | "N5";
 
 
 type MatchingItem = { id: string; text: string; meaningKorean?: string; meaningEnglish?: string };
-type MatchingChoice = {
-  id: string;
-  text: string;
-  meaningEnglish?: string;
-  meaningKorean?: string;
-};
+type MatchingChoiceText =
+  | string
+  | {
+      meaningEnglish?: string;
+      meaningKorean?: string;
+    };
+type MatchingChoice = { id: string; text: MatchingChoiceText };
 type MatchingAnswerKey = { item_id: string; choice_id: string };
 
 type MatchingQuizResponse = {
@@ -93,23 +94,15 @@ const COURSES: Course[] = [
 
 const JLPT_LEVELS: JlptLevel[] = ["N1", "N2", "N3", "N4", "N5"];
 
-function hasText(value: string | undefined): value is string {
-  return typeof value === "string" && value.trim().length > 0;
-}
-
 function formatMatchingChoiceText(
-  choice: MatchingChoice,
-  item?: MatchingItem,
+  text: MatchingChoiceText,
+  meaningLanguage: MeaningLanguage,
 ) {
-  const parts = [
-    choice.text || item?.text,
-    choice.meaningEnglish || item?.meaningEnglish,
-    choice.meaningKorean || item?.meaningKorean,
-  ]
-    .filter(hasText)
-    .map((part) => part.trim());
+  if (typeof text === "string") return text;
 
-  return parts.length > 0 ? parts.join(" - ") : choice.text;
+  const selectedText =
+    meaningLanguage === "english" ? text.meaningEnglish : text.meaningKorean;
+  return selectedText || text.meaningEnglish || text.meaningKorean || "";
 }
 
 function renderSentenceWithBlank(sentence: string) {
@@ -311,17 +304,10 @@ export default function QuizGeneratorForm({
   function renderMatchingResult(data: MatchingQuizResponse) {
     const itemMap = new Map(data.items.map((item) => [item.id, item.text]));
 
-    const choiceToItem = new Map(
-      data.answer_key.map((entry) => {
-        const item = data.items.find((i) => i.id === entry.item_id);
-        return [entry.choice_id, item];
-      }),
-    );
-
     const choiceMap = new Map(
       data.choices.map((choice) => [
         choice.id,
-        formatMatchingChoiceText(choice, choiceToItem.get(choice.id)),
+        formatMatchingChoiceText(choice.text, meaningLanguage),
       ]),
     );
 
@@ -357,13 +343,7 @@ export default function QuizGeneratorForm({
                   {choicesLabel}
                 </Typography>
                 <Stack spacing={1}>
-                  {data.choices.map((choice, i) => {
-                    const textToShow = formatMatchingChoiceText(
-                      choice,
-                      choiceToItem.get(choice.id),
-                    );
-
-                    return (
+                  {data.choices.map((choice, i) => (
                       <Box
                         key={choice.id}
                         sx={{ display: "flex", gap: 1.5, alignItems: "flex-start" }}
@@ -375,10 +355,11 @@ export default function QuizGeneratorForm({
                         >
                           {String.fromCharCode(65 + i)}.
                         </Typography>
-                        <Typography variant="body2">{textToShow}</Typography>
+                        <Typography variant="body2">
+                          {formatMatchingChoiceText(choice.text, meaningLanguage)}
+                        </Typography>
                       </Box>
-                    );
-                  })}
+                  ))}
                 </Stack>
               </Grid>
             </Grid>
