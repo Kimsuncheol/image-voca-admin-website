@@ -38,13 +38,13 @@ type Course =
 type JlptLevel = "N1" | "N2" | "N3" | "N4" | "N5";
 
 
-type MatchingItem = { id: string; text: string; meaningKorean?: string; meaningEnglish?: string };
 type MatchingChoiceText =
   | string
   | {
       meaningEnglish?: string;
       meaningKorean?: string;
     };
+type MatchingItem = { id: string; text: MatchingChoiceText; meaningKorean?: string; meaningEnglish?: string };
 type MatchingChoice = { id: string; text: MatchingChoiceText };
 type MatchingAnswerKey = { item_id: string; choice_id: string };
 
@@ -451,7 +451,7 @@ export default function QuizGeneratorForm({
   }
 
   function renderMatchingResult(data: MatchingQuizResponse) {
-    const itemMap = new Map(data.items.map((item) => [item.id, item.text]));
+    const itemMap = new Map(data.items.map((item) => [item.id, formatMatchingChoiceText(item.text, meaningLanguage)]));
 
     const choiceMap = new Map(
       data.choices.map((choice) => [
@@ -482,7 +482,7 @@ export default function QuizGeneratorForm({
                       >
                         {i + 1}.
                       </Typography>
-                      <Typography variant="body2">{item.text}</Typography>
+                      <Typography variant="body2">{formatMatchingChoiceText(item.text, meaningLanguage)}</Typography>
                     </Box>
                   ))}
                 </Stack>
