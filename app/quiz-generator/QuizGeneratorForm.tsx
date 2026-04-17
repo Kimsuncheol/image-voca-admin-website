@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import Alert from "@mui/material/Alert";
 import Snackbar from "@mui/material/Snackbar";
 import Box from "@mui/material/Box";
@@ -81,6 +81,12 @@ type FillBlankQuizResponse = {
 };
 
 type QuizResponse = MatchingQuizResponse | FillBlankQuizResponse;
+
+type QuizCountResponse = {
+  max_days?: number;
+  max_count?: number;
+  error?: string;
+};
 
 const COURSES: Course[] = [
   "CSAT",
@@ -199,15 +205,26 @@ export default function QuizGeneratorForm({
   const [meaningLanguage, setMeaningLanguage] = useState<MeaningLanguage>("korean");
   const [course, setCourse] = useState<Course>("TOEIC");
   const [level, setLevel] = useState<JlptLevel>("N3");
-  const [day, setDay] = useState(1);
-  const [count, setCount] = useState(10);
+  const [day, setDay] = useState<number | string>(1);
+  const [count, setCount] = useState<number | string>(10);
   const [result, setResult] = useState<QuizResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [maxDays, setMaxDays] = useState<number | null>(null);
+  const [dayWordCount, setDayWordCount] = useState<number | null>(null);
+  const [dayAutoFilledMax, setDayAutoFilledMax] = useState(false);
+  const [countAutoFilledMax, setCountAutoFilledMax] = useState(false);
+  const [countLoading, setCountLoading] = useState(false);
+  const [countError, setCountError] = useState("");
+  const countRef = useRef<number | string>(count);
+  const dayMaxErrorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const countMaxErrorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [shownAnswers, setShownAnswers] = useState<Set<string>>(new Set());
   const [adding, setAdding] = useState(false);
   const [saveError, setSaveError] = useState("");
   const [saveSuccess, setSaveSuccess] = useState(false);
+
+  countRef.current = count;
 
   function toggleAnswer(questionId: string) {
     setShownAnswers((prev) => {
@@ -221,8 +238,140 @@ export default function QuizGeneratorForm({
     });
   }
 
+  const flashDayMaxError = useCallback(() => {
+    setDayAutoFilledMax(true);
+    if (dayMaxErrorTimerRef.current) clearTimeout(dayMaxErrorTimerRef.current);
+    dayMaxErrorTimerRef.current = setTimeout(() => {
+      setDayAutoFilledMax(false);
+      dayMaxErrorTimerRef.current = null;
+    }, 1000);
+  }, []);
+
+  const flashCountMaxError = useCallback(() => {
+    setCountAutoFilledMax(true);
+    if (countMaxErrorTimerRef.current) clearTimeout(countMaxErrorTimerRef.current);
+    countMaxErrorTimerRef.current = setTimeout(() => {
+      setCountAutoFilledMax(false);
+      countMaxErrorTimerRef.current = null;
+    }, 1000);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (dayMaxErrorTimerRef.current) clearTimeout(dayMaxErrorTimerRef.current);
+      if (countMaxErrorTimerRef.current) clearTimeout(countMaxErrorTimerRef.current);
+    };
+  }, []);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    const params = new URLSearchParams({
+      course,
+      day: String(day),
+    });
+    if (course === "JLPT") params.set("level", level);
+
+    setCountLoading(true);
+    setCountError("");
+    setMaxDays(null);
+    setDayWordCount(null);
+
+    fetch(`/api/text/quiz-generate/count?${params.toString()}`, {
+      signal: controller.signal,
+    })
+      .then(async (response) => {
+        const data = (await response.json()) as QuizCountResponse;
+        if (typeof data.max_days === "number") {
+          const maxDaysValue = data.max_days;
+          setMaxDays(maxDaysValue);
+          const currentDay = typeof day === "string" ? parseInt(day, 10) : day;
+          if (
+            Number.isInteger(currentDay) &&
+            currentDay > maxDaysValue &&
+            maxDaysValue > 0
+          ) {
+            setDay(maxDaysValue);
+            flashDayMaxError();
+          }
+        }
+
+        if (!response.ok) {
+          if (typeof data.max_days === "number") {
+            setDayWordCount(null);
+            return;
+          }
+          throw new Error(data.error || networkErrorMsg);
+        }
+
+        if (typeof data.max_count !== "number") {
+          throw new Error(data.error || networkErrorMsg);
+        }
+
+        const maxCount = data.max_count;
+        setDayWordCount(maxCount);
+        const currentCount =
+          typeof countRef.current === "string"
+            ? parseInt(countRef.current, 10)
+            : countRef.current;
+        if (
+          Number.isInteger(currentCount) &&
+          currentCount > maxCount &&
+          maxCount > 0
+        ) {
+          setCount(maxCount);
+          flashCountMaxError();
+        }
+      })
+      .catch((err: unknown) => {
+        if (err instanceof DOMException && err.name === "AbortError") return;
+        setDayWordCount(null);
+        setCountError(networkErrorMsg);
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) {
+          setCountLoading(false);
+        }
+      });
+
+    return () => controller.abort();
+  }, [course, day, flashCountMaxError, flashDayMaxError, level, networkErrorMsg]);
+
+  const dayNumber = typeof day === "string" ? parseInt(day, 10) : day;
+  const countNumber = typeof count === "string" ? parseInt(count, 10) : count;
+  const invalidDay = !Number.isInteger(dayNumber) || dayNumber < 1;
+  const invalidCount = !Number.isInteger(countNumber) || countNumber < 1;
+  const dayExceedsMax = maxDays !== null && !invalidDay && dayNumber > maxDays;
+  const countExceedsMax =
+    dayWordCount !== null && !invalidCount && countNumber > dayWordCount;
+  const selectedDayHasNoWords = dayWordCount === 0;
+  const showDayError = invalidDay || dayExceedsMax || dayAutoFilledMax;
+  const showCountError =
+    invalidCount || selectedDayHasNoWords || countExceedsMax || countAutoFilledMax;
+  const countUnavailable = countLoading || dayWordCount === null;
+  const hasLimitError =
+    invalidDay ||
+    invalidCount ||
+    dayExceedsMax ||
+    countExceedsMax ||
+    selectedDayHasNoWords;
+  const generateDisabled =
+    loading || adding || countUnavailable || hasLimitError;
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (selectedDayHasNoWords) {
+      setError("The selected day has no words.");
+      return;
+    }
+    if (hasLimitError) {
+      setError("Day or question count exceeds the available maximum.");
+      return;
+    }
+    if (countUnavailable) {
+      setError(networkErrorMsg);
+      return;
+    }
+
     setLoading(true);
     setError("");
     setResult(null);
@@ -238,8 +387,8 @@ export default function QuizGeneratorForm({
           meaning_language: meaningLanguage,
           course,
           level: course === "JLPT" ? level : null,
-          day,
-          count,
+          day: dayNumber,
+          count: countNumber,
         }),
       });
 
@@ -588,11 +737,53 @@ export default function QuizGeneratorForm({
               type="number"
               value={day}
               onChange={(e) => {
-                const val = parseInt(e.target.value, 10);
-                setDay(isNaN(val) ? 1 : Math.max(1, val));
+                const rawValue = e.target.value;
+                const nextDay = parseInt(rawValue, 10);
+                if (
+                  maxDays !== null &&
+                  Number.isInteger(nextDay) &&
+                  nextDay > maxDays
+                ) {
+                  setDay(maxDays);
+                  flashDayMaxError();
+                  return;
+                }
+                setDayAutoFilledMax(false);
+                setDay(rawValue);
               }}
+              onBlur={() => {
+                const val = parseInt(String(day), 10);
+                if (isNaN(val) || val < 1) {
+                  setDay(1);
+                } else {
+                  setDay(val < 10 ? `0${val}` : val);
+                }
+              }}
+              onFocus={(e) => e.target.select()}
               fullWidth
-              slotProps={{ htmlInput: { min: 1 } }}
+              error={showDayError}
+              helperText={
+                invalidDay
+                  ? "Enter a valid day."
+                  : maxDays !== null
+                    ? `Max: ${maxDays}`
+                    : undefined
+              }
+              slotProps={{
+                htmlInput: {
+                  min: 1,
+                  ...(maxDays !== null && maxDays > 0 ? { max: maxDays } : {}),
+                  inputMode: "numeric",
+                },
+              }}
+              sx={{
+                "& input::-webkit-outer-spin-button, & input::-webkit-inner-spin-button": {
+                  display: "none",
+                },
+                "& input[type=number]": {
+                  MozAppearance: "textfield",
+                },
+              }}
             />
           </Grid>
 
@@ -602,17 +793,62 @@ export default function QuizGeneratorForm({
               type="number"
               value={count}
               onChange={(e) => {
-                const val = parseInt(e.target.value, 10);
-                setCount(isNaN(val) ? 1 : Math.max(1, Math.min(20, val)));
+                const rawValue = e.target.value;
+                const nextCount = parseInt(rawValue, 10);
+                if (
+                  dayWordCount !== null &&
+                  Number.isInteger(nextCount) &&
+                  nextCount > dayWordCount &&
+                  dayWordCount > 0
+                ) {
+                  setCount(dayWordCount);
+                  flashCountMaxError();
+                  return;
+                }
+                setCountAutoFilledMax(false);
+                setCount(rawValue);
               }}
+              onBlur={() => {
+                const val = parseInt(String(count), 10);
+                if (isNaN(val) || val < 1) {
+                  setCount(1);
+                } else {
+                  setCount(val);
+                }
+              }}
+              onFocus={(e) => e.target.select()}
               fullWidth
-              slotProps={{ htmlInput: { min: 1, max: 20 } }}
+              error={showCountError}
+              helperText={
+                invalidCount
+                  ? "Enter a valid question count."
+                  : selectedDayHasNoWords
+                  ? "The selected day has no words."
+                  : dayWordCount !== null
+                    ? `Max: ${dayWordCount}`
+                    : undefined
+              }
+              slotProps={{
+                htmlInput: {
+                  min: 1,
+                  ...(dayWordCount && dayWordCount > 0 ? { max: dayWordCount } : {}),
+                  inputMode: "numeric",
+                },
+              }}
+              sx={{
+                "& input::-webkit-outer-spin-button, & input::-webkit-inner-spin-button": {
+                  display: "none",
+                },
+                "& input[type=number]": {
+                  MozAppearance: "textfield",
+                },
+              }}
             />
           </Grid>
         </Grid>
 
         <Stack direction="row" spacing={2}>
-          <Button type="submit" variant="contained" disabled={loading || adding}>
+          <Button type="submit" variant="contained" disabled={generateDisabled}>
             {loading ? loadingLabel : submitLabel}
           </Button>
           <Button type="button" variant="outlined" onClick={handleReset} disabled={loading || adding}>
@@ -632,6 +868,7 @@ export default function QuizGeneratorForm({
         </Stack>
 
         {error ? <Alert severity="error">{error}</Alert> : null}
+        {countError ? <Alert severity="error">{countError}</Alert> : null}
         {saveError ? <Alert severity="error">{saveError}</Alert> : null}
 
         {result === null && !error ? (
