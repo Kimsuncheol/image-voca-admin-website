@@ -535,12 +535,83 @@ export default function VocabExtractForm({
           >
             <CardContent>
               <Stack spacing={1.5} alignItems="center" color="text.secondary">
-                <ExtractIcon sx={{ fontSize: 40, opacity: 0.5 }} />
+                <Box
+                  sx={{
+                    position: "relative",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    height: 64,
+                    width: 64,
+                    "@keyframes geminiPulse": {
+                      "0%, 100%": {
+                        transform: "scale(1)",
+                        filter: "drop-shadow(0 0 0px transparent)",
+                      },
+                      "50%": {
+                        transform: "scale(1.15)",
+                        filter: "drop-shadow(0 0 15px rgba(155, 114, 203, 0.5))",
+                      },
+                    },
+                    "@keyframes geminiTwinkle": {
+                      "0%, 100%": { opacity: 0.3, transform: "scale(0.8) rotate(0deg)" },
+                      "50%": { opacity: 1, transform: "scale(1.1) rotate(15deg)" },
+                    },
+                  }}
+                >
+                  {/* Hidden SVG for Gradient Definition */}
+                  <svg width="0" height="0" style={{ position: "absolute" }}>
+                    <defs>
+                      <linearGradient id="gemini-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stopColor="#4285f4" />
+                        <stop offset="50%" stopColor="#9b72cb" />
+                        <stop offset="100%" stopColor="#d96570" />
+                      </linearGradient>
+                    </defs>
+                  </svg>
+
+                  <ExtractIcon
+                    sx={{
+                      fontSize: 48,
+                      opacity: loading ? 1 : 0.5,
+                      transition: "all 0.5s cubic-bezier(0.4, 0, 0.2, 1)",
+                      fill: loading ? "url(#gemini-gradient)" : "currentColor",
+                      animation: loading ? "geminiPulse 2s infinite ease-in-out" : "none",
+                    }}
+                  />
+
+                  {loading && (
+                    <>
+                      <ExtractIcon
+                        sx={{
+                          position: "absolute",
+                          top: 4,
+                          right: 4,
+                          fontSize: 18,
+                          fill: "#9b72cb",
+                          animation: "geminiTwinkle 1.8s infinite ease-in-out",
+                        }}
+                      />
+                      <ExtractIcon
+                        sx={{
+                          position: "absolute",
+                          bottom: 8,
+                          left: 4,
+                          fontSize: 14,
+                          fill: "#4285f4",
+                          animation: "geminiTwinkle 2.5s infinite ease-in-out",
+                          animationDelay: "0.5s",
+                        }}
+                      />
+                    </>
+                  )}
+                </Box>
+
                 <Typography variant="subtitle1" fontWeight={600} align="center">
-                  {standbyTitle}
+                  {loading ? t("textTools.loading") : standbyTitle}
                 </Typography>
                 <Typography variant="body2" align="center" sx={{ maxWidth: 360 }}>
-                  {standbyDescription}
+                  {loading ? t("textTools.aiProcessingDescription") : standbyDescription}
                 </Typography>
               </Stack>
             </CardContent>

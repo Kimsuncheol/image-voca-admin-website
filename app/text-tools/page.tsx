@@ -38,7 +38,7 @@ export default function TextToolsPage() {
   const { t } = useTranslation();
   const { user, authLoading } = useAdminGuard();
 
-  const [group, setGroup] = useState<ToolGroup>("furigana");
+  const [group, setGroup] = useState<ToolGroup>("vocabExtract");
   const [parenthesesAction, setParenthesesAction] =
     useState<ParenthesesAction>("generate");
   const [furiganaAction, setFuriganaAction] = useState<FuriganaAction>("add");
@@ -358,10 +358,10 @@ export default function TextToolsPage() {
             onChange={(_, value: ToolGroup) => setGroup(value)}
             sx={{ borderBottom: 1, borderColor: "divider", px: 2 }}
           >
+            <Tab label={t("textTools.tabVocabExtract")} value="vocabExtract" />
             <Tab label={t("textTools.tabFurigana")} value="furigana" />
             <Tab label={t("textTools.tabRemoveEqualSign")} value="removeEqualSign" />
             <Tab label={t("textTools.tabVocabulary")} value="vocabulary" />
-            <Tab label={t("textTools.tabVocabExtract")} value="vocabExtract" />
             <Tab label={t("textTools.tabRomanize")} value="romanize" />
             <Tab label={t("textTools.tabParentheses")} value="parentheses" />
             <Tab label={t("textTools.tabTranslate")} value="translate" />

@@ -493,6 +493,7 @@
     "vocabExtractTooManyPairs": "Maximum 20 pairs allowed.",
     "vocabExtractStandbyTitle": "Vocabulary Extraction",
     "vocabExtractStandbyDescription": "Enter example-meaning pairs and click Extract.",
+    "aiProcessingDescription": "Analyzing vocabulary and generating examples. Please wait a moment.",
     "vocabExtractResultTitle": "Extracted Vocabulary",
     "vocabExtractWordLabel": "Word",
     "vocabExtractMeaningEnglishLabel": "Meaning (EN)",

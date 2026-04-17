@@ -493,6 +493,7 @@
     "vocabExtractTooManyPairs": "최대 20쌍까지 입력 가능합니다.",
     "vocabExtractStandbyTitle": "어휘 추출",
     "vocabExtractStandbyDescription": "예문과 의미 쌍을 입력하고 추출 버튼을 누르세요.",
+    "aiProcessingDescription": "어휘를 분석하고 예문을 생성하고 있습니다. 잠시만 기다려 주세요.",
     "vocabExtractResultTitle": "추출된 어휘",
     "vocabExtractWordLabel": "단어",
     "vocabExtractMeaningEnglishLabel": "의미 (영어)",
