@@ -26,6 +26,7 @@ import QuizIcon from "@mui/icons-material/Quiz";
 
 type QuizType = "matching" | "fill_blank";
 type Language = "english" | "japanese";
+type MeaningLanguage = "korean" | "english";
 type Course =
   | "CSAT"
   | "CSAT_IDIOMS"
@@ -36,8 +37,14 @@ type Course =
   | "JLPT";
 type JlptLevel = "N1" | "N2" | "N3" | "N4" | "N5";
 
-type MatchingItem = { id: string; text: string };
-type MatchingChoice = { id: string; text: string };
+
+type MatchingItem = { id: string; text: string; meaningKorean?: string; meaningEnglish?: string };
+type MatchingChoice = {
+  id: string;
+  text: string;
+  meaningEnglish?: string;
+  meaningKorean?: string;
+};
 type MatchingAnswerKey = { item_id: string; choice_id: string };
 
 type MatchingQuizResponse = {
@@ -85,6 +92,25 @@ const COURSES: Course[] = [
 ];
 
 const JLPT_LEVELS: JlptLevel[] = ["N1", "N2", "N3", "N4", "N5"];
+
+function hasText(value: string | undefined): value is string {
+  return typeof value === "string" && value.trim().length > 0;
+}
+
+function formatMatchingChoiceText(
+  choice: MatchingChoice,
+  item?: MatchingItem,
+) {
+  const parts = [
+    choice.text || item?.text,
+    choice.meaningEnglish || item?.meaningEnglish,
+    choice.meaningKorean || item?.meaningKorean,
+  ]
+    .filter(hasText)
+    .map((part) => part.trim());
+
+  return parts.length > 0 ? parts.join(" - ") : choice.text;
+}
 
 function renderSentenceWithBlank(sentence: string) {
   const parts = sentence.split(/(_+)/);
@@ -140,6 +166,9 @@ export default function QuizGeneratorForm({
   addingLabel,
   addSuccessMsg,
   addErrorMsg,
+  meaningLanguageLabel,
+  meaningEnglishLabel,
+  meaningKoreanLabel,
 }: {
   submitLabel: string;
   loadingLabel: string;
@@ -168,9 +197,13 @@ export default function QuizGeneratorForm({
   addingLabel: string;
   addSuccessMsg: string;
   addErrorMsg: string;
+  meaningLanguageLabel: string;
+  meaningEnglishLabel: string;
+  meaningKoreanLabel: string;
 }) {
   const [quizType, setQuizType] = useState<QuizType>("matching");
   const [language, setLanguage] = useState<Language>("english");
+  const [meaningLanguage, setMeaningLanguage] = useState<MeaningLanguage>("korean");
   const [course, setCourse] = useState<Course>("TOEIC");
   const [level, setLevel] = useState<JlptLevel>("N3");
   const [day, setDay] = useState(1);
@@ -209,6 +242,7 @@ export default function QuizGeneratorForm({
         body: JSON.stringify({
           quiz_type: quizType,
           language,
+          meaning_language: meaningLanguage,
           course,
           level: course === "JLPT" ? level : null,
           day,
@@ -217,6 +251,8 @@ export default function QuizGeneratorForm({
       });
 
       const data = (await response.json()) as QuizResponse;
+
+      console.log("Server response:", data);
 
       if (!response.ok) {
         setError(networkErrorMsg);
@@ -251,6 +287,7 @@ export default function QuizGeneratorForm({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           quiz_type: result.quiz_type,
+          meaning_language: meaningLanguage,
           course,
           level: course === "JLPT" ? level : null,
           day,
@@ -273,7 +310,20 @@ export default function QuizGeneratorForm({
 
   function renderMatchingResult(data: MatchingQuizResponse) {
     const itemMap = new Map(data.items.map((item) => [item.id, item.text]));
-    const choiceMap = new Map(data.choices.map((choice) => [choice.id, choice.text]));
+
+    const choiceToItem = new Map(
+      data.answer_key.map((entry) => {
+        const item = data.items.find((i) => i.id === entry.item_id);
+        return [entry.choice_id, item];
+      }),
+    );
+
+    const choiceMap = new Map(
+      data.choices.map((choice) => [
+        choice.id,
+        formatMatchingChoiceText(choice, choiceToItem.get(choice.id)),
+      ]),
+    );
 
     return (
       <Stack spacing={2}>
@@ -307,21 +357,28 @@ export default function QuizGeneratorForm({
                   {choicesLabel}
                 </Typography>
                 <Stack spacing={1}>
-                  {data.choices.map((choice, i) => (
-                    <Box
-                      key={choice.id}
-                      sx={{ display: "flex", gap: 1.5, alignItems: "flex-start" }}
-                    >
-                      <Typography
-                        variant="body2"
-                        color="text.secondary"
-                        sx={{ minWidth: 20, fontWeight: 600 }}
+                  {data.choices.map((choice, i) => {
+                    const textToShow = formatMatchingChoiceText(
+                      choice,
+                      choiceToItem.get(choice.id),
+                    );
+
+                    return (
+                      <Box
+                        key={choice.id}
+                        sx={{ display: "flex", gap: 1.5, alignItems: "flex-start" }}
                       >
-                        {String.fromCharCode(65 + i)}.
-                      </Typography>
-                      <Typography variant="body2">{choice.text}</Typography>
-                    </Box>
-                  ))}
+                        <Typography
+                          variant="body2"
+                          color="text.secondary"
+                          sx={{ minWidth: 20, fontWeight: 600 }}
+                        >
+                          {String.fromCharCode(65 + i)}.
+                        </Typography>
+                        <Typography variant="body2">{textToShow}</Typography>
+                      </Box>
+                    );
+                  })}
                 </Stack>
               </Grid>
             </Grid>
@@ -485,6 +542,23 @@ export default function QuizGeneratorForm({
             </FormControl>
           </Grid>
 
+          {language === "japanese" && (
+            <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+              <FormControl fullWidth>
+                <InputLabel id="meaning-language-label">{meaningLanguageLabel}</InputLabel>
+                <Select
+                  labelId="meaning-language-label"
+                  value={meaningLanguage}
+                  label={meaningLanguageLabel}
+                  onChange={(e) => setMeaningLanguage(e.target.value as MeaningLanguage)}
+                >
+                  <MenuItem value="korean">{meaningKoreanLabel}</MenuItem>
+                  <MenuItem value="english">{meaningEnglishLabel}</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+          )}
+
           <Grid size={{ xs: 12, sm: 6, md: 3 }}>
             <FormControl fullWidth>
               <InputLabel id="course-label">{courseLabel}</InputLabel>
@@ -504,6 +578,8 @@ export default function QuizGeneratorForm({
               </Select>
             </FormControl>
           </Grid>
+
+
 
           {course === "JLPT" && (
             <Grid size={{ xs: 12, sm: 6, md: 3 }}>

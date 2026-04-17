@@ -47,6 +47,9 @@ export default function QuizGeneratorPage() {
         questionLabel={t("quizGenerator.question")}
         showAnswerLabel={t("quizGenerator.showAnswer")}
         hideAnswerLabel={t("quizGenerator.hideAnswer")}
+        meaningLanguageLabel={t("quizGenerator.meaningLanguageLabel")}
+        meaningEnglishLabel={t("quizGenerator.meaningEnglish")}
+        meaningKoreanLabel={t("quizGenerator.meaningKorean")}
         addLabel={t("quizGenerator.add")}
         addingLabel={t("quizGenerator.adding")}
         addSuccessMsg={t("quizGenerator.addSuccess")}
