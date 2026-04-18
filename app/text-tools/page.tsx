@@ -263,8 +263,15 @@ export default function TextToolsPage() {
           resetLabel={t("textTools.resetAction")}
           exampleLabel={t("textTools.vocabExtractExampleLabel")}
           exampleHelpText={t("textTools.vocabExtractExampleHelpText")}
+          meaningLanguageLabel={t("textTools.vocabExtractMeaningLanguageLabel")}
+          meaningKoreanChipLabel={t("textTools.vocabExtractMeaningKoreanChipLabel")}
+          meaningEnglishChipLabel={t("textTools.vocabExtractMeaningEnglishChipLabel")}
           meaningKoreanLabel={t("textTools.vocabExtractMeaningKoreanLabel")}
           meaningKoreanHelpText={t("textTools.vocabExtractMeaningKoreanHelpText")}
+          meaningEnglishInputLabel={t("textTools.vocabExtractMeaningEnglishInputLabel")}
+          meaningEnglishInputHelpText={t("textTools.vocabExtractMeaningEnglishInputHelpText")}
+          meaningKoreanInvalidMsg={t("textTools.vocabExtractMeaningKoreanInvalidMsg")}
+          meaningEnglishInvalidMsg={t("textTools.vocabExtractMeaningEnglishInvalidMsg")}
           inputRequiredMsg={t("textTools.vocabExtractInputRequired")}
           lineMismatchMsg={t("textTools.vocabExtractLineMismatch")}
           tooManyPairsMsg={t("textTools.vocabExtractTooManyPairs")}

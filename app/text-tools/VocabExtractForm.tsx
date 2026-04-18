@@ -6,6 +6,7 @@ import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Card from "@mui/material/Card";
 import CardContent from "@mui/material/CardContent";
+import Chip from "@mui/material/Chip";
 import Snackbar from "@mui/material/Snackbar";
 import Stack from "@mui/material/Stack";
 import Table from "@mui/material/Table";
@@ -44,6 +45,8 @@ type VocabEntry = {
 type VocabExtractResponse = {
   results: VocabEntry[];
 };
+
+type MeaningLanguage = "korean" | "english";
 
 type TableColumnKey =
   | "word"
@@ -98,6 +101,20 @@ function isCellInRange(cell: TableCellCoords, range: TableSelectionRange) {
   );
 }
 
+function clampToMaxLines(value: string, max: number): string {
+  const lines = value.split("\n");
+  let nonEmptyCount = 0;
+  const result: string[] = [];
+  for (const line of lines) {
+    if (line.trim()) {
+      nonEmptyCount += 1;
+      if (nonEmptyCount > max) break;
+    }
+    result.push(line);
+  }
+  return result.join("\n");
+}
+
 function parseLines(value: string) {
   return value
     .split("\n")
@@ -111,8 +128,15 @@ export default function VocabExtractForm({
   resetLabel,
   exampleLabel,
   exampleHelpText,
+  meaningLanguageLabel,
+  meaningKoreanChipLabel,
+  meaningEnglishChipLabel,
   meaningKoreanLabel,
   meaningKoreanHelpText,
+  meaningEnglishInputLabel,
+  meaningEnglishInputHelpText,
+  meaningKoreanInvalidMsg,
+  meaningEnglishInvalidMsg,
   inputRequiredMsg,
   lineMismatchMsg,
   tooManyPairsMsg,
@@ -134,8 +158,15 @@ export default function VocabExtractForm({
   resetLabel: string;
   exampleLabel: string;
   exampleHelpText: string;
+  meaningLanguageLabel: string;
+  meaningKoreanChipLabel: string;
+  meaningEnglishChipLabel: string;
   meaningKoreanLabel: string;
   meaningKoreanHelpText: string;
+  meaningEnglishInputLabel: string;
+  meaningEnglishInputHelpText: string;
+  meaningKoreanInvalidMsg: string;
+  meaningEnglishInvalidMsg: string;
   inputRequiredMsg: string;
   lineMismatchMsg: string;
   tooManyPairsMsg: string;
@@ -154,7 +185,9 @@ export default function VocabExtractForm({
 }) {
   const { t } = useTranslation();
   const [exampleInput, setExampleInput] = useState("");
+  const [meaningLanguage, setMeaningLanguage] = useState<MeaningLanguage>("korean");
   const [meaningKoreanInput, setMeaningKoreanInput] = useState("");
+  const [meaningEnglishInput, setMeaningEnglishInput] = useState("");
   const [results, setResults] = useState<VocabEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -167,6 +200,10 @@ export default function VocabExtractForm({
     current: TableCellCoords;
     additive: boolean;
   } | null>(null);
+  const [meaningKoreanInputError, setMeaningKoreanInputError] = useState(false);
+  const [meaningEnglishInputError, setMeaningEnglishInputError] = useState(false);
+  const meaningKoreanErrorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const meaningEnglishErrorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const tableContainerRef = useRef<HTMLDivElement | null>(null);
   const dragStateRef = useRef<typeof dragState>(null);
   const [copySnackbar, setCopySnackbar] = useState<{ open: boolean; success: boolean }>({
@@ -202,6 +239,13 @@ export default function VocabExtractForm({
     return () => window.removeEventListener("mouseup", handleWindowMouseUp);
   }, [dragState]);
 
+  useEffect(() => {
+    return () => {
+      if (meaningKoreanErrorTimerRef.current) clearTimeout(meaningKoreanErrorTimerRef.current);
+      if (meaningEnglishErrorTimerRef.current) clearTimeout(meaningEnglishErrorTimerRef.current);
+    };
+  }, []);
+
   function clearSelection() {
     setActiveCell(null);
     setSelectionRanges([]);
@@ -210,9 +254,20 @@ export default function VocabExtractForm({
     setDragState(null);
   }
 
-  function validate(exampleLines: string[], meaningLines: string[]): string | null {
-    if (exampleLines.length === 0 || meaningLines.length === 0) return inputRequiredMsg;
-    if (exampleLines.length !== meaningLines.length) return lineMismatchMsg;
+  function validate(
+    exampleLines: string[],
+    meaningKoreanLines: string[],
+    meaningEnglishLines: string[],
+  ): string | null {
+    if (exampleLines.length === 0) return inputRequiredMsg;
+    if (meaningLanguage === "korean") {
+      if (meaningKoreanLines.length === 0) return inputRequiredMsg;
+      if (exampleLines.length !== meaningKoreanLines.length) return lineMismatchMsg;
+    }
+    if (meaningLanguage === "english") {
+      if (meaningEnglishLines.length === 0) return inputRequiredMsg;
+      if (exampleLines.length !== meaningEnglishLines.length) return lineMismatchMsg;
+    }
     if (exampleLines.length > 20) return tooManyPairsMsg;
     return null;
   }
@@ -221,9 +276,10 @@ export default function VocabExtractForm({
     event.preventDefault();
 
     const exampleLines = parseLines(exampleInput);
-    const meaningLines = parseLines(meaningKoreanInput);
+    const meaningKoreanLines = parseLines(meaningKoreanInput);
+    const meaningEnglishLines = parseLines(meaningEnglishInput);
 
-    const msg = validate(exampleLines, meaningLines);
+    const msg = validate(exampleLines, meaningKoreanLines, meaningEnglishLines);
     if (msg) {
       setValidationError(msg);
       return;
@@ -236,7 +292,8 @@ export default function VocabExtractForm({
 
     const pairs = exampleLines.map((example, i) => ({
       example,
-      meaning_korean: meaningLines[i],
+      meaning_korean: meaningLanguage === "korean" ? meaningKoreanLines[i] : null,
+      meaning_english: meaningLanguage === "english" ? meaningEnglishLines[i] : null,
     }));
 
     try {
@@ -263,7 +320,9 @@ export default function VocabExtractForm({
 
   function handleReset() {
     setExampleInput("");
+    setMeaningLanguage("korean");
     setMeaningKoreanInput("");
+    setMeaningEnglishInput("");
     setResults([]);
     setError("");
     setValidationError(null);
@@ -285,6 +344,121 @@ export default function VocabExtractForm({
 
   const exampleCount = useMemo(() => parseLines(exampleInput).length, [exampleInput]);
   const meaningKoreanCount = useMemo(() => parseLines(meaningKoreanInput).length, [meaningKoreanInput]);
+  const meaningEnglishCount = useMemo(() => parseLines(meaningEnglishInput).length, [meaningEnglishInput]);
+  const activeMeaningCount =
+    meaningLanguage === "korean" ? meaningKoreanCount : meaningEnglishCount;
+
+  function renderMeaningLanguageChips() {
+    const options: Array<{ value: MeaningLanguage; label: string }> = [
+      { value: "korean", label: meaningKoreanChipLabel },
+      { value: "english", label: meaningEnglishChipLabel },
+    ];
+
+    return (
+      <Stack
+        direction="row"
+        spacing={1}
+        useFlexGap
+        flexWrap="wrap"
+        role="radiogroup"
+        aria-label={meaningLanguageLabel}
+      >
+        {options.map((option) => {
+          const selected = option.value === meaningLanguage;
+
+          return (
+            <Chip
+              key={option.value}
+              label={option.label}
+              clickable
+              color={selected ? "primary" : "default"}
+              variant={selected ? "filled" : "outlined"}
+              role="radio"
+              aria-checked={selected}
+              onClick={() => {
+                setMeaningLanguage(option.value);
+                setValidationError(null);
+              }}
+              sx={{
+                borderRadius: 999,
+                fontWeight: selected ? 600 : 500,
+                px: 0.5,
+                height: 36,
+                bgcolor: selected ? undefined : "background.paper",
+                borderColor: selected ? "primary.main" : "divider",
+              }}
+            />
+          );
+        })}
+      </Stack>
+    );
+  }
+
+  function renderMeaningTextField() {
+    if (meaningLanguage === "korean") {
+      return (
+        <TextField
+          label={meaningKoreanLabel}
+          value={meaningKoreanInput}
+          onChange={(e) => {
+            const filtered = e.target.value.replace(/[a-zA-Z\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FFF\uFF65-\uFF9F]/g, "");
+            if (filtered !== e.target.value) {
+              if (meaningKoreanErrorTimerRef.current) clearTimeout(meaningKoreanErrorTimerRef.current);
+              setMeaningKoreanInputError(true);
+              meaningKoreanErrorTimerRef.current = setTimeout(() => setMeaningKoreanInputError(false), 2000);
+            }
+            setMeaningKoreanInput(clampToMaxLines(filtered, 20));
+            setValidationError(null);
+          }}
+          multiline
+          minRows={6}
+          fullWidth
+          error={meaningKoreanInputError}
+          helperText={
+            <Box component="span" sx={{ display: "flex", justifyContent: "space-between" }}>
+              <span>{meaningKoreanInputError ? meaningKoreanInvalidMsg : meaningKoreanHelpText}</span>
+              {activeMeaningCount > 0 && (
+                <Box component="span" sx={{ color: activeMeaningCount > 20 ? "error.main" : undefined }}>
+                  {activeMeaningCount} / 20
+                </Box>
+              )}
+            </Box>
+          }
+        />
+      );
+    }
+
+    return (
+      <TextField
+        label={meaningEnglishInputLabel}
+        value={meaningEnglishInput}
+        onChange={(e) => {
+          const filtered = e.target.value.replace(/[\uAC00-\uD7A3\u3131-\u314E\u314F-\u3163\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FFF\uFF65-\uFF9F]/g, "");
+          if (filtered !== e.target.value) {
+            if (meaningEnglishErrorTimerRef.current) clearTimeout(meaningEnglishErrorTimerRef.current);
+            setMeaningEnglishInputError(true);
+            meaningEnglishErrorTimerRef.current = setTimeout(() => setMeaningEnglishInputError(false), 2000);
+          }
+          setMeaningEnglishInput(clampToMaxLines(filtered, 20));
+          setValidationError(null);
+        }}
+        multiline
+        minRows={6}
+        fullWidth
+        error={meaningEnglishInputError}
+        helperText={
+          <Box component="span" sx={{ display: "flex", justifyContent: "space-between" }}>
+            <span>{meaningEnglishInputError ? meaningEnglishInvalidMsg : meaningEnglishInputHelpText}</span>
+            {activeMeaningCount > 0 && (
+              <Box component="span" sx={{ color: activeMeaningCount > 20 ? "error.main" : undefined }}>
+                {activeMeaningCount} / 20
+              </Box>
+            )}
+          </Box>
+        }
+      />
+    );
+  }
 
   const cellGrid = useMemo<SpreadsheetGrid>(
     () =>
@@ -576,51 +750,37 @@ export default function VocabExtractForm({
   return (
     <Box component="form" onSubmit={handleSubmit}>
       <Stack spacing={3}>
-        <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
-          <TextField
-            label={exampleLabel}
-            value={exampleInput}
-            onChange={(e) => {
-              setExampleInput(e.target.value);
-              setValidationError(null);
-            }}
-            multiline
-            minRows={6}
-            fullWidth
-            helperText={
-              <Box component="span" sx={{ display: "flex", justifyContent: "space-between" }}>
-                <span>{validationError ?? exampleHelpText}</span>
-                {exampleCount > 0 && (
-                  <Box component="span" sx={{ color: exampleCount > 20 ? "error.main" : undefined }}>
-                    {exampleCount} / 20
-                  </Box>
-                )}
-              </Box>
-            }
-            error={!!validationError}
-          />
+        <Stack direction={{ xs: "column", md: "row" }} spacing={2} alignItems="stretch">
+          <Stack spacing={1.5} sx={{ flex: 1, minWidth: 0 }}>
+            <Box aria-hidden="true" sx={{ height: 36, px: 0.5, visibility: "hidden" }} />
+            <TextField
+              label={exampleLabel}
+              value={exampleInput}
+              onChange={(e) => {
+                setExampleInput(clampToMaxLines(e.target.value, 20));
+                setValidationError(null);
+              }}
+              multiline
+              minRows={6}
+              fullWidth
+              helperText={
+                <Box component="span" sx={{ display: "flex", justifyContent: "space-between" }}>
+                  <span>{validationError ?? exampleHelpText}</span>
+                  {exampleCount > 0 && (
+                    <Box component="span" sx={{ color: exampleCount > 20 ? "error.main" : undefined }}>
+                      {exampleCount} / 20
+                    </Box>
+                  )}
+                </Box>
+              }
+              error={!!validationError}
+            />
+          </Stack>
 
-          <TextField
-            label={meaningKoreanLabel}
-            value={meaningKoreanInput}
-            onChange={(e) => {
-              setMeaningKoreanInput(e.target.value);
-              setValidationError(null);
-            }}
-            multiline
-            minRows={6}
-            fullWidth
-            helperText={
-              <Box component="span" sx={{ display: "flex", justifyContent: "space-between" }}>
-                <span>{meaningKoreanHelpText}</span>
-                {meaningKoreanCount > 0 && (
-                  <Box component="span" sx={{ color: meaningKoreanCount > 20 ? "error.main" : undefined }}>
-                    {meaningKoreanCount} / 20
-                  </Box>
-                )}
-              </Box>
-            }
-          />
+          <Stack spacing={1.5} sx={{ flex: 1, minWidth: 0 }}>
+            {renderMeaningLanguageChips()}
+            {renderMeaningTextField()}
+          </Stack>
         </Stack>
 
         <Stack direction="row" spacing={2}>
