@@ -26,7 +26,6 @@ import QuizIcon from "@mui/icons-material/Quiz";
 
 type QuizType = "matching" | "fill_blank";
 type Language = "english" | "japanese";
-type MeaningLanguage = "korean" | "english";
 type Course =
   | "CSAT"
   | "CSAT_IDIOMS"
@@ -47,6 +46,11 @@ type MatchingChoiceText =
 type MatchingItem = { id: string; text: MatchingChoiceText; meaningKorean?: string; meaningEnglish?: string };
 type MatchingChoice = { id: string; text: MatchingChoiceText };
 type MatchingAnswerKey = { item_id: string; choice_id: string };
+type MatchingMeaningDisplay = {
+  meaningKorean?: string;
+  meaningEnglish?: string;
+  fallback?: string;
+};
 
 type MatchingQuizResponse = {
   quiz_type: "matching";
@@ -100,15 +104,33 @@ const COURSES: Course[] = [
 
 const JLPT_LEVELS: JlptLevel[] = ["N1", "N2", "N3", "N4", "N5"];
 
-function formatMatchingChoiceText(
-  text: MatchingChoiceText,
-  meaningLanguage: MeaningLanguage,
-) {
-  if (typeof text === "string") return text;
+function cleanText(value: unknown) {
+  return typeof value === "string" && value.trim().length > 0
+    ? value.trim()
+    : undefined;
+}
 
-  const selectedText =
-    meaningLanguage === "english" ? text.meaningEnglish : text.meaningKorean;
-  return selectedText || text.meaningEnglish || text.meaningKorean || "";
+function getTextMeaningDisplay(text: MatchingChoiceText): MatchingMeaningDisplay {
+  if (typeof text === "string") return { fallback: cleanText(text) };
+
+  return {
+    meaningKorean: cleanText(text.meaningKorean),
+    meaningEnglish: cleanText(text.meaningEnglish),
+  };
+}
+
+function getItemMeaningDisplay(item: MatchingItem): MatchingMeaningDisplay {
+  const textDisplay = getTextMeaningDisplay(item.text);
+
+  return {
+    meaningKorean: cleanText(item.meaningKorean) ?? textDisplay.meaningKorean,
+    meaningEnglish: cleanText(item.meaningEnglish) ?? textDisplay.meaningEnglish,
+    fallback: textDisplay.fallback,
+  };
+}
+
+function getChoiceMeaningDisplay(choice: MatchingChoice): MatchingMeaningDisplay {
+  return getTextMeaningDisplay(choice.text);
 }
 
 function renderSentenceWithBlank(sentence: string) {
@@ -165,7 +187,6 @@ export default function QuizGeneratorForm({
   addingLabel,
   addSuccessMsg,
   addErrorMsg,
-  meaningLanguageLabel,
   meaningEnglishLabel,
   meaningKoreanLabel,
 }: {
@@ -196,13 +217,11 @@ export default function QuizGeneratorForm({
   addingLabel: string;
   addSuccessMsg: string;
   addErrorMsg: string;
-  meaningLanguageLabel: string;
   meaningEnglishLabel: string;
   meaningKoreanLabel: string;
 }) {
   const [quizType, setQuizType] = useState<QuizType>("matching");
   const [language, setLanguage] = useState<Language>("english");
-  const [meaningLanguage, setMeaningLanguage] = useState<MeaningLanguage>("korean");
   const [course, setCourse] = useState<Course>("TOEIC");
   const [level, setLevel] = useState<JlptLevel>("N3");
   const [day, setDay] = useState<number | string>(1);
@@ -386,7 +405,6 @@ export default function QuizGeneratorForm({
         body: JSON.stringify({
           quiz_type: quizType,
           language,
-          meaning_language: meaningLanguage,
           course,
           level: course === "JLPT" ? level : null,
           day: dayNumber,
@@ -431,7 +449,6 @@ export default function QuizGeneratorForm({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           quiz_type: result.quiz_type,
-          meaning_language: meaningLanguage,
           course,
           level: course === "JLPT" ? level : null,
           day,
@@ -453,12 +470,41 @@ export default function QuizGeneratorForm({
   }
 
   function renderMatchingResult(data: MatchingQuizResponse) {
-    const itemMap = new Map(data.items.map((item) => [item.id, formatMatchingChoiceText(item.text, meaningLanguage)]));
+    function renderMatchingMeaning(display: MatchingMeaningDisplay) {
+      const meanings = [
+        { label: meaningKoreanLabel, text: display.meaningKorean },
+        { label: meaningEnglishLabel, text: display.meaningEnglish },
+      ].filter((meaning): meaning is { label: string; text: string } =>
+        Boolean(meaning.text),
+      );
+
+      if (meanings.length > 0) {
+        return (
+          <Stack spacing={0.25}>
+            {meanings.map((meaning) => (
+              <Typography key={meaning.label} variant="body2">
+                <Box
+                  component="span"
+                  sx={{ color: "text.secondary", fontWeight: 600, mr: 0.75 }}
+                >
+                  {meaning.label}:
+                </Box>
+                {meaning.text}
+              </Typography>
+            ))}
+          </Stack>
+        );
+      }
+
+      return <Typography variant="body2">{display.fallback ?? ""}</Typography>;
+    }
+
+    const itemMap = new Map(data.items.map((item) => [item.id, getItemMeaningDisplay(item)]));
 
     const choiceMap = new Map(
       data.choices.map((choice) => [
         choice.id,
-        formatMatchingChoiceText(choice.text, meaningLanguage),
+        getChoiceMeaningDisplay(choice),
       ]),
     );
 
@@ -484,7 +530,7 @@ export default function QuizGeneratorForm({
                       >
                         {i + 1}.
                       </Typography>
-                      <Typography variant="body2">{formatMatchingChoiceText(item.text, meaningLanguage)}</Typography>
+                      {renderMatchingMeaning(getItemMeaningDisplay(item))}
                     </Box>
                   ))}
                 </Stack>
@@ -506,9 +552,7 @@ export default function QuizGeneratorForm({
                         >
                           {String.fromCharCode(65 + i)}.
                         </Typography>
-                        <Typography variant="body2">
-                          {formatMatchingChoiceText(choice.text, meaningLanguage)}
-                        </Typography>
+                        {renderMatchingMeaning(getChoiceMeaningDisplay(choice))}
                       </Box>
                   ))}
                 </Stack>
@@ -533,8 +577,16 @@ export default function QuizGeneratorForm({
                 <TableBody>
                   {data.answer_key.map((entry) => (
                     <TableRow key={entry.item_id}>
-                      <TableCell>{itemMap.get(entry.item_id) ?? entry.item_id}</TableCell>
-                      <TableCell>{choiceMap.get(entry.choice_id) ?? entry.choice_id}</TableCell>
+                      <TableCell>
+                        {renderMatchingMeaning(
+                          itemMap.get(entry.item_id) ?? { fallback: entry.item_id },
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {renderMatchingMeaning(
+                          choiceMap.get(entry.choice_id) ?? { fallback: entry.choice_id },
+                        )}
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -673,23 +725,6 @@ export default function QuizGeneratorForm({
               </Select>
             </FormControl>
           </Grid>
-
-          {language === "japanese" && (
-            <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-              <FormControl fullWidth>
-                <InputLabel id="meaning-language-label">{meaningLanguageLabel}</InputLabel>
-                <Select
-                  labelId="meaning-language-label"
-                  value={meaningLanguage}
-                  label={meaningLanguageLabel}
-                  onChange={(e) => setMeaningLanguage(e.target.value as MeaningLanguage)}
-                >
-                  <MenuItem value="korean">{meaningKoreanLabel}</MenuItem>
-                  <MenuItem value="english">{meaningEnglishLabel}</MenuItem>
-                </Select>
-              </FormControl>
-            </Grid>
-          )}
 
           <Grid size={{ xs: 12, sm: 6, md: 3 }}>
             <FormControl fullWidth>

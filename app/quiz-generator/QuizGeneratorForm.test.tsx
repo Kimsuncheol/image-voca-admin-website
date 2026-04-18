@@ -34,7 +34,6 @@ const defaultProps = {
   addingLabel: "Adding...",
   addSuccessMsg: "Quiz saved successfully.",
   addErrorMsg: "Failed to save quiz.",
-  meaningLanguageLabel: "Meaning Language",
   meaningEnglishLabel: "English",
   meaningKoreanLabel: "Korean",
 };
@@ -208,7 +207,103 @@ describe("QuizGeneratorForm", () => {
     });
 
     const generateRequest = fetchMock.mock.calls[1]?.[1];
-    const body = JSON.parse(String(generateRequest?.body)) as { count?: number };
+    const body = JSON.parse(String(generateRequest?.body)) as {
+      count?: number;
+      meaning_language?: string;
+    };
     expect(body.count).toBe(14);
+    expect("meaning_language" in body).toBe(false);
+  });
+
+  it("renders Korean and English meanings for matching items and choices and saves without meaning_language", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      Response.json({ max_days: 20, max_count: 2 }),
+    ).mockResolvedValueOnce(
+      Response.json({
+        quiz_type: "matching",
+        language: "japanese",
+        course: "JLPT",
+        level: "N3",
+        day: 1,
+        items: [
+          {
+            id: "item-1",
+            text: "食べる",
+            meaningKorean: "먹다",
+            meaningEnglish: "to eat",
+          },
+          {
+            id: "item-2",
+            text: {
+              meaningKorean: "보다",
+              meaningEnglish: "to see",
+            },
+          },
+        ],
+        choices: [
+          {
+            id: "choice-1",
+            text: {
+              meaningKorean: "먹다",
+              meaningEnglish: "to eat",
+            },
+          },
+          {
+            id: "choice-2",
+            text: {
+              meaningKorean: "보다",
+              meaningEnglish: "to see",
+            },
+          },
+        ],
+        answer_key: [
+          { item_id: "item-1", choice_id: "choice-1" },
+          { item_id: "item-2", choice_id: "choice-2" },
+        ],
+      }),
+    ).mockResolvedValueOnce(Response.json({ id: "data" }));
+
+    rendered = renderForm(<QuizGeneratorForm {...defaultProps} />);
+
+    await waitFor(() => {
+      expect(getCountInput().value).toBe("2");
+    });
+
+    const generateButton = Array.from(document.querySelectorAll("button")).find(
+      (node) => node.textContent === "Generate Quiz",
+    );
+    expect(generateButton).toBeTruthy();
+
+    await act(async () => {
+      generateButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    await waitFor(() => {
+      expect(document.body.textContent).toContain("Korean:먹다");
+      expect(document.body.textContent).toContain("English:to eat");
+      expect(document.body.textContent).toContain("Korean:보다");
+      expect(document.body.textContent).toContain("English:to see");
+    });
+
+    const addButton = Array.from(document.querySelectorAll("button")).find(
+      (node) => node.textContent === "Add",
+    );
+    expect(addButton).toBeTruthy();
+
+    await act(async () => {
+      addButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledTimes(3);
+    });
+
+    const saveRequest = fetchMock.mock.calls[2]?.[1];
+    const saveBody = JSON.parse(String(saveRequest?.body)) as {
+      meaning_language?: string;
+      quiz_data?: unknown;
+    };
+    expect("meaning_language" in saveBody).toBe(false);
+    expect(saveBody.quiz_data).toBeTruthy();
   });
 });
