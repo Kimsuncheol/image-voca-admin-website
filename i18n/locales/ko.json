@@ -484,6 +484,7 @@
     "vocabExtractAction": "어휘 추출",
     "vocabExtractExampleLabel": "예문",
     "vocabExtractExampleHelpText": "한 줄에 예문 하나씩 입력 (최대 20개).",
+    "vocabExtractExampleInvalidMsg": "일본어만 입력할 수 있습니다.",
     "vocabExtractMeaningLanguageLabel": "의미",
     "vocabExtractMeaningKoreanChipLabel": "한국어",
     "vocabExtractMeaningEnglishChipLabel": "영어",

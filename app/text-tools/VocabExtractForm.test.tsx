@@ -18,6 +18,7 @@ const defaultProps = {
   resetLabel: "Reset",
   exampleLabel: "Examples",
   exampleHelpText: "One example sentence per line.",
+  exampleInvalidMsg: "Only Japanese text is allowed.",
   meaningLanguageLabel: "Meanings",
   meaningKoreanChipLabel: "Korean",
   meaningEnglishChipLabel: "English",
@@ -164,6 +165,16 @@ describe("VocabExtractForm", () => {
     expect(document.body.textContent).not.toContain("Korean Meanings");
     expect(document.body.textContent).toContain("English Meanings");
     expect(getTextareas()).toHaveLength(2);
+  });
+
+  it("filters Latin and Korean text from examples while preserving Japanese sentences", async () => {
+    rendered = renderForm(<VocabExtractForm {...defaultProps} />);
+    const [examples] = getTextareas();
+
+    await changeTextarea(examples, "今日は2026年です。ABC 한글\nカタカナ！１２３");
+
+    expect(examples.value).toBe("今日は2026年です。 \nカタカナ！１２３");
+    expect(document.body.textContent).toContain("Only Japanese text is allowed.");
   });
 
   it("submits Korean meanings and null English meanings by default", async () => {

@@ -115,6 +115,10 @@ function clampToMaxLines(value: string, max: number): string {
   return result.join("\n");
 }
 
+function filterJapaneseExampleInput(value: string): string {
+  return value.replace(/[a-zA-Z\uAC00-\uD7A3\u3131-\u314E\u314F-\u3163]/g, "");
+}
+
 function parseLines(value: string) {
   return value
     .split("\n")
@@ -128,6 +132,7 @@ export default function VocabExtractForm({
   resetLabel,
   exampleLabel,
   exampleHelpText,
+  exampleInvalidMsg,
   meaningLanguageLabel,
   meaningKoreanChipLabel,
   meaningEnglishChipLabel,
@@ -158,6 +163,7 @@ export default function VocabExtractForm({
   resetLabel: string;
   exampleLabel: string;
   exampleHelpText: string;
+  exampleInvalidMsg: string;
   meaningLanguageLabel: string;
   meaningKoreanChipLabel: string;
   meaningEnglishChipLabel: string;
@@ -200,8 +206,10 @@ export default function VocabExtractForm({
     current: TableCellCoords;
     additive: boolean;
   } | null>(null);
+  const [exampleInputError, setExampleInputError] = useState(false);
   const [meaningKoreanInputError, setMeaningKoreanInputError] = useState(false);
   const [meaningEnglishInputError, setMeaningEnglishInputError] = useState(false);
+  const exampleErrorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const meaningKoreanErrorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const meaningEnglishErrorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const tableContainerRef = useRef<HTMLDivElement | null>(null);
@@ -241,6 +249,7 @@ export default function VocabExtractForm({
 
   useEffect(() => {
     return () => {
+      if (exampleErrorTimerRef.current) clearTimeout(exampleErrorTimerRef.current);
       if (meaningKoreanErrorTimerRef.current) clearTimeout(meaningKoreanErrorTimerRef.current);
       if (meaningEnglishErrorTimerRef.current) clearTimeout(meaningEnglishErrorTimerRef.current);
     };
@@ -757,7 +766,13 @@ export default function VocabExtractForm({
               label={exampleLabel}
               value={exampleInput}
               onChange={(e) => {
-                setExampleInput(clampToMaxLines(e.target.value, 20));
+                const filtered = filterJapaneseExampleInput(e.target.value);
+                if (filtered !== e.target.value) {
+                  if (exampleErrorTimerRef.current) clearTimeout(exampleErrorTimerRef.current);
+                  setExampleInputError(true);
+                  exampleErrorTimerRef.current = setTimeout(() => setExampleInputError(false), 2000);
+                }
+                setExampleInput(clampToMaxLines(filtered, 20));
                 setValidationError(null);
               }}
               multiline
@@ -765,7 +780,7 @@ export default function VocabExtractForm({
               fullWidth
               helperText={
                 <Box component="span" sx={{ display: "flex", justifyContent: "space-between" }}>
-                  <span>{validationError ?? exampleHelpText}</span>
+                  <span>{validationError ?? (exampleInputError ? exampleInvalidMsg : exampleHelpText)}</span>
                   {exampleCount > 0 && (
                     <Box component="span" sx={{ color: exampleCount > 20 ? "error.main" : undefined }}>
                       {exampleCount} / 20
@@ -773,7 +788,7 @@ export default function VocabExtractForm({
                   )}
                 </Box>
               }
-              error={!!validationError}
+              error={!!validationError || exampleInputError}
             />
           </Stack>
 

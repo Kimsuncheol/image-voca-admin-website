@@ -263,6 +263,7 @@ export default function TextToolsPage() {
           resetLabel={t("textTools.resetAction")}
           exampleLabel={t("textTools.vocabExtractExampleLabel")}
           exampleHelpText={t("textTools.vocabExtractExampleHelpText")}
+          exampleInvalidMsg={t("textTools.vocabExtractExampleInvalidMsg")}
           meaningLanguageLabel={t("textTools.vocabExtractMeaningLanguageLabel")}
           meaningKoreanChipLabel={t("textTools.vocabExtractMeaningKoreanChipLabel")}
           meaningEnglishChipLabel={t("textTools.vocabExtractMeaningEnglishChipLabel")}

@@ -484,6 +484,7 @@
     "vocabExtractAction": "Extract Vocabulary",
     "vocabExtractExampleLabel": "Examples",
     "vocabExtractExampleHelpText": "One example sentence per line (max 20).",
+    "vocabExtractExampleInvalidMsg": "Only Japanese text is allowed.",
     "vocabExtractMeaningLanguageLabel": "Meanings",
     "vocabExtractMeaningKoreanChipLabel": "Korean",
     "vocabExtractMeaningEnglishChipLabel": "English",
