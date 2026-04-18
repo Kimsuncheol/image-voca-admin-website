@@ -175,4 +175,40 @@ describe("QuizGeneratorForm", () => {
       expect(document.body.textContent).toContain("The selected day has no words.");
     });
   });
+
+  it("generates with the selected day's word count when it is above the default count", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      Response.json({ max_days: 20, max_count: 14 }),
+    ).mockResolvedValueOnce(
+      Response.json({
+        quiz_type: "matching",
+        items: [],
+        choices: [],
+        answer_key: [],
+      }),
+    );
+
+    rendered = renderForm(<QuizGeneratorForm {...defaultProps} />);
+
+    await waitFor(() => {
+      expect(getCountInput().value).toBe("14");
+    });
+
+    const button = Array.from(document.querySelectorAll("button")).find(
+      (node) => node.textContent === "Generate Quiz",
+    );
+    expect(button).toBeTruthy();
+
+    await act(async () => {
+      button?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+    });
+
+    const generateRequest = fetchMock.mock.calls[1]?.[1];
+    const body = JSON.parse(String(generateRequest?.body)) as { count?: number };
+    expect(body.count).toBe(14);
+  });
 });

@@ -313,13 +313,15 @@ export default function QuizGeneratorForm({
           typeof countRef.current === "string"
             ? parseInt(countRef.current, 10)
             : countRef.current;
+        setCount(maxCount);
         if (
           Number.isInteger(currentCount) &&
           currentCount > maxCount &&
           maxCount > 0
         ) {
-          setCount(maxCount);
           flashCountMaxError();
+        } else {
+          setCountAutoFilledMax(false);
         }
       })
       .catch((err: unknown) => {
@@ -820,10 +822,10 @@ export default function QuizGeneratorForm({
               fullWidth
               error={showCountError}
               helperText={
-                invalidCount
-                  ? "Enter a valid question count."
-                  : selectedDayHasNoWords
+                selectedDayHasNoWords
                   ? "The selected day has no words."
+                  : invalidCount
+                  ? "Enter a valid question count."
                   : dayWordCount !== null
                     ? `Max: ${dayWordCount}`
                     : undefined
