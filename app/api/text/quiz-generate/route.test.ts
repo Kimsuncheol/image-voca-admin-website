@@ -155,4 +155,98 @@ describe("POST /api/text/quiz-generate", () => {
       requested_count: 5,
     });
   });
+
+  it("normalizes matching items and choices to word and meaning fields", async () => {
+    mockDayWordCount(10);
+    vi.mocked(global.fetch).mockResolvedValueOnce(
+      Response.json({
+        quiz_type: "matching",
+        language: "japanese",
+        course: "JLPT",
+        level: "N3",
+        day: 1,
+        items: [
+          {
+            id: "item-1",
+            text: "食べる",
+            meaningEnglish: "to eat",
+            meaningKorean: "먹다",
+          },
+          {
+            id: "item-2",
+            word: "見る",
+            text: {
+              meaningEnglish: "to see",
+              meaningKorean: "보다",
+            },
+          },
+        ],
+        choices: [
+          {
+            id: "choice-1",
+            text: {
+              meaningEnglish: "to eat",
+              meaningKorean: "먹다",
+            },
+          },
+          {
+            id: "choice-2",
+            text: "fallback meaning",
+          },
+        ],
+        answer_key: [
+          { item_id: "item-1", choice_id: "choice-1" },
+          { item_id: "item-2", choice_id: "choice-2" },
+        ],
+      }),
+    );
+
+    const { POST } = await import("./route");
+    const response = await POST(
+      createRequest({
+        quiz_type: "matching",
+        language: "japanese",
+        course: "JLPT",
+        level: "N3",
+        day: 1,
+        count: 2,
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      items: [
+        {
+          id: "item-1",
+          word: "食べる",
+          meaningEnglish: "to eat",
+          meaningKorean: "먹다",
+        },
+        {
+          id: "item-2",
+          word: "見る",
+          meaningEnglish: "to see",
+          meaningKorean: "보다",
+        },
+      ],
+      choices: [
+        {
+          id: "choice-1",
+          word: "食べる",
+          meaningEnglish: "to eat",
+          meaningKorean: "먹다",
+        },
+        {
+          id: "choice-2",
+          word: "見る",
+          meaningEnglish: "to see",
+          meaningKorean: "보다",
+        },
+      ],
+      answer_key: [
+        { item_id: "item-1", choice_id: "choice-1" },
+        { item_id: "item-2", choice_id: "choice-2" },
+      ],
+    });
+  });
 });

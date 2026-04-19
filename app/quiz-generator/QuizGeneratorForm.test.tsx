@@ -228,32 +228,29 @@ describe("QuizGeneratorForm", () => {
         items: [
           {
             id: "item-1",
-            text: "食べる",
+            word: "食べる",
             meaningKorean: "먹다",
             meaningEnglish: "to eat",
           },
           {
             id: "item-2",
-            text: {
-              meaningKorean: "보다",
-              meaningEnglish: "to see",
-            },
+            word: "見る",
+            meaningKorean: "보다",
+            meaningEnglish: "to see",
           },
         ],
         choices: [
           {
             id: "choice-1",
-            text: {
-              meaningKorean: "먹다",
-              meaningEnglish: "to eat",
-            },
+            word: "食べる",
+            meaningKorean: "먹다",
+            meaningEnglish: "to eat",
           },
           {
             id: "choice-2",
-            text: {
-              meaningKorean: "보다",
-              meaningEnglish: "to see",
-            },
+            word: "見る",
+            meaningKorean: "보다",
+            meaningEnglish: "to see",
           },
         ],
         answer_key: [
@@ -279,6 +276,8 @@ describe("QuizGeneratorForm", () => {
     });
 
     await waitFor(() => {
+      expect(document.body.textContent).toContain("食べる");
+      expect(document.body.textContent).toContain("見る");
       expect(document.body.textContent).toContain("Korean:먹다");
       expect(document.body.textContent).toContain("English:to eat");
       expect(document.body.textContent).toContain("Korean:보다");
@@ -301,9 +300,47 @@ describe("QuizGeneratorForm", () => {
     const saveRequest = fetchMock.mock.calls[2]?.[1];
     const saveBody = JSON.parse(String(saveRequest?.body)) as {
       meaning_language?: string;
-      quiz_data?: unknown;
+      quiz_data?: {
+        items?: Array<{
+          word?: string;
+          text?: unknown;
+          meaningEnglish?: string;
+          meaningKorean?: string;
+        }>;
+        choices?: Array<{
+          word?: string;
+          text?: unknown;
+          meaningEnglish?: string;
+          meaningKorean?: string;
+        }>;
+      };
     };
     expect("meaning_language" in saveBody).toBe(false);
-    expect(saveBody.quiz_data).toBeTruthy();
+    expect(saveBody.quiz_data?.items).toMatchObject([
+      {
+        word: "食べる",
+        meaningEnglish: "to eat",
+        meaningKorean: "먹다",
+      },
+      {
+        word: "見る",
+        meaningEnglish: "to see",
+        meaningKorean: "보다",
+      },
+    ]);
+    expect(saveBody.quiz_data?.choices).toMatchObject([
+      {
+        word: "食べる",
+        meaningEnglish: "to eat",
+        meaningKorean: "먹다",
+      },
+      {
+        word: "見る",
+        meaningEnglish: "to see",
+        meaningKorean: "보다",
+      },
+    ]);
+    expect(saveBody.quiz_data?.items?.some((item) => "text" in item)).toBe(false);
+    expect(saveBody.quiz_data?.choices?.some((choice) => "text" in choice)).toBe(false);
   });
 });

@@ -21,19 +21,27 @@ type MatchingChoiceText = string | {
   meaningKorean: string;
 };
 
+type MatchingRawItem = {
+  id?: string;
+  word?: string;
+  text?: MatchingChoiceText;
+  meaningEnglish?: string;
+  meaningKorean?: string;
+};
+
+type MatchingRawChoice = {
+  id?: string;
+  word?: string;
+  text?: MatchingChoiceText;
+  meaningEnglish?: string;
+  meaningKorean?: string;
+};
+
 type MatchingQuizResponse = {
   quiz_type?: string;
   language?: string;
-  items?: Array<{
-    id?: string;
-    text?: string;
-    meaningEnglish?: string;
-    meaningKorean?: string;
-  }>;
-  choices?: Array<{
-    id?: string;
-    text?: MatchingChoiceText;
-  }>;
+  items?: MatchingRawItem[];
+  choices?: MatchingRawChoice[];
   answer_key?: Array<{
     item_id?: string;
     choice_id?: string;
@@ -44,31 +52,66 @@ function hasText(value: unknown): value is string {
   return typeof value === "string" && value.trim().length > 0;
 }
 
-function buildJapaneseMeaningPairText(
-  item: NonNullable<MatchingQuizResponse["items"]>[number] | undefined,
-  fallback: MatchingChoiceText | undefined,
-): MatchingChoiceText | undefined {
-  const fallbackText = typeof fallback === "string" ? fallback : "";
+function getTextMeaning(text: MatchingChoiceText | undefined): {
+  meaningEnglish?: string;
+  meaningKorean?: string;
+  fallback?: string;
+} {
+  if (typeof text === "string") return { fallback: text.trim() };
 
   return {
-    meaningEnglish: hasText(item?.meaningEnglish)
-      ? item.meaningEnglish.trim()
-      : fallbackText,
-    meaningKorean: hasText(item?.meaningKorean)
-      ? item.meaningKorean.trim()
-      : fallbackText,
+    meaningEnglish: hasText(text?.meaningEnglish)
+      ? text.meaningEnglish.trim()
+      : undefined,
+    meaningKorean: hasText(text?.meaningKorean)
+      ? text.meaningKorean.trim()
+      : undefined,
   };
 }
 
-function normalizeMatchingChoiceText(
+function getRawWord(entry: MatchingRawItem | MatchingRawChoice | undefined): string {
+  if (hasText(entry?.word)) return entry.word.trim();
+  if (typeof entry?.text === "string" && hasText(entry.text)) {
+    return entry.text.trim();
+  }
+
+  return "";
+}
+
+function getChoiceWord(
+  choice: MatchingRawChoice,
+  item: MatchingRawItem | undefined,
+): string {
+  if (hasText(choice.word)) return choice.word.trim();
+  return getRawWord(item);
+}
+
+function getRawMeanings(entry: MatchingRawItem | MatchingRawChoice | undefined): {
+  meaningEnglish?: string;
+  meaningKorean?: string;
+  fallback?: string;
+} {
+  const textMeaning = getTextMeaning(entry?.text);
+
+  return {
+    meaningEnglish: hasText(entry?.meaningEnglish)
+      ? entry.meaningEnglish.trim()
+      : textMeaning.meaningEnglish,
+    meaningKorean: hasText(entry?.meaningKorean)
+      ? entry.meaningKorean.trim()
+      : textMeaning.meaningKorean,
+    fallback: textMeaning.fallback,
+  };
+}
+
+function normalizeMatchingQuiz(
   data: unknown,
   requestBody: QuizGenerateBody,
 ): unknown {
   if (
     !data ||
     typeof data !== "object" ||
-    requestBody.quiz_type !== "matching" ||
-    requestBody.language !== "japanese"
+    requestBody.quiz_type !== "matching"
   ) {
     return data;
   }
@@ -89,12 +132,28 @@ function normalizeMatchingChoiceText(
 
   return {
     ...quiz,
+    items: quiz.items.map((item) => {
+      const meanings = getRawMeanings(item);
+      const fallback = meanings.fallback;
+
+      return {
+        id: item.id,
+        word: getRawWord(item),
+        meaningEnglish: meanings.meaningEnglish ?? fallback,
+        meaningKorean: meanings.meaningKorean ?? fallback,
+      };
+    }),
     choices: quiz.choices.map((choice) => {
       const item = itemsById.get(itemIdByChoiceId.get(choice.id));
+      const meanings = getRawMeanings(choice);
+      const itemMeanings = getRawMeanings(item);
+      const fallback = meanings.fallback ?? itemMeanings.fallback;
 
       return {
         id: choice.id,
-        text: buildJapaneseMeaningPairText(item, choice.text),
+        word: getChoiceWord(choice, item),
+        meaningEnglish: meanings.meaningEnglish ?? itemMeanings.meaningEnglish ?? fallback,
+        meaningKorean: meanings.meaningKorean ?? itemMeanings.meaningKorean ?? fallback,
       };
     }),
   };
@@ -151,7 +210,7 @@ export async function POST(req: NextRequest) {
   });
 
   const data = (await upstream.json()) as unknown;
-  const normalizedData = normalizeMatchingChoiceText(data, upstreamBody);
+  const normalizedData = normalizeMatchingQuiz(data, upstreamBody);
 
   return NextResponse.json({
     ...(normalizedData && typeof normalizedData === "object" ? normalizedData : { data: normalizedData }),

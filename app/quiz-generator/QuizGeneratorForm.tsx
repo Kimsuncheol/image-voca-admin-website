@@ -37,20 +37,19 @@ type Course =
 type JlptLevel = "N1" | "N2" | "N3" | "N4" | "N5";
 
 
-type MatchingChoiceText =
-  | string
-  | {
-      meaningEnglish?: string;
-      meaningKorean?: string;
-    };
-type MatchingItem = { id: string; text: MatchingChoiceText; meaningKorean?: string; meaningEnglish?: string };
-type MatchingChoice = { id: string; text: MatchingChoiceText };
-type MatchingAnswerKey = { item_id: string; choice_id: string };
-type MatchingMeaningDisplay = {
-  meaningKorean?: string;
+type MatchingItem = {
+  id: string;
+  word: string;
   meaningEnglish?: string;
-  fallback?: string;
+  meaningKorean?: string;
 };
+type MatchingChoice = {
+  id: string;
+  word: string;
+  meaningEnglish?: string;
+  meaningKorean?: string;
+};
+type MatchingAnswerKey = { item_id: string; choice_id: string };
 
 type MatchingQuizResponse = {
   quiz_type: "matching";
@@ -103,35 +102,6 @@ const COURSES: Course[] = [
 ];
 
 const JLPT_LEVELS: JlptLevel[] = ["N1", "N2", "N3", "N4", "N5"];
-
-function cleanText(value: unknown) {
-  return typeof value === "string" && value.trim().length > 0
-    ? value.trim()
-    : undefined;
-}
-
-function getTextMeaningDisplay(text: MatchingChoiceText): MatchingMeaningDisplay {
-  if (typeof text === "string") return { fallback: cleanText(text) };
-
-  return {
-    meaningKorean: cleanText(text.meaningKorean),
-    meaningEnglish: cleanText(text.meaningEnglish),
-  };
-}
-
-function getItemMeaningDisplay(item: MatchingItem): MatchingMeaningDisplay {
-  const textDisplay = getTextMeaningDisplay(item.text);
-
-  return {
-    meaningKorean: cleanText(item.meaningKorean) ?? textDisplay.meaningKorean,
-    meaningEnglish: cleanText(item.meaningEnglish) ?? textDisplay.meaningEnglish,
-    fallback: textDisplay.fallback,
-  };
-}
-
-function getChoiceMeaningDisplay(choice: MatchingChoice): MatchingMeaningDisplay {
-  return getTextMeaningDisplay(choice.text);
-}
 
 function renderSentenceWithBlank(sentence: string) {
   const parts = sentence.split(/(_+)/);
@@ -470,42 +440,38 @@ export default function QuizGeneratorForm({
   }
 
   function renderMatchingResult(data: MatchingQuizResponse) {
-    function renderMatchingMeaning(display: MatchingMeaningDisplay) {
+    function renderMatchingEntry(entry: MatchingItem | MatchingChoice) {
       const meanings = [
-        { label: meaningKoreanLabel, text: display.meaningKorean },
-        { label: meaningEnglishLabel, text: display.meaningEnglish },
+        { label: meaningKoreanLabel, text: entry.meaningKorean },
+        { label: meaningEnglishLabel, text: entry.meaningEnglish },
       ].filter((meaning): meaning is { label: string; text: string } =>
         Boolean(meaning.text),
       );
 
-      if (meanings.length > 0) {
-        return (
-          <Stack spacing={0.25}>
-            {meanings.map((meaning) => (
-              <Typography key={meaning.label} variant="body2">
-                <Box
-                  component="span"
-                  sx={{ color: "text.secondary", fontWeight: 600, mr: 0.75 }}
-                >
-                  {meaning.label}:
-                </Box>
-                {meaning.text}
-              </Typography>
-            ))}
-          </Stack>
-        );
-      }
-
-      return <Typography variant="body2">{display.fallback ?? ""}</Typography>;
+      return (
+        <Stack spacing={0.25}>
+          <Typography variant="body2" fontWeight={600}>
+            {entry.word}
+          </Typography>
+          {meanings.map((meaning) => (
+            <Typography key={meaning.label} variant="body2">
+              <Box
+                component="span"
+                sx={{ color: "text.secondary", fontWeight: 600, mr: 0.75 }}
+              >
+                {meaning.label}:
+              </Box>
+              {meaning.text}
+            </Typography>
+          ))}
+        </Stack>
+      );
     }
 
-    const itemMap = new Map(data.items.map((item) => [item.id, getItemMeaningDisplay(item)]));
+    const itemMap = new Map(data.items.map((item) => [item.id, item]));
 
     const choiceMap = new Map(
-      data.choices.map((choice) => [
-        choice.id,
-        getChoiceMeaningDisplay(choice),
-      ]),
+      data.choices.map((choice) => [choice.id, choice]),
     );
 
     return (
@@ -530,7 +496,7 @@ export default function QuizGeneratorForm({
                       >
                         {i + 1}.
                       </Typography>
-                      {renderMatchingMeaning(getItemMeaningDisplay(item))}
+                      {renderMatchingEntry(item)}
                     </Box>
                   ))}
                 </Stack>
@@ -552,7 +518,7 @@ export default function QuizGeneratorForm({
                         >
                           {String.fromCharCode(65 + i)}.
                         </Typography>
-                        {renderMatchingMeaning(getChoiceMeaningDisplay(choice))}
+                        {renderMatchingEntry(choice)}
                       </Box>
                   ))}
                 </Stack>
@@ -578,13 +544,19 @@ export default function QuizGeneratorForm({
                   {data.answer_key.map((entry) => (
                     <TableRow key={entry.item_id}>
                       <TableCell>
-                        {renderMatchingMeaning(
-                          itemMap.get(entry.item_id) ?? { fallback: entry.item_id },
+                        {renderMatchingEntry(
+                          itemMap.get(entry.item_id) ?? {
+                            id: entry.item_id,
+                            word: entry.item_id,
+                          },
                         )}
                       </TableCell>
                       <TableCell>
-                        {renderMatchingMeaning(
-                          choiceMap.get(entry.choice_id) ?? { fallback: entry.choice_id },
+                        {renderMatchingEntry(
+                          choiceMap.get(entry.choice_id) ?? {
+                            id: entry.choice_id,
+                            word: entry.choice_id,
+                          },
                         )}
                       </TableCell>
                     </TableRow>
