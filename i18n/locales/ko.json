@@ -517,6 +517,21 @@
     "subtabRight": "오른쪽",
     "removeEqualSignStripLeadingSpecialsOption": "앞쪽 특수 문자 제거"
   },
+  "quiz": {
+    "title": "퀴즈",
+    "description": "어휘 코스에서 퀴즈를 생성하고 검토합니다.",
+    "generatorTab": "생성기",
+    "reviewTab": "검토"
+  },
+  "quizReview": {
+    "loadButton": "불러오기",
+    "loading": "불러오는 중…",
+    "networkError": "네트워크 오류가 발생했습니다. 다시 시도해주세요.",
+    "noQuizzes": "이 코스에서 Day를 찾을 수 없습니다.",
+    "deleteQuiz": "퀴즈 삭제",
+    "deleteSuccess": "퀴즈가 삭제되었습니다.",
+    "deleteError": "퀴즈 삭제에 실패했습니다. 다시 시도해주세요."
+  },
   "quizGenerator": {
     "title": "퀴즈 생성기",
     "description": "어휘 코스에서 연결형 또는 빈칸 채우기 퀴즈를 생성합니다.",

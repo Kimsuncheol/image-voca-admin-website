@@ -65,9 +65,9 @@ export function useNavItems(): NavItem[] {
       href: "/text-tools",
     },
     {
-      title: t("dashboard.quizGenerator", "Quiz Generator"),
+      title: t("dashboard.quiz", "Quiz"),
       icon: <QuizIcon />,
-      href: "/quiz-generator",
+      href: "/quiz",
     },
     {
       title: t("dashboard.wordFinder", "Word Finder"),

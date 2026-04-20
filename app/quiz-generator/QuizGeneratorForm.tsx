@@ -765,7 +765,7 @@ export default function QuizGeneratorForm({
                 if (isNaN(val) || val < 1) {
                   setDay(1);
                 } else {
-                  setDay(val < 10 ? `0${val}` : val);
+                  setDay(val);
                 }
               }}
               onFocus={(e) => e.target.select()}

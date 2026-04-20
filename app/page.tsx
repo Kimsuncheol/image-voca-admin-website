@@ -75,10 +75,10 @@ export default function Home() {
       href: "/text-tools",
     },
     {
-      title: t("quizGenerator.title"),
-      description: t("quizGenerator.description"),
+      title: t("quiz.title"),
+      description: t("quiz.description"),
       icon: <QuizIcon />,
-      href: "/quiz-generator",
+      href: "/quiz",
     },
     {
       title: t("manga.title"),

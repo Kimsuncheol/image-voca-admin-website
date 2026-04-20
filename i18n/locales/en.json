@@ -517,6 +517,21 @@
     "subtabRight": "Right",
     "removeEqualSignStripLeadingSpecialsOption": "Strip leading special characters"
   },
+  "quiz": {
+    "title": "Quiz",
+    "description": "Generate and review quizzes from vocabulary courses.",
+    "generatorTab": "Generator",
+    "reviewTab": "Review"
+  },
+  "quizReview": {
+    "loadButton": "Load",
+    "loading": "Loading…",
+    "networkError": "Network error. Please try again.",
+    "noQuizzes": "No days found for this course.",
+    "deleteQuiz": "Delete Quiz",
+    "deleteSuccess": "Quiz deleted.",
+    "deleteError": "Failed to delete quiz. Please try again."
+  },
   "quizGenerator": {
     "title": "Quiz Generator",
     "description": "Generate matching or fill-in-the-blank quizzes from vocabulary courses.",
