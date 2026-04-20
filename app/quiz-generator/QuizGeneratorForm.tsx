@@ -71,6 +71,9 @@ type FillBlankQuestion = {
   sentence: string;
   translation_english?: string;
   translation_korean?: string;
+  translation?: string;
+  translationEnglish?: string;
+  translationKorean?: string;
   options: FillBlankOption[];
   answer_id: string;
   answer_text: string;
@@ -589,6 +592,22 @@ export default function QuizGeneratorForm({
       <Stack spacing={2}>
         {data.questions.map((question, i) => {
           const shown = shownAnswers.has(question.id);
+          
+          let translations: { label?: string; text: string }[] = [];
+          if (data.language === "english") {
+            const text = question.translation ?? question.translation_korean ?? question.translation_english;
+            if (text) {
+              translations.push({ text });
+            }
+          } else {
+            translations = [
+              { label: meaningKoreanLabel, text: question.translationKorean ?? question.translation_korean },
+              { label: meaningEnglishLabel, text: question.translationEnglish ?? question.translation_english },
+            ].filter((t): t is { label: string; text: string } =>
+              Boolean(t.text)
+            );
+          }
+
           return (
             <Card key={question.id} variant="outlined">
               <CardContent>
@@ -598,14 +617,25 @@ export default function QuizGeneratorForm({
                       {questionLabel} {i + 1}
                     </Typography>
                     <Box sx={{ mt: 0.5 }}>{renderSentenceWithBlank(question.sentence)}</Box>
-                    {(question.translation_korean ?? question.translation_english) && (
-                      <Typography
-                        variant="body2"
-                        color="text.secondary"
-                        sx={{ mt: 0.5, fontStyle: "italic" }}
-                      >
-                        {question.translation_korean ?? question.translation_english}
-                      </Typography>
+                    
+                    {translations.length > 0 && (
+                      <Stack spacing={0.25} sx={{ mt: 1 }}>
+                        {translations.map((t, idx) => (
+                          <Typography
+                            key={t.label ?? idx}
+                            variant="body2"
+                            color="text.secondary"
+                            sx={{ fontStyle: "italic" }}
+                          >
+                            {t.label && (
+                              <Box component="span" sx={{ fontWeight: 600, mr: 0.75, fontStyle: "normal" }}>
+                                {t.label}:
+                              </Box>
+                            )}
+                            {t.text}
+                          </Typography>
+                        ))}
+                      </Stack>
                     )}
                   </Box>
 
