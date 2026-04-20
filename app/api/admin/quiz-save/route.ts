@@ -12,6 +12,28 @@ interface QuizSaveBody {
   quiz_data: Record<string, unknown>;
 }
 
+type RawChoice = Record<string, unknown>;
+
+function normalizeQuizData(
+  quiz_type: string,
+  course: string,
+  quiz_data: Record<string, unknown>,
+): Record<string, unknown> {
+  const isJlpt = course === "JLPT";
+  if (isJlpt || quiz_type !== "matching") return quiz_data;
+
+  const choices = (quiz_data.choices as RawChoice[] | undefined) ?? [];
+  const normalizedChoices = choices.map((c) => {
+    const { meaningEnglish, meaningKorean, ...rest } = c;
+    return {
+      ...rest,
+      meaning: (meaningKorean as string) || (meaningEnglish as string) || "",
+    };
+  });
+
+  return { ...quiz_data, choices: normalizedChoices };
+}
+
 export async function POST(req: NextRequest) {
   const caller = await verifySessionUser(req);
   if (!caller) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -31,8 +53,10 @@ export async function POST(req: NextRequest) {
   const subcollName = quiz_type === "matching" ? "matching" : "fill_in_the_blank";
   const collectionPath = `${courseConfig.path}/Day${day}/Day${day}-quiz/${subcollName}`;
 
+  const normalized = normalizeQuizData(quiz_type, course, quiz_data);
+
   const docRef = adminDb.collection(collectionPath).doc("data");
-  await docRef.set(quiz_data);
+  await docRef.set(normalized);
 
   return NextResponse.json({ id: docRef.id });
 }

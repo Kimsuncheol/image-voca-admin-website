@@ -39,7 +39,9 @@ type JlptLevel = "N1" | "N2" | "N3" | "N4" | "N5";
 
 type MatchingItem = {
   id: string;
-  word: string;
+  word?: string;
+  text?: string;
+  meaning?: string;
   meaningEnglish?: string;
   meaningKorean?: string;
 };
@@ -441,26 +443,38 @@ export default function QuizGeneratorForm({
 
   function renderMatchingResult(data: MatchingQuizResponse) {
     function renderMatchingEntry(entry: MatchingItem | MatchingChoice) {
-      const meanings = [
-        { label: meaningKoreanLabel, text: entry.meaningKorean },
-        { label: meaningEnglishLabel, text: entry.meaningEnglish },
-      ].filter((meaning): meaning is { label: string; text: string } =>
-        Boolean(meaning.text),
-      );
+      const word = entry.word ?? (entry as MatchingItem).text;
+      
+      let meanings: { label?: string; text: string }[] = [];
+      if (data.language === "english") {
+        const text = (entry as MatchingItem).meaning ?? entry.meaningKorean ?? entry.meaningEnglish;
+        if (text) {
+          meanings.push({ text });
+        }
+      } else {
+        meanings = [
+          { label: meaningKoreanLabel, text: entry.meaningKorean ?? (entry as MatchingItem).meaning },
+          { label: meaningEnglishLabel, text: entry.meaningEnglish },
+        ].filter((meaning): meaning is { label: string; text: string } =>
+          Boolean(meaning.text),
+        );
+      }
 
       return (
         <Stack spacing={0.25}>
           <Typography variant="body2" fontWeight={600}>
-            {entry.word}
+            {word}
           </Typography>
-          {meanings.map((meaning) => (
-            <Typography key={meaning.label} variant="body2">
-              <Box
-                component="span"
-                sx={{ color: "text.secondary", fontWeight: 600, mr: 0.75 }}
-              >
-                {meaning.label}:
-              </Box>
+          {meanings.map((meaning, index) => (
+            <Typography key={meaning.label ?? index} variant="body2">
+              {meaning.label && (
+                <Box
+                  component="span"
+                  sx={{ color: "text.secondary", fontWeight: 600, mr: 0.75 }}
+                >
+                  {meaning.label}:
+                </Box>
+              )}
               {meaning.text}
             </Typography>
           ))}

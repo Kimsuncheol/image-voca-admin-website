@@ -40,13 +40,26 @@ type Course =
   | "COLLOCATION"
   | "JLPT";
 
-type ChoiceText = string | { meaningEnglish?: string; meaningKorean?: string };
+interface MatchingItem {
+  id: string;
+  word?: string;
+  text?: string;
+  meaning?: string;
+}
+
+interface MatchingChoice {
+  id: string;
+  word?: string;
+  meaning?: string;         // English courses
+  meaningEnglish?: string;  // JLPT
+  meaningKorean?: string;   // JLPT
+}
 
 interface MatchingQuizData {
   quiz_type: "matching";
   meaning_language?: MeaningLanguage;
-  items: { id: string; text: ChoiceText }[];
-  choices: { id: string; text: ChoiceText }[];
+  items: MatchingItem[];
+  choices: MatchingChoice[];
   answer_key: { item_id: string; choice_id: string }[];
 }
 
@@ -89,22 +102,25 @@ interface ContextMenuState {
   day: number;
 }
 
-function resolveText(text: ChoiceText | undefined | null, lang: MeaningLanguage): string {
-  if (!text) return "";
-  if (typeof text === "string") return text;
+function resolveChoice(choice: MatchingChoice, lang: MeaningLanguage): string {
   return (
-    (lang === "english" ? text.meaningEnglish : text.meaningKorean) ||
-    text.meaningEnglish ||
-    text.meaningKorean ||
+    (lang === "english" ? choice.meaningEnglish : choice.meaningKorean) ||
+    choice.meaningEnglish ||
+    choice.meaningKorean ||
+    choice.word ||
     ""
   );
+}
+
+function resolveItem(item: MatchingItem): string {
+  return item.word ?? item.text ?? item.id;
 }
 
 function MatchingTable({ data }: { data: MatchingQuizData }) {
   const { t } = useTranslation();
   const lang = data.meaning_language ?? "korean";
   const choiceMap = new Map(
-    data.choices.map((c) => [c.id, resolveText(c.text, lang)]),
+    data.choices.map((c) => [c.id, resolveChoice(c, lang)]),
   );
 
   return (
@@ -123,7 +139,18 @@ function MatchingTable({ data }: { data: MatchingQuizData }) {
             return (
               <TableRow key={entry.item_id} hover>
                 <TableCell>{i + 1}</TableCell>
-                <TableCell>{item ? resolveText(item.text, lang) : entry.item_id}</TableCell>
+                <TableCell>
+                  {item ? (
+                    <Box>
+                      <Typography variant="body2">{resolveItem(item)}</Typography>
+                      {item.meaning && (
+                        <Typography variant="caption" color="text.secondary" display="block">
+                          {item.meaning}
+                        </Typography>
+                      )}
+                    </Box>
+                  ) : entry.item_id}
+                </TableCell>
                 <TableCell>{choiceMap.get(entry.choice_id) ?? entry.choice_id}</TableCell>
               </TableRow>
             );
