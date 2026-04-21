@@ -14,11 +14,12 @@ export type CourseId =
   | "JLPT_PREFIX"
   | "JLPT_POSTFIX"
   | "JLPT_COUNTER"
+  | "KANJI"
   | "COLLOCATIONS"
   | "IDIOMS"
   | "FAMOUS_QUOTE";
 
-export type CourseSchema = "standard" | "extremelyAdvanced" | "jlpt" | "collocation" | "idiom" | "famousQuote" | "prefix" | "postfix";
+export type CourseSchema = "standard" | "extremelyAdvanced" | "jlpt" | "kanji" | "collocation" | "idiom" | "famousQuote" | "prefix" | "postfix";
 export type CourseStorageMode = "day" | "flat" | "singleList" | "collection";
 export type SingleListSubcollectionName = "prefix" | "postfix";
 export type JlptCounterOptionId =
@@ -277,6 +278,13 @@ export const COURSES: Course[] = [
     storageMode: "day",
   },
   {
+    id: "KANJI",
+    label: "Kanji",
+    path: normalizeCoursePath(process.env.NEXT_PUBLIC_COURSE_PATH_KANJI),
+    schema: "kanji",
+    storageMode: "day",
+  },
+  {
     id: "COLLOCATIONS",
     label: "Collocations",
     path: normalizeCoursePath(process.env.NEXT_PUBLIC_COURSE_PATH_COLLOCATION),
@@ -351,6 +359,10 @@ export function getSingleListSubcollectionByCoursePath(
 
 export function isJlptCourse(id: string): boolean {
   return getCourseById(id)?.schema === "jlpt";
+}
+
+export function isKanjiCourse(id: string): boolean {
+  return getCourseById(id)?.schema === "kanji";
 }
 
 export function isPrefixCourse(id: string): boolean {

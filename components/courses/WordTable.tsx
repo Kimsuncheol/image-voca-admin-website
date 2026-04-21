@@ -14,6 +14,7 @@ import Alert from "@mui/material/Alert";
 import Snackbar from "@mui/material/Snackbar";
 import Typography from "@mui/material/Typography";
 import Tooltip from "@mui/material/Tooltip";
+import Stack from "@mui/material/Stack";
 import type { Theme } from "@mui/material/styles";
 import AddPhotoAlternateIcon from "@mui/icons-material/AddPhotoAlternate";
 import AutoFixHighIcon from "@mui/icons-material/AutoFixHigh";
@@ -54,9 +55,13 @@ import {
 import { supportsDerivativeCourse } from "@/constants/supportedDerivativeCourses";
 import { getCourseById, type CourseId } from "@/types/course";
 import type { CourseDayMissingField } from "@/types/courseDayMissingField";
-import type { CollocationWord, ExtremelyAdvancedWord, JlptWord, PostfixWord, PrefixWord, StandardWord, Word } from "@/types/word";
+import type { CollocationWord, ExtremelyAdvancedWord, JlptWord, KanjiWord, PostfixWord, PrefixWord, StandardWord, Word } from "@/types/word";
 import DerivativeEditDialog from "@/components/courses/DerivativeEditDialog";
-import { isCollocationWord, isFamousQuoteWord, isIdiomWord, isJlptWord, isPostfixWord, isPrefixWord } from "@/types/word";
+import { isCollocationWord, isFamousQuoteWord, isIdiomWord, isJlptWord, isKanjiWord, isPostfixWord, isPrefixWord } from "@/types/word";
+import {
+  isKanjiNestedListGroup,
+  type KanjiNestedListGroup,
+} from "@/lib/kanjiNestedList";
 import {
   adaptCourseWordToWordFinderResult,
   applyCourseWordResolvedUpdates,
@@ -430,6 +435,107 @@ function ExampleCell({
   );
 }
 
+type KanjiNestedListLike = Array<KanjiNestedListGroup | string[] | string>;
+
+function getKanjiGroupItems(group: KanjiNestedListGroup | string[] | string | undefined): string[] {
+  if (Array.isArray(group)) return group.map((item) => String(item ?? "")).filter(Boolean);
+  if (isKanjiNestedListGroup(group)) {
+    return group.items.map((item) => String(item ?? "")).filter(Boolean);
+  }
+  return typeof group === "string" && group ? [group] : [];
+}
+
+function joinKanjiItems(items: string[] | undefined): string {
+  return Array.isArray(items) ? items.filter(Boolean).join(", ") : "";
+}
+
+function getKanjiNestedGroup(groups: KanjiNestedListLike | undefined, index: number): string {
+  if (!Array.isArray(groups)) return "";
+  return joinKanjiItems(getKanjiGroupItems(groups[index]));
+}
+
+function formatKanjiCopyText(items: string[] | KanjiNestedListLike | undefined): string {
+  if (!Array.isArray(items)) return "";
+  return items
+    .map((item, index) =>
+      `${index + 1}. ${Array.isArray(item) || isKanjiNestedListGroup(item) ? joinKanjiItems(getKanjiGroupItems(item)) : item}`,
+    )
+    .join("\n");
+}
+
+function KanjiGroupCell({
+  groups,
+}: {
+  groups: Array<{
+    title: string;
+    examples?: string;
+    hurigana?: string;
+    english?: string;
+    korean?: string;
+  }>;
+}) {
+  return (
+    <Stack spacing={1.25}>
+      {groups.map((group, index) => (
+        <Box key={`${group.title}-${index}`}>
+          <Typography variant="body2" fontWeight={700}>
+            {index + 1}. {group.title}
+          </Typography>
+          {group.examples && (
+            <Typography variant="caption" component="div" color="text.secondary">
+              Examples: {group.examples}
+            </Typography>
+          )}
+          {group.hurigana && (
+            <Typography variant="caption" component="div" color="text.secondary">
+              Hurigana: {group.hurigana}
+            </Typography>
+          )}
+          {group.english && (
+            <Typography variant="caption" component="div" color="text.secondary">
+              EN: {group.english}
+            </Typography>
+          )}
+          {group.korean && (
+            <Typography variant="caption" component="div" color="text.secondary">
+              KO: {group.korean}
+            </Typography>
+          )}
+        </Box>
+      ))}
+    </Stack>
+  );
+}
+
+function KanjiExamplesCell({ word }: { word: KanjiWord }) {
+  return (
+    <Stack spacing={1.25}>
+      {word.example.map((example, index) => (
+        <Box key={`${example}-${index}`}>
+          <Typography variant="body2" fontWeight={600}>
+            {index + 1}. {example}
+          </Typography>
+          {word.exampleHurigana[index] && (
+            <Typography variant="caption" component="div" color="text.secondary">
+              Hurigana: {word.exampleHurigana[index]}
+            </Typography>
+          )}
+          {word.exampleEnglishTranslation[index] && (
+            <Typography variant="caption" component="div" color="text.secondary">
+              EN: {word.exampleEnglishTranslation[index]}
+            </Typography>
+          )}
+          {word.exampleKoreanTranslation[index] && (
+            <Typography variant="caption" component="div" color="text.secondary">
+              KO: {word.exampleKoreanTranslation[index]}
+            </Typography>
+          )}
+        </Box>
+      ))}
+    </Stack>
+  );
+}
+
 type GeneratableField = "pronunciation" | "example" | "translation";
 type WordTableLocalUpdates = Partial<
   Pick<
@@ -483,6 +589,7 @@ interface WordTableProps {
   isIdiom?: boolean;
   isExtremelyAdvanced?: boolean;
   isJlpt?: boolean;
+  isKanji?: boolean;
   activeMissingField?: CourseDayMissingField;
   isFamousQuote?: boolean;
   isPrefix?: boolean;
@@ -509,6 +616,7 @@ export default function WordTable({
   isIdiom,
   isExtremelyAdvanced,
   isJlpt,
+  isKanji,
   activeMissingField,
   isFamousQuote,
   isPrefix,
@@ -560,6 +668,7 @@ export default function WordTable({
       !isIdiom &&
       !isExtremelyAdvanced &&
       !isJlpt &&
+      !isKanji &&
       !isFamousQuote &&
       !isPrefix &&
       !isPostfix &&
@@ -571,6 +680,7 @@ export default function WordTable({
       !isIdiom &&
       !isExtremelyAdvanced &&
       !isJlpt &&
+      !isKanji &&
       !isFamousQuote &&
       !isPrefix &&
       !isPostfix,
@@ -1033,6 +1143,31 @@ export default function WordTable({
   const cellGrid = useMemo(() => {
     return words.map((word) => {
       const m = { ...word, ...localWordUpdates[word.id] } as Word;
+      if (isKanji && isKanjiWord(m)) {
+        return [
+          m.kanji,
+          [
+            formatKanjiCopyText(m.meaning),
+            formatKanjiCopyText(m.meaningExample),
+            formatKanjiCopyText(m.meaningExampleHurigana),
+            formatKanjiCopyText(m.meaningEnglishTranslation),
+            formatKanjiCopyText(m.meaningKoreanTranslation),
+          ].filter(Boolean).join("\n"),
+          [
+            formatKanjiCopyText(m.reading),
+            formatKanjiCopyText(m.readingExample),
+            formatKanjiCopyText(m.readingExampleHurigana),
+            formatKanjiCopyText(m.readingEnglishTranslation),
+            formatKanjiCopyText(m.readingKoreanTranslation),
+          ].filter(Boolean).join("\n"),
+          [
+            formatKanjiCopyText(m.example),
+            formatKanjiCopyText(m.exampleHurigana),
+            formatKanjiCopyText(m.exampleEnglishTranslation),
+            formatKanjiCopyText(m.exampleKoreanTranslation),
+          ].filter(Boolean).join("\n"),
+        ];
+      }
       if (isJlpt && isJlptWord(m)) {
         if (isJlptExampleHuriganaMode) {
           return [
@@ -1125,7 +1260,7 @@ export default function WordTable({
             derivativeCell,
           ];
     });
-  }, [words, localWordUpdates, isJlpt, isJlptExampleHuriganaMode, isCollocation, isIdiom, isExtremelyAdvanced, isFamousQuote, isPrefix, isPostfix, hasSynonymColumn, showImageUrl]);
+  }, [words, localWordUpdates, isKanji, isJlpt, isJlptExampleHuriganaMode, isCollocation, isIdiom, isExtremelyAdvanced, isFamousQuote, isPrefix, isPostfix, hasSynonymColumn, showImageUrl]);
 
   const contextMenuWord = useMemo(() => {
     if (!contextMenu) return null;
@@ -1595,6 +1730,13 @@ export default function WordTable({
                   <TableCell>{t("courses.translation")}</TableCell>
                   {showImageUrl && <TableCell>{t("courses.image", "Image")}</TableCell>}
                 </>
+              ) : isKanji ? (
+                <>
+                  <TableCell>Kanji</TableCell>
+                  <TableCell>Meaning</TableCell>
+                  <TableCell>Reading</TableCell>
+                  <TableCell>Examples</TableCell>
+                </>
               ) : isJlpt ? (
                 <>
                   <TableCell>{t("courses.word")}</TableCell>
@@ -1922,6 +2064,39 @@ export default function WordTable({
                         </Box>
                       </TableCell>
                     )}
+                  </>
+                  ) : isKanjiWord(mergedWord) ? (
+                  <>
+                    <TableCell {...selectableCellProps(rowIdx, 0)}>
+                      <Typography variant="h6" component="span" sx={singleLineWordTextSx}>
+                        {mergedWord.kanji}
+                      </Typography>
+                    </TableCell>
+                    <TableCell {...selectableCellProps(rowIdx, 1)}>
+                      <KanjiGroupCell
+                        groups={mergedWord.meaning.map((meaning, index) => ({
+                          title: meaning,
+                          examples: getKanjiNestedGroup(mergedWord.meaningExample, index),
+                          hurigana: getKanjiNestedGroup(mergedWord.meaningExampleHurigana, index),
+                          english: getKanjiNestedGroup(mergedWord.meaningEnglishTranslation, index),
+                          korean: getKanjiNestedGroup(mergedWord.meaningKoreanTranslation, index),
+                        }))}
+                      />
+                    </TableCell>
+                    <TableCell {...selectableCellProps(rowIdx, 2)}>
+                      <KanjiGroupCell
+                        groups={mergedWord.reading.map((reading, index) => ({
+                          title: reading,
+                          examples: getKanjiNestedGroup(mergedWord.readingExample, index),
+                          hurigana: getKanjiNestedGroup(mergedWord.readingExampleHurigana, index),
+                          english: getKanjiNestedGroup(mergedWord.readingEnglishTranslation, index),
+                          korean: getKanjiNestedGroup(mergedWord.readingKoreanTranslation, index),
+                        }))}
+                      />
+                    </TableCell>
+                    <TableCell {...selectableCellProps(rowIdx, 3)}>
+                      <KanjiExamplesCell word={mergedWord} />
+                    </TableCell>
                   </>
                   ) : isJlptWord(mergedWord) ? (
                   <>
@@ -2608,7 +2783,7 @@ export default function WordTable({
       {derivativeDialogWordId && (() => {
         const w = words.find((ww) => ww.id === derivativeDialogWordId);
         const merged = w ? { ...w, ...localWordUpdates[w.id] } as Word : null;
-        const isStandard = merged && !isCollocationWord(merged) && !isIdiomWord(merged) && !isJlptWord(merged) && !isPrefixWord(merged) && !isPostfixWord(merged) && !isFamousQuoteWord(merged);
+        const isStandard = merged && !isCollocationWord(merged) && !isIdiomWord(merged) && !isJlptWord(merged) && !isKanjiWord(merged) && !isPrefixWord(merged) && !isPostfixWord(merged) && !isFamousQuoteWord(merged);
         const initial = isStandard ? (merged as StandardWord).derivative ?? [] : [];
         const canGenerate = Boolean(
           isStandard &&

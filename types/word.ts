@@ -2,6 +2,7 @@ import type {
   DerivativeBuckets,
   PersistedDerivativeInfo,
 } from "@/types/vocabulary";
+import type { KanjiNestedListGroup } from "@/lib/kanjiNestedList";
 
 export interface StandardWord {
   id: string;
@@ -94,7 +95,26 @@ export interface FamousQuoteWord {
   language?: 'English' | 'Japanese';
 }
 
-export type Word = StandardWord | ExtremelyAdvancedWord | JlptWord | CollocationWord | IdiomWord | FamousQuoteWord | PrefixWord | PostfixWord;
+export interface KanjiWord {
+  id: string;
+  kanji: string;
+  meaning: string[];
+  meaningExample: KanjiNestedListGroup[];
+  meaningExampleHurigana: KanjiNestedListGroup[];
+  meaningEnglishTranslation: KanjiNestedListGroup[];
+  meaningKoreanTranslation: KanjiNestedListGroup[];
+  reading: string[];
+  readingExample: KanjiNestedListGroup[];
+  readingExampleHurigana: KanjiNestedListGroup[];
+  readingEnglishTranslation: KanjiNestedListGroup[];
+  readingKoreanTranslation: KanjiNestedListGroup[];
+  example: string[];
+  exampleEnglishTranslation: string[];
+  exampleKoreanTranslation: string[];
+  exampleHurigana: string[];
+}
+
+export type Word = StandardWord | ExtremelyAdvancedWord | JlptWord | CollocationWord | IdiomWord | FamousQuoteWord | KanjiWord | PrefixWord | PostfixWord;
 
 export function isJlptWord(w: Word): w is JlptWord {
   return "word" in w && "meaningEnglish" in w;
@@ -118,4 +138,8 @@ export function isIdiomWord(w: Word): w is IdiomWord {
 
 export function isFamousQuoteWord(w: Word): w is FamousQuoteWord {
   return "quote" in w;
+}
+
+export function isKanjiWord(w: Word): w is KanjiWord {
+  return "kanji" in w;
 }

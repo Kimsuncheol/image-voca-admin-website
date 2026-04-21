@@ -1,6 +1,17 @@
 import { describe, expect, it } from "vitest";
+import * as XLSX from "xlsx";
 
-import { parseRowArrays } from "./csvParser";
+import { parseRowArrays, parseUploadFile } from "./csvParser";
+
+function containsFirestoreNestedArray(value: unknown): boolean {
+  if (Array.isArray(value)) {
+    return value.some(Array.isArray) || value.some(containsFirestoreNestedArray);
+  }
+
+  if (typeof value !== "object" || value === null) return false;
+
+  return Object.values(value).some(containsFirestoreNestedArray);
+}
 
 describe("csvParser language validation", () => {
   it("accepts the optional synonym header for TOEFL / IELTS standard uploads", () => {
@@ -383,6 +394,126 @@ describe("csvParser JLPT schema", () => {
       exampleHurigana: "ねこがいる。",
       exampleRoman: "",
       imageUrl: "https://example.com/jlpt.png",
+    });
+  });
+});
+
+const KANJI_HEADERS = [
+  "",
+  "kanji",
+  "meaning",
+  "meaningExample",
+  "meaningExampleHurigana",
+  "meaningEnglishTranslation",
+  "meaningKoreanTranslation",
+  "reading",
+  "readingExample",
+  "readingExampleHurigana",
+  "readingEnglishTranslation",
+  "readingKoreanTranslation",
+  "example",
+  "exampleEnglishTranslation",
+  "exampleKoreanTranslation",
+  "exampleHurigana",
+];
+
+const KANJI_SAMPLE_ROW = [
+  "",
+  "一",
+  "1. ひと\n2. ひと(つ)",
+  "1. (一言), (一息), (一筋)\n2. (一つ)",
+  "1. (ひとこと), (ひといき), (ひとす)\n2. (ひとつ)",
+  "1. (A single word, A brief remark), (A breath, a pause, a puff), (A line)\n2. (One (general counter for objects))",
+  "1. (한마디 말), (한숨 돌림), (한 줄기, 외곬)\n2. (한 개)",
+  "1. いち 2. いつ",
+  "1. (一月), (一年), (一日), (一度)\n2. (同一), (統一)、 (一回)、(一般)",
+  "1. (いちがつ), (いちねん), (いちにち), (いちど)\n2. (どういつ), (とういつ)、 (いちかい)、(いっぱん)",
+  "1. (January), (One year), (One day), (Once)\n2. (Identical), (Unity), (1 time, 1 round), (General, Ordinary)",
+  "1. (1월), (한 해, 1년), (하루), (한 번)\n2. (동일), (통일), (1회), (일반)",
+  "1. これはいつでいくらですか。\n2. 一月新しい一年の始まりだ。",
+  "1. How much is this one?\n2. January is the beginning of a new year.",
+  "1. 이것은 한 개에 얼마입니까?\n2. 1월은 새로운 한 해의 시작이다.",
+  "1. これはいつでいくらですか。\n2. いちがつあたらしいいちねんのはじまりだ。",
+];
+
+describe("csvParser Kanji schema", () => {
+  it("parses the sample workbook row into Firestore-safe Kanji groups", () => {
+    const result = parseRowArrays([KANJI_HEADERS, KANJI_SAMPLE_ROW], "kanji");
+
+    expect(result.blockingError).toBeUndefined();
+    expect(result.errors).toEqual([]);
+    expect(result.schemaType).toBe("kanji");
+    expect(result.words).toHaveLength(1);
+    expect(result.words[0]).toMatchObject({
+      kanji: "一",
+      meaning: ["ひと", "ひと(つ)"],
+      meaningExample: [{ items: ["一言", "一息", "一筋"] }, { items: ["一つ"] }],
+      meaningExampleHurigana: [{ items: ["ひとこと", "ひといき", "ひとす"] }, { items: ["ひとつ"] }],
+      meaningEnglishTranslation: [
+        { items: ["A single word, A brief remark", "A breath, a pause, a puff", "A line"] },
+        { items: ["One (general counter for objects)"] },
+      ],
+      meaningKoreanTranslation: [
+        { items: ["한마디 말", "한숨 돌림", "한 줄기, 외곬"] },
+        { items: ["한 개"] },
+      ],
+      reading: ["いち", "いつ"],
+      readingExample: [
+        { items: ["一月", "一年", "一日", "一度"] },
+        { items: ["同一", "統一", "一回", "一般"] },
+      ],
+      readingEnglishTranslation: [
+        { items: ["January", "One year", "One day", "Once"] },
+        { items: ["Identical", "Unity", "1 time, 1 round", "General, Ordinary"] },
+      ],
+      example: ["これはいつでいくらですか。", "一月新しい一年の始まりだ。"],
+      exampleEnglishTranslation: [
+        "How much is this one?",
+        "January is the beginning of a new year.",
+      ],
+    });
+    expect(containsFirestoreNestedArray(result.words[0])).toBe(false);
+  });
+
+  it("rejects mismatched headers when Kanji schema is forced", () => {
+    const result = parseRowArrays(
+      [
+        ["word", "meaning", "pronunciation", "example", "translation"],
+        ["一", "one", "いち", "一月", "January"],
+      ],
+      "kanji",
+    );
+
+    expect(result.blockingError).toBe("HEADER_MISMATCH");
+    expect(result.words).toEqual([]);
+  });
+
+  it("reports a row error when kanji is missing", () => {
+    const result = parseRowArrays(
+      [KANJI_HEADERS, ["", "", ...KANJI_SAMPLE_ROW.slice(2)]],
+      "kanji",
+    );
+
+    expect(result.words).toEqual([]);
+    expect(result.errors[0]).toMatch(/Row 1/);
+  });
+
+  it("parses Kanji rows from XLSX uploads", async () => {
+    const worksheet = XLSX.utils.aoa_to_sheet([KANJI_HEADERS, KANJI_SAMPLE_ROW]);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "KANJI_Day1");
+    const buffer = XLSX.write(workbook, { type: "array", bookType: "xlsx" });
+    const file = new File([buffer], "KANJI_Day1.xlsx", {
+      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    });
+
+    const result = await parseUploadFile(file, "kanji");
+
+    expect(result.blockingError).toBeUndefined();
+    expect(result.errors).toEqual([]);
+    expect(result.words[0]).toMatchObject({
+      kanji: "一",
+      reading: ["いち", "いつ"],
     });
   });
 });

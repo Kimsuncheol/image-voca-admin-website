@@ -153,6 +153,45 @@ function parseNamedWordPayload(raw: unknown): NamedWordPayload | null {
   };
 }
 
+function getFirestoreNestedArrayPath(
+  value: unknown,
+  path: string,
+): string | null {
+  if (Array.isArray(value)) {
+    for (let index = 0; index < value.length; index += 1) {
+      const item = value[index];
+      const itemPath = `${path}[${index}]`;
+      if (Array.isArray(item)) return itemPath;
+      const nestedPath = getFirestoreNestedArrayPath(item, itemPath);
+      if (nestedPath) return nestedPath;
+    }
+    return null;
+  }
+
+  if (typeof value !== "object" || value === null) return null;
+
+  for (const [key, childValue] of Object.entries(value)) {
+    const childPath = path ? `${path}.${key}` : key;
+    const nestedPath = getFirestoreNestedArrayPath(childValue, childPath);
+    if (nestedPath) return nestedPath;
+  }
+
+  return null;
+}
+
+function assertFirestorePayloadHasNoNestedArrays(
+  words: NamedWordPayload[],
+): void {
+  for (const word of words) {
+    const nestedPath = getFirestoreNestedArrayPath(word.data, word.id);
+    if (nestedPath) {
+      throw new Error(
+        `Nested arrays are not allowed in Firestore payload at ${nestedPath}. Use grouped objects such as { items: [...] } for nested list fields.`,
+      );
+    }
+  }
+}
+
 function hasNonEmptyImageUrl(value: unknown): value is string {
   return typeof value === "string" && value.trim().length > 0;
 }
@@ -306,6 +345,8 @@ async function writeDayWords(
         ),
       )
     : namedWords;
+
+  assertFirestorePayloadHasNoNestedArrays(wordsToWrite);
 
   if (!existingSnap.empty) {
     for (let i = 0; i < existingSnap.docs.length; i += batchLimit) {

@@ -101,6 +101,39 @@ test("assignDeterministicUploadIdsForItems preserves non-standard schemas", () =
   ]);
 });
 
+test("assignDeterministicUploadIdsForItems assigns ids for Kanji uploads", () => {
+  const result = assignDeterministicUploadIdsForItems(
+    [
+      {
+        dayName: "Day1",
+        words: [
+          {
+            kanji: "一",
+            meaning: ["ひと"],
+            meaningExample: [{ items: ["一言"] }],
+            meaningExampleHurigana: [{ items: ["ひとこと"] }],
+            meaningEnglishTranslation: [{ items: ["A single word"] }],
+            meaningKoreanTranslation: [{ items: ["한마디 말"] }],
+            reading: ["いち"],
+            readingExample: [{ items: ["一月"] }],
+            readingExampleHurigana: [{ items: ["いちがつ"] }],
+            readingEnglishTranslation: [{ items: ["January"] }],
+            readingKoreanTranslation: [{ items: ["1월"] }],
+            example: ["一月です。"],
+            exampleEnglishTranslation: ["It is January."],
+            exampleKoreanTranslation: ["1월입니다."],
+            exampleHurigana: ["いちがつです。"],
+          },
+        ],
+      },
+    ],
+    "kanji",
+    "Kanji",
+  );
+
+  assert.equal((result[0].words[0] as { id?: string }).id, "KANJI_Day1_1");
+});
+
 test("derivative selections stay on the base word and receive only original deterministic ids", () => {
   const previewItems: DerivativePreviewItemResult[] = [
     {

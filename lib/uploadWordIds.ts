@@ -4,6 +4,7 @@ import type {
   FamousQuoteWordInput,
   IdiomWordInput,
   JlptWordInput,
+  KanjiWordInput,
   PostfixWordInput,
   PrefixWordInput,
   StandardWordInput,
@@ -14,6 +15,7 @@ type UploadWordWithOptionalId =
   | StandardWordInput
   | ExtremelyAdvancedWordInput
   | JlptWordInput
+  | KanjiWordInput
   | CollocationWordInput
   | IdiomWordInput
   | PrefixWordInput
@@ -22,6 +24,7 @@ type UploadParseWord =
   | StandardWordInput
   | ExtremelyAdvancedWordInput
   | JlptWordInput
+  | KanjiWordInput
   | CollocationWordInput
   | IdiomWordInput
   | FamousQuoteWordInput
@@ -74,6 +77,7 @@ export function assignDeterministicUploadIdsForSchema<
     schemaType === "standard" ||
     schemaType === "extremelyAdvanced" ||
     schemaType === "jlpt" ||
+    schemaType === "kanji" ||
     schemaType === "collocation" ||
     schemaType === "idiom" ||
     schemaType === "prefix" ||
@@ -100,6 +104,7 @@ export function assignDeterministicUploadIdsForItems<
     schemaType !== "standard" &&
     schemaType !== "extremelyAdvanced" &&
     schemaType !== "jlpt" &&
+    schemaType !== "kanji" &&
     schemaType !== "collocation" &&
     schemaType !== "idiom" &&
     schemaType !== "prefix" &&

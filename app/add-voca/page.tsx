@@ -110,6 +110,7 @@ import {
 } from "@/lib/addVocaUploadOptions";
 import { applyFuriganaToJapaneseUploadWords } from "@/lib/addVocaFurigana";
 import { validateUploadCourse } from "@/lib/addVocaUploadPreflight";
+import { normalizeKanjiWordsNestedLists } from "@/lib/kanjiNestedList";
 
 // ── Feature components ────────────────────────────────────────────────
 import CourseSelector from "@/components/add-voca/CourseSelector";
@@ -736,6 +737,12 @@ export default function AddVocaPage() {
           );
         }
 
+        if (schemaType === "kanji") {
+          words = normalizeKanjiWordsNestedLists(
+            words as Record<string, unknown>[],
+          ) as typeof words;
+        }
+
         processedMap.set(item.id, words);
       } catch (e) {
         console.error(`[Preprocess] ${item.dayName} failed:`, e);
@@ -788,6 +795,7 @@ export default function AddVocaPage() {
       (schemaType === "standard" ||
         schemaType === "extremelyAdvanced" ||
         schemaType === "jlpt" ||
+        schemaType === "kanji" ||
         schemaType === "collocation" ||
         schemaType === "idiom" ||
         schemaType === "prefix" ||

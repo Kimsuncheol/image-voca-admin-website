@@ -64,6 +64,23 @@ describe("JLPT affix course paths", () => {
     });
   });
 
+  it("uses the configured env path for Kanji", async () => {
+    vi.stubEnv(
+      "NEXT_PUBLIC_COURSE_PATH_KANJI",
+      "/voca/course/KANJI/course-id",
+    );
+    vi.resetModules();
+
+    const { getCourseById: getDynamicCourseById } = await import("./course");
+    expect(getDynamicCourseById("KANJI")).toMatchObject({
+      id: "KANJI",
+      label: "Kanji",
+      path: "voca/course/KANJI/course-id",
+      schema: "kanji",
+      storageMode: "day",
+    });
+  });
+
   it("marks affix courses as single-list storage", () => {
     expect(getCourseById("JLPT_PREFIX")?.storageMode).toBe("singleList");
     expect(getCourseById("JLPT_POSTFIX")?.storageMode).toBe("singleList");

@@ -326,6 +326,79 @@ test("batch upload writes collection-backed word docs using provided ids", async
   });
 });
 
+test("batch upload writes Kanji grouped-object docs", async () => {
+  const { handler, state } = createFakeDependencies();
+
+  const response = await handler(
+    createRequest({
+      coursePath: "courses/KANJI",
+      storageMode: "day",
+      days: [
+        {
+          dayName: "Day1",
+          words: [
+            {
+              id: "KANJI_Day1_1",
+              kanji: "一",
+              meaning: ["ひと"],
+              meaningExample: [{ items: ["一言", "一息"] }],
+              reading: ["いち"],
+              readingExample: [{ items: ["一月"] }],
+              example: ["一月です。"],
+            },
+          ],
+        },
+      ],
+    }),
+  );
+  const payload = (await response.json()) as {
+    results: Array<{ dayName: string; count: number; error?: string }>;
+  };
+
+  expect(response.status).toBe(200);
+  expect(payload.results).toEqual([{ dayName: "Day1", count: 1 }]);
+  expect(state.dayDocs.get("courses/KANJI::Day1")?.get("KANJI_Day1_1")).toEqual({
+    kanji: "一",
+    meaning: ["ひと"],
+    meaningExample: [{ items: ["一言", "一息"] }],
+    reading: ["いち"],
+    readingExample: [{ items: ["一月"] }],
+    example: ["一月です。"],
+  });
+});
+
+test("batch upload rejects raw nested arrays before writing", async () => {
+  const { handler, state } = createFakeDependencies();
+
+  const response = await handler(
+    createRequest({
+      coursePath: "courses/KANJI",
+      storageMode: "day",
+      days: [
+        {
+          dayName: "Day1",
+          words: [
+            {
+              id: "KANJI_Day1_1",
+              kanji: "一",
+              meaning: ["ひと"],
+              meaningExample: [["一言"]],
+            },
+          ],
+        },
+      ],
+    }),
+  );
+  const payload = (await response.json()) as {
+    results: Array<{ dayName: string; count: number; error?: string }>;
+  };
+
+  expect(response.status).toBe(200);
+  expect(payload.results[0]?.error).toContain("KANJI_Day1_1.meaningExample[0]");
+  expect(payload.results[0]?.error).toContain("Nested arrays are not allowed");
+  expect(state.dayDocs.get("courses/KANJI::Day1")?.size ?? 0).toBe(0);
+});
+
 test("batch upload keeps famous quote writes on auto-generated ids", async () => {
   const { handler, state } = createFakeDependencies();
 

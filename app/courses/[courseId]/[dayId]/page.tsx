@@ -53,6 +53,7 @@ import {
   type GenerateImagesSuccessResponse,
 } from "@/types/imageGeneration";
 import type { Word } from "@/types/word";
+import { isKanjiWord } from "@/types/word";
 import {
   getDayWords,
   updateWordDerivatives,
@@ -106,10 +107,15 @@ function getMissingFieldOptions(
   isCollocation: boolean,
   isIdiom: boolean,
   isJlpt: boolean,
+  isKanji: boolean,
   showImageUrl: boolean,
   supportsDerivatives: boolean,
   t: (key: string, options?: Record<string, unknown>) => string,
 ): Array<{ value: CourseDayMissingField; label: string }> {
+  if (isKanji) {
+    return [{ value: "all", label: t("courses.missingAll") }];
+  }
+
   const primaryTextLabel = isCollocation
     ? t("courses.missingCollocation")
     : isIdiom
@@ -361,6 +367,7 @@ export default function DayWordsPage({
   const isIdiom = course?.schema === "idiom";
   const isExtremelyAdvanced = course?.schema === "extremelyAdvanced";
   const isJlpt = course?.schema === "jlpt";
+  const isKanji = course?.schema === "kanji";
   const isFamousQuote = course?.schema === "famousQuote";
   const showImageUrl = isSupportedImageGenerationCourseId(courseId);
   const supportsDerivatives =
@@ -372,11 +379,12 @@ export default function DayWordsPage({
         isCollocation,
         isIdiom,
         isJlpt,
+        isKanji,
         showImageUrl,
         supportsDerivatives,
         t,
       ),
-    [isCollocation, isIdiom, isJlpt, showImageUrl, supportsDerivatives, t],
+    [isCollocation, isIdiom, isJlpt, isKanji, showImageUrl, supportsDerivatives, t],
   );
 
   const filteredWords = useMemo(
@@ -415,7 +423,7 @@ export default function DayWordsPage({
 
   const filteredResults = useMemo(
     () =>
-      course
+      course && !isKanji
         ? filteredWords.map((word) =>
             adaptCourseWordToWordFinderResult({
               word,
@@ -437,6 +445,7 @@ export default function DayWordsPage({
       isCollocation,
       isIdiom,
       isJlpt,
+      isKanji,
       isFamousQuote,
     ],
   );
@@ -479,11 +488,10 @@ export default function DayWordsPage({
   const applyResolvedUpdatesToState = useCallback(
     (wordId: string, updates: WordFinderResultFieldUpdates) => {
       setWords((prev) =>
-        prev.map((word) =>
-          word.id === wordId
-            ? { ...word, ...applyCourseWordResolvedUpdates(word, updates) }
-            : word,
-        ),
+        prev.map((word) => {
+          if (word.id !== wordId || isKanjiWord(word)) return word;
+          return { ...word, ...applyCourseWordResolvedUpdates(word, updates) };
+        }),
       );
     },
     [],
@@ -1349,6 +1357,7 @@ export default function DayWordsPage({
           isIdiom={isIdiom}
           isExtremelyAdvanced={isExtremelyAdvanced}
           isJlpt={isJlpt}
+          isKanji={isKanji}
           activeMissingField={missingField}
           isFamousQuote={isFamousQuote}
           showImageUrl={showImageUrl}

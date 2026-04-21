@@ -28,7 +28,9 @@ import type {
 } from "@/types/wordFinder";
 
 const MAX_RESULTS = 200;
-const SEARCHABLE_COURSES = [...COURSES, ...JLPT_LEVEL_COURSES];
+const SEARCHABLE_COURSES = [...COURSES, ...JLPT_LEVEL_COURSES].filter(
+  (course) => course.schema !== "kanji",
+);
 
 // ---------------------------------------------------------------------------
 // Type-aware course selection
@@ -42,7 +44,7 @@ function filterCoursesByType(courses: Course[], type: string): Course[] {
   if (type === "idiom")
     return courses.filter((c) => c.id === "IDIOMS");
   // "standard" — everything except flat courses, COLLOCATIONS, and IDIOMS
-  return courses.filter((c) => c.storageMode !== "flat" && c.id !== "COLLOCATIONS" && c.id !== "IDIOMS");
+  return courses.filter((c) => c.storageMode !== "flat" && c.id !== "COLLOCATIONS" && c.id !== "IDIOMS" && c.schema !== "kanji");
 }
 
 // ---------------------------------------------------------------------------

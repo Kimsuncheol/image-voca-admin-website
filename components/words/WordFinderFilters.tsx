@@ -91,7 +91,7 @@ export default function WordFinderFilters({
             onChange={(event) => onCourseIdChange(event.target.value)}
           >
             <MenuItem value="all">{t("words.allCourses")}</MenuItem>
-            {COURSES.filter((course) => Boolean(course.path)).map((course) => (
+            {COURSES.filter((course) => Boolean(course.path) && course.schema !== "kanji").map((course) => (
               <MenuItem key={course.id} value={course.id}>
                 {course.label}
               </MenuItem>

@@ -111,6 +111,7 @@ describe("WordTable", () => {
             pronunciation: "ねこ",
             pronunciationRoman: "",
             example: "猫がいる。",
+            exampleHurigana: "ねこがいる。",
             exampleRoman: "",
             translationEnglish: "There is a cat.",
             translationKorean: "고양이가 있다.",
@@ -150,6 +151,7 @@ describe("WordTable", () => {
             pronunciation: "ほん",
             pronunciationRoman: "hon",
             example: "ペンを三本買った。",
+            exampleHurigana: "ぺんをさんぼんかった。",
             exampleRoman: "",
             translationEnglish: "I bought three pens.",
             translationKorean: "펜을 세 자루 샀다.",
@@ -170,6 +172,47 @@ describe("WordTable", () => {
     expect(markup).toContain("本");
     expect(markup).toContain("ほん");
     expect(markup).toContain("https://example.com/counter.png");
+  });
+
+  it("renders read-only Kanji grouped sections", () => {
+    const markup = renderToStaticMarkup(
+      <WordTable
+        words={[
+          {
+            id: "kanji-1",
+            kanji: "一",
+            meaning: ["ひと", "ひと(つ)"],
+            meaningExample: [{ items: ["一言", "一息"] }, { items: ["一つ"] }],
+            meaningExampleHurigana: [{ items: ["ひとこと", "ひといき"] }, { items: ["ひとつ"] }],
+            meaningEnglishTranslation: [{ items: ["A single word", "A breath"] }, { items: ["One"] }],
+            meaningKoreanTranslation: [{ items: ["한마디 말", "한숨 돌림"] }, { items: ["한 개"] }],
+            reading: ["いち"],
+            readingExample: [{ items: ["一月"] }],
+            readingExampleHurigana: [{ items: ["いちがつ"] }],
+            readingEnglishTranslation: [{ items: ["January"] }],
+            readingKoreanTranslation: [{ items: ["1월"] }],
+            example: ["一月です。"],
+            exampleEnglishTranslation: ["It is January."],
+            exampleKoreanTranslation: ["1월입니다."],
+            exampleHurigana: ["いちがつです。"],
+          },
+        ]}
+        isCollocation={false}
+        isKanji
+        courseId="KANJI"
+        coursePath="courses/KANJI"
+        dayId="Day1"
+      />,
+    );
+
+    expect(markup).toContain("Kanji");
+    expect(markup).toContain("Meaning");
+    expect(markup).toContain("Reading");
+    expect(markup).toContain("Examples");
+    expect(markup).toContain("一言, 一息");
+    expect(markup).toContain("Hurigana:");
+    expect(markup).toContain("It is January.");
+    expect(markup).not.toContain("Edit");
   });
 
   it("renders the exampleHurigana-focused JLPT layout when that chip is active", () => {

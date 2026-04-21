@@ -106,6 +106,34 @@ function createExtremelyAdvancedParseResult(): ParseResult {
   };
 }
 
+function createKanjiParseResult(): ParseResult {
+  return {
+    words: [
+      {
+        kanji: "一",
+        meaning: ["ひと", "ひと(つ)"],
+        meaningExample: [{ items: ["一言", "一息"] }, { items: ["一つ"] }],
+        meaningExampleHurigana: [{ items: ["ひとこと", "ひといき"] }, { items: ["ひとつ"] }],
+        meaningEnglishTranslation: [{ items: ["A single word", "A breath"] }, { items: ["One"] }],
+        meaningKoreanTranslation: [{ items: ["한마디 말", "한숨 돌림"] }, { items: ["한 개"] }],
+        reading: ["いち"],
+        readingExample: [{ items: ["一月"] }],
+        readingExampleHurigana: [{ items: ["いちがつ"] }],
+        readingEnglishTranslation: [{ items: ["January"] }],
+        readingKoreanTranslation: [{ items: ["1월"] }],
+        example: ["一月です。"],
+        exampleEnglishTranslation: ["It is January."],
+        exampleKoreanTranslation: ["1월입니다."],
+        exampleHurigana: ["いちがつです。"],
+      },
+    ],
+    schemaType: "kanji",
+    isCollocation: false,
+    errors: [],
+    detectedHeaders: ["kanji", "meaning"],
+  };
+}
+
 describe("UploadModal", () => {
   let rendered: ReturnType<typeof renderModal> | null = null;
 
@@ -199,6 +227,31 @@ describe("UploadModal", () => {
     expect(document.body.textContent).toContain("fuddle");
     expect(document.body.textContent).toContain("https://example.com/fuddle.png");
     expect(headers).not.toContain("pronunciation");
+  });
+
+  it("shows Kanji preview columns and nested values", () => {
+    rendered = renderModal(
+      <UploadModal
+        open
+        onClose={() => {}}
+        onConfirm={() => {}}
+        initialData={createKanjiParseResult()}
+        hideDayInput
+        hiddenDayName="Day1"
+        schemaType="kanji"
+        courseId="KANJI"
+      />,
+    );
+
+    const headers = Array.from(document.querySelectorAll("th")).map(
+      (cell) => cell.textContent?.trim() ?? "",
+    );
+
+    expect(headers).toContain("kanji");
+    expect(headers).toContain("meaningExample");
+    expect(headers).toContain("exampleHurigana");
+    expect(document.body.textContent).toContain("一言, 一息");
+    expect(document.body.textContent).toContain("いちがつです。");
   });
 
   it("shows the targeted TOEFL/IELTS synonym hint for CSAT exact-match header mismatches", () => {

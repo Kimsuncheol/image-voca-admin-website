@@ -1,4 +1,5 @@
 import Papa from 'papaparse';
+import * as XLSX from 'xlsx';
 import {
   standardWordSchema,
   extremelyAdvancedWordSchema,
@@ -6,6 +7,7 @@ import {
   collocationWordSchema,
   idiomWordSchema,
   famousQuoteWordSchema,
+  kanjiWordSchema,
   prefixSchema,
   postfixSchema,
   type StandardWordInput,
@@ -14,14 +16,19 @@ import {
   type CollocationWordInput,
   type IdiomWordInput,
   type FamousQuoteWordInput,
+  type KanjiWordInput,
   type PrefixWordInput,
   type PostfixWordInput,
 } from '@/lib/schemas/vocaSchemas';
 import { textMatchesLanguage, quoteMatchesLanguage } from '@/lib/utils/quoteLanguage';
 import type { FamousQuoteLanguage } from '@/types/famousQuote';
 import type { CourseId } from '@/types/course';
+import {
+  KANJI_NESTED_LIST_FIELDS,
+  type KanjiNestedListGroup,
+} from '@/lib/kanjiNestedList';
 
-export type SchemaType = 'standard' | 'extremelyAdvanced' | 'jlpt' | 'collocation' | 'idiom' | 'famousQuote' | 'prefix' | 'postfix';
+export type SchemaType = 'standard' | 'extremelyAdvanced' | 'jlpt' | 'kanji' | 'collocation' | 'idiom' | 'famousQuote' | 'prefix' | 'postfix';
 
 export interface ParseSchemaOptions {
   schemaType?: SchemaType;
@@ -36,6 +43,7 @@ export interface ParseResult {
     | CollocationWordInput
     | IdiomWordInput
     | FamousQuoteWordInput
+    | KanjiWordInput
     | PrefixWordInput
     | PostfixWordInput
   )[];
@@ -67,6 +75,23 @@ const COLLOCATION_HEADERS = ['collocation', 'meaning', 'explanation', 'example',
 const IDIOM_HEADERS = ['idiom', 'meaning', 'example', 'translation'] as const;
 const FAMOUS_QUOTE_HEADERS = ['quote', 'author', 'translation'] as const;
 const FAMOUS_QUOTE_OPTIONAL_HEADERS = ['language'] as const;
+const KANJI_HEADERS = [
+  'kanji',
+  'meaning',
+  'meaningexample',
+  'meaningexamplehurigana',
+  'meaningenglishtranslation',
+  'meaningkoreantranslation',
+  'reading',
+  'readingexample',
+  'readingexamplehurigana',
+  'readingenglishtranslation',
+  'readingkoreantranslation',
+  'example',
+  'exampleenglishtranslation',
+  'examplekoreantranslation',
+  'examplehurigana',
+] as const;
 const PREFIX_POSTFIX_HEADERS = [
   'meaning(english)',
   'meaning(korean)',
@@ -103,6 +128,91 @@ function isToeflIeltsStandardCourse(courseId?: CourseId | ''): boolean {
   return courseId === 'TOEFL_IELTS';
 }
 
+const NUMBERED_ITEM_MARKER_REGEX = /(^|\s)(\d+)\.\s*/g;
+
+function splitNumberedList(value: unknown): string[] {
+  const text = typeof value === 'string' ? value.trim() : String(value ?? '').trim();
+  if (!text) return [];
+
+  const markers = Array.from(text.matchAll(NUMBERED_ITEM_MARKER_REGEX), (match) => {
+    const leading = match[1] ?? '';
+    return {
+      start: (match.index ?? 0) + leading.length,
+      markerLength: (match[2] ?? '').length + 1,
+    };
+  });
+
+  if (markers.length === 0 || markers[0].start !== 0) {
+    return [text];
+  }
+
+  return markers
+    .map((marker, index) => {
+      const contentStart = marker.start + marker.markerLength;
+      const nextStart = index < markers.length - 1 ? markers[index + 1].start : text.length;
+      return text.slice(contentStart, nextStart).trim();
+    })
+    .filter(Boolean);
+}
+
+function hasBalancedOuterParens(value: string, open: string, close: string): boolean {
+  if (!value.startsWith(open) || !value.endsWith(close)) return false;
+
+  let depth = 0;
+  for (let i = 0; i < value.length; i += 1) {
+    const char = value[i];
+    if (char === open) depth += 1;
+    if (char === close) depth -= 1;
+    if (depth === 0 && i < value.length - 1) return false;
+  }
+
+  return depth === 0;
+}
+
+function removeOuterParens(value: string): string {
+  const trimmed = value.trim();
+  if (hasBalancedOuterParens(trimmed, '(', ')')) {
+    return trimmed.slice(1, -1).trim();
+  }
+  if (hasBalancedOuterParens(trimmed, '（', '）')) {
+    return trimmed.slice(1, -1).trim();
+  }
+  return trimmed;
+}
+
+function splitCommaItems(value: string): string[] {
+  const items: string[] = [];
+  let current = '';
+  let asciiDepth = 0;
+  let japaneseDepth = 0;
+
+  for (const char of value) {
+    if (char === '(') asciiDepth += 1;
+    if (char === ')' && asciiDepth > 0) asciiDepth -= 1;
+    if (char === '（') japaneseDepth += 1;
+    if (char === '）' && japaneseDepth > 0) japaneseDepth -= 1;
+
+    if ((char === ',' || char === '、') && asciiDepth === 0 && japaneseDepth === 0) {
+      const item = removeOuterParens(current);
+      if (item) items.push(item);
+      current = '';
+      continue;
+    }
+
+    current += char;
+  }
+
+  const finalItem = removeOuterParens(current);
+  if (finalItem) items.push(finalItem);
+  return items;
+}
+
+function splitNestedNumberedList(value: unknown): KanjiNestedListGroup[] {
+  return splitNumberedList(value)
+    .map((group) => ({ items: splitCommaItems(group) }))
+    .filter((group) => group.items.length > 0);
+}
+
 /** Exported alias for normalizeRow — required by FR-9. */
 export function extractVocaFields(
   row: Record<string, unknown>,
@@ -115,6 +225,76 @@ export function extractVocaFields(
 
 function normalizeRow(row: Record<string, unknown>, schemaType: SchemaType): Record<string, unknown> {
   const normalized: Record<string, unknown> = {};
+
+  if (schemaType === 'kanji') {
+    const aliases: Record<string, string> = {
+      kanji: 'kanji',
+      _1: 'kanji',
+      meaning: 'meaning',
+      _2: 'meaning',
+      meaningexample: 'meaningExample',
+      _3: 'meaningExample',
+      meaningexamplehurigana: 'meaningExampleHurigana',
+      _4: 'meaningExampleHurigana',
+      meaningenglishtranslation: 'meaningEnglishTranslation',
+      _5: 'meaningEnglishTranslation',
+      meaningkoreantranslation: 'meaningKoreanTranslation',
+      _6: 'meaningKoreanTranslation',
+      reading: 'reading',
+      _7: 'reading',
+      readingexample: 'readingExample',
+      _8: 'readingExample',
+      readingexamplehurigana: 'readingExampleHurigana',
+      _9: 'readingExampleHurigana',
+      readingenglishtranslation: 'readingEnglishTranslation',
+      _10: 'readingEnglishTranslation',
+      readingkoreantranslation: 'readingKoreanTranslation',
+      _11: 'readingKoreanTranslation',
+      example: 'example',
+      _12: 'example',
+      exampleenglishtranslation: 'exampleEnglishTranslation',
+      _13: 'exampleEnglishTranslation',
+      examplekoreantranslation: 'exampleKoreanTranslation',
+      _14: 'exampleKoreanTranslation',
+      examplehurigana: 'exampleHurigana',
+      _15: 'exampleHurigana',
+    };
+    const arrayFields = new Set([
+      'meaning',
+      'reading',
+      'example',
+      'exampleEnglishTranslation',
+      'exampleKoreanTranslation',
+      'exampleHurigana',
+    ]);
+    const nestedArrayFields = new Set<string>(KANJI_NESTED_LIST_FIELDS);
+
+    for (const [key, value] of Object.entries(row)) {
+      const cleanKey = key.trim().toLowerCase().replace(/[\s_-]+/g, '');
+      const targetKey = aliases[cleanKey];
+      if (!targetKey) {
+        normalized[cleanKey] = typeof value === 'string' ? value.trim() : value;
+        continue;
+      }
+
+      if (arrayFields.has(targetKey)) {
+        normalized[targetKey] = splitNumberedList(value);
+      } else if (nestedArrayFields.has(targetKey)) {
+        normalized[targetKey] = splitNestedNumberedList(value);
+      } else {
+        normalized[targetKey] = typeof value === 'string' ? value.trim() : value;
+      }
+    }
+
+    normalized['kanji'] = normalized['kanji'] ?? '';
+    for (const field of arrayFields) {
+      normalized[field] = normalized[field] ?? [];
+    }
+    for (const field of nestedArrayFields) {
+      normalized[field] = normalized[field] ?? [];
+    }
+    return normalized;
+  }
 
   if (schemaType === 'famousQuote') {
     const quoteAliases = ['quote', '_1'];
@@ -347,6 +527,7 @@ function detectAndParse(
   forceSchemaType?: SchemaType,
   _courseId?: CourseId | '',
 ): ParseResult {
+  void _courseId;
   const headers = rawHeaders.map((h) => h.trim().toLowerCase());
   // forceSchemaType (from the selected course) takes priority over header-based detection.
   let schemaType: SchemaType;
@@ -356,6 +537,8 @@ function detectAndParse(
     schemaType = 'idiom';
   } else if (headers.includes('collocation')) {
     schemaType = 'collocation';
+  } else if (headers.includes('kanji')) {
+    schemaType = 'kanji';
   } else if (
     headers.includes('meaning(english)') ||
     headers.includes('meaning english') ||
@@ -374,6 +557,7 @@ function detectAndParse(
     : schemaType === 'extremelyAdvanced' ? extremelyAdvancedWordSchema
     : schemaType === 'idiom' ? idiomWordSchema
     : schemaType === 'jlpt' ? jlptWordSchema
+    : schemaType === 'kanji' ? kanjiWordSchema
     : schemaType === 'famousQuote' ? famousQuoteWordSchema
     : schemaType === 'prefix' ? prefixSchema
     : schemaType === 'postfix' ? postfixSchema
@@ -386,6 +570,7 @@ function detectAndParse(
     | CollocationWordInput
     | IdiomWordInput
     | FamousQuoteWordInput
+    | KanjiWordInput
     | PrefixWordInput
     | PostfixWordInput
   )[] = [];
@@ -407,7 +592,7 @@ function detectAndParse(
   }
 
   function validateUploadRowLanguage(
-    parsedWord: StandardWordInput | ExtremelyAdvancedWordInput | JlptWordInput | CollocationWordInput | IdiomWordInput | PrefixWordInput | PostfixWordInput,
+    parsedWord: StandardWordInput | ExtremelyAdvancedWordInput | JlptWordInput | CollocationWordInput | IdiomWordInput | KanjiWordInput | PrefixWordInput | PostfixWordInput,
     currentSchemaType: Exclude<SchemaType, 'famousQuote'>,
   ): string | null {
     const language = getUploadValidationLanguage(currentSchemaType);
@@ -494,6 +679,9 @@ function detectAndParse(
       const postfixVal = String(normalized['postfix'] ?? '').toLowerCase();
       const meaningEnglishVal = String(normalized['meaningEnglish'] ?? '').toLowerCase();
       if (postfixVal === 'postfix' && meaningEnglishVal === 'meaning(english)') return;
+    } else if (schemaType === 'kanji') {
+      const kanjiVal = String(normalized['kanji'] ?? '').toLowerCase();
+      if (kanjiVal === 'kanji') return;
     } else if (schemaType === 'idiom') {
       const idiomVal = String(normalized['idiom'] ?? '').toLowerCase();
       const meaningVal = String(normalized['meaning'] ?? '').toLowerCase();
@@ -517,7 +705,7 @@ function detectAndParse(
         }
       } else {
         const languageWarning = validateUploadRowLanguage(
-          parsed.data as StandardWordInput | ExtremelyAdvancedWordInput | JlptWordInput | CollocationWordInput | IdiomWordInput | PrefixWordInput | PostfixWordInput,
+          parsed.data as StandardWordInput | ExtremelyAdvancedWordInput | JlptWordInput | CollocationWordInput | IdiomWordInput | KanjiWordInput | PrefixWordInput | PostfixWordInput,
           schemaType,
         );
         if (languageWarning) {
@@ -537,7 +725,7 @@ function detectAndParse(
 }
 
 // Re-export types for consumers that import from csvParser
-export type { PrefixWordInput, PostfixWordInput };
+export type { KanjiWordInput, PrefixWordInput, PostfixWordInput };
 
 function getExpectedHeaders(schemaType: SchemaType): string[] {
   if (schemaType === 'collocation') return [...COLLOCATION_HEADERS];
@@ -545,6 +733,7 @@ function getExpectedHeaders(schemaType: SchemaType): string[] {
   if (schemaType === 'idiom') return [...IDIOM_HEADERS];
   if (schemaType === 'famousQuote') return [...FAMOUS_QUOTE_HEADERS];
   if (schemaType === 'jlpt') return [...JLPT_HEADERS];
+  if (schemaType === 'kanji') return [...KANJI_HEADERS];
   if (schemaType === 'prefix') return [...PREFIX_HEADERS];
   if (schemaType === 'postfix') return [...POSTFIX_HEADERS];
   return [...STANDARD_HEADERS];
@@ -627,8 +816,8 @@ function isCrossHeaderFirstRow(
   firstDataRow: string[],
   targetSchemaType: SchemaType,
 ): boolean {
-  if (targetSchemaType === 'famousQuote' || targetSchemaType === 'jlpt') {
-    // Famous quote rows are sentences; cross-header detection not applicable
+  if (targetSchemaType === 'famousQuote' || targetSchemaType === 'jlpt' || targetSchemaType === 'kanji') {
+    // These rows are structured sentences/lists; cross-header detection is not applicable.
     return false;
   }
   const norm = firstDataRow.map((cell) => (cell?.trim() ?? '').toLowerCase());
@@ -672,7 +861,12 @@ function isCrossHeaderFirstRow(
 // Schema field names only — NOT positional aliases.
 // A row qualifies as a header row when ≥2 of its cells match known field names.
 const KNOWN_FIELDS = new Set([
-  'word', 'collocation', 'idiom', 'prefix', 'postfix', 'meaning',
+  'word', 'collocation', 'idiom', 'prefix', 'postfix', 'kanji', 'meaning',
+  'meaningexample', 'meaningexamplehurigana',
+  'meaningenglishtranslation', 'meaningkoreantranslation',
+  'reading', 'readingexample', 'readingexamplehurigana',
+  'readingenglishtranslation', 'readingkoreantranslation',
+  'exampleenglishtranslation', 'examplekoreantranslation',
   'meaning(english)', 'meaning english', 'meaning(korean)', 'meaning korean',
   'pronunciation', 'pronounciation',
   'synonym',
@@ -734,6 +928,8 @@ function processParsedArray(
     targetSchemaType = schemaType;
   } else if (firstRowNormAll.includes('collocation')) {
     targetSchemaType = 'collocation';
+  } else if (firstRowNormAll.includes('kanji')) {
+    targetSchemaType = 'kanji';
   } else if (
     firstRowNormAll.includes('meaning(english)') ||
     firstRowNormAll.includes('meaning english') ||
@@ -839,7 +1035,46 @@ function processParsedArray(
   return detectAndParse(objects, headers, schemaType, targetCourseId);
 }
 
-export async function parseCsvFile(
+function isSpreadsheetFile(file: File): boolean {
+  const name = file.name.toLowerCase();
+  return (
+    name.endsWith('.xlsx') ||
+    name.endsWith('.xls') ||
+    file.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
+    file.type === 'application/vnd.ms-excel'
+  );
+}
+
+async function parseSpreadsheetFile(
+  file: File,
+  schemaType?: SchemaType,
+  targetCourseId?: CourseId | '',
+): Promise<ParseResult> {
+  const buffer = await file.arrayBuffer();
+  const workbook = XLSX.read(buffer, { type: 'array' });
+  const firstSheetName = workbook.SheetNames[0];
+  if (!firstSheetName) {
+    return {
+      words: [],
+      schemaType: schemaType ?? 'standard',
+      isCollocation: schemaType === 'collocation',
+      errors: ['Workbook has no sheets'],
+      detectedHeaders: [],
+    };
+  }
+
+  const worksheet = workbook.Sheets[firstSheetName];
+  const rows = XLSX.utils.sheet_to_json<unknown[]>(worksheet, {
+    header: 1,
+    raw: false,
+    defval: '',
+    blankrows: false,
+  });
+  const data = rows.map((row) => row.map((cell) => String(cell ?? '')));
+  return processParsedArray(data, schemaType, targetCourseId);
+}
+
+export async function parseUploadFile(
   file: File,
   schemaTypeOrOptions?: SchemaType | ParseSchemaOptions,
   courseId?: CourseId | '',
@@ -848,6 +1083,10 @@ export async function parseCsvFile(
   const schemaType = options.schemaType;
   const targetCourseId = options.courseId;
   try {
+    if (isSpreadsheetFile(file)) {
+      return await parseSpreadsheetFile(file, schemaType, targetCourseId);
+    }
+
     // Read text first to sniff the delimiter — the same logic used in parseCsvString.
     // .csv files exported from Google Sheets / Excel are often tab-separated despite
     // the .csv extension, so relying on PapaParse auto-detect (which defaults to comma)
@@ -876,8 +1115,16 @@ export async function parseCsvFile(
       });
     });
   } catch (err) {
-    return { words: [], schemaType: 'standard', isCollocation: false, errors: [String(err)], detectedHeaders: [] };
+    return { words: [], schemaType: schemaType ?? 'standard', isCollocation: schemaType === 'collocation', errors: [String(err)], detectedHeaders: [] };
   }
+}
+
+export async function parseCsvFile(
+  file: File,
+  schemaTypeOrOptions?: SchemaType | ParseSchemaOptions,
+  courseId?: CourseId | '',
+): Promise<ParseResult> {
+  return parseUploadFile(file, schemaTypeOrOptions, courseId);
 }
 
 export function parseCsvString(csvString: string): ParseResult {

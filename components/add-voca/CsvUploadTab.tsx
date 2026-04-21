@@ -26,7 +26,7 @@ import { useTranslation } from 'react-i18next';
 import { getFamousQuotes } from '@/lib/firebase/firestore';
 import FileListItem from './FileListItem';
 import UploadModal, { extractDayFromFilename, resolveJlptCounterOptionIdFromFilename } from './UploadModal';
-import { parseCsvFile, type ParseResult, type SchemaType } from '@/lib/utils/csvParser';
+import { parseUploadFile, type ParseResult, type SchemaType } from '@/lib/utils/csvParser';
 import { JLPT_COUNTER_OPTIONS, type CourseId, type JlptCounterOptionId } from '@/types/course';
 import type { UploadModalConfirmPayload } from './UploadModal';
 
@@ -87,7 +87,7 @@ export default function CsvUploadTab({
     async (acceptedFiles: File[]) => {
       const newItems: CsvItem[] = [];
       for (const file of acceptedFiles) {
-        const result = await parseCsvFile(file, { schemaType, courseId });
+        const result = await parseUploadFile(file, { schemaType, courseId });
         if (!result || result.words.length === 0) continue;
 
         let counterOptionId: JlptCounterOptionId | undefined;
@@ -128,7 +128,7 @@ export default function CsvUploadTab({
 
       if (newItems.length === 0) return;
 
-      let updated = [...items];
+      const updated = [...items];
       for (const newItem of newItems) {
         if (!newItem.dayName) {
           updated.push(newItem);
@@ -148,7 +148,12 @@ export default function CsvUploadTab({
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
-    accept: { 'text/csv': ['.csv'], 'text/tab-separated-values': ['.tsv'] },
+    accept: {
+      'text/csv': ['.csv'],
+      'text/tab-separated-values': ['.tsv'],
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
+      'application/vnd.ms-excel': ['.xls'],
+    },
     multiple: true,
     noClick: true,
   });

@@ -23,7 +23,7 @@ import CloudUploadIcon from "@mui/icons-material/CloudUpload";
 import { useDropzone } from "react-dropzone";
 import { useTranslation } from "react-i18next";
 import {
-  parseCsvFile,
+  parseUploadFile,
   type ParseResult,
   type SchemaType,
 } from "@/lib/utils/csvParser";
@@ -32,6 +32,7 @@ import {
   type CourseId,
   type JlptCounterOptionId,
 } from "@/types/course";
+import { isKanjiNestedListGroup } from "@/lib/kanjiNestedList";
 
 export interface UploadModalConfirmPayload {
   dayName: string;
@@ -91,6 +92,37 @@ const STANDARD_HEADERS_WITH_SYNONYM = [
   "translation",
   "synonym",
 ] as const;
+
+const KANJI_PREVIEW_COLUMNS = [
+  "kanji",
+  "meaning",
+  "meaningExample",
+  "meaningExampleHurigana",
+  "meaningEnglishTranslation",
+  "meaningKoreanTranslation",
+  "reading",
+  "readingExample",
+  "readingExampleHurigana",
+  "readingEnglishTranslation",
+  "readingKoreanTranslation",
+  "example",
+  "exampleEnglishTranslation",
+  "exampleKoreanTranslation",
+  "exampleHurigana",
+] as const;
+
+function formatPreviewValue(value: unknown): string {
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => {
+        if (Array.isArray(item)) return item.join(", ");
+        if (isKanjiNestedListGroup(item)) return item.items.join(", ");
+        return String(item ?? "");
+      })
+      .join("\n");
+  }
+  return String(value ?? "");
+}
 
 function normalizeCounterFilenameToken(value: string): string {
   return value
@@ -228,7 +260,7 @@ export default function UploadModal({
             ),
           );
         }
-        const result = await parseCsvFile(file, {
+        const result = await parseUploadFile(file, {
           schemaType,
           courseId,
         });
@@ -241,7 +273,12 @@ export default function UploadModal({
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
-    accept: { "text/csv": [".csv"], "text/tab-separated-values": [".tsv"] },
+    accept: {
+      "text/csv": [".csv"],
+      "text/tab-separated-values": [".tsv"],
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": [".xlsx"],
+      "application/vnd.ms-excel": [".xls"],
+    },
     multiple: false,
   });
 
@@ -512,6 +549,8 @@ export default function UploadModal({
                       ]
                   : resolvedSchema === "famousQuote"
                     ? ["quote", "author", "translation"]
+                  : resolvedSchema === "kanji"
+                    ? [...KANJI_PREVIEW_COLUMNS]
                   : resolvedSchema === "extremelyAdvanced"
                     ? ["word", "meaning", "example", "translation", "imageUrl"]
                     : courseId === "TOEFL_IELTS"
@@ -555,9 +594,7 @@ export default function UploadModal({
                         <TableRow key={i}>
                           {columns.map((col) => (
                             <TableCell key={col}>
-                              {String(
-                                (word as Record<string, unknown>)[col] ?? "",
-                              )}
+                              {formatPreviewValue((word as Record<string, unknown>)[col])}
                             </TableCell>
                           ))}
                         </TableRow>

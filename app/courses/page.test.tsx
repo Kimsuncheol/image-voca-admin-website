@@ -81,4 +81,10 @@ describe("CoursesPage", () => {
 
     expect(document.querySelector('[data-testid="courses-no-ai-modal"]')).not.toBeNull();
   });
+
+  it("shows the Kanji course card", () => {
+    rendered = renderPage(<CoursesPage />);
+
+    expect(document.body.textContent).toContain("Kanji");
+  });
 });

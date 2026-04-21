@@ -8,7 +8,7 @@ import type {
   StandardWord,
   Word,
 } from "../types/word.ts";
-import { isCollocationWord, isFamousQuoteWord, isIdiomWord, isJlptWord, isPrefixWord, isPostfixWord } from "../types/word.ts";
+import { isCollocationWord, isFamousQuoteWord, isIdiomWord, isJlptWord, isKanjiWord, isPrefixWord, isPostfixWord } from "../types/word.ts";
 
 export type InlineEditableWordFinderField = "primaryText" | "meaning";
 export type CourseInlineEditableField =
@@ -105,6 +105,10 @@ export function resolveCourseInlineEditField(
       case "translationKorean": return { sourceField: "translationKorean", value: p.translationKorean };
       default: return null;
     }
+  }
+
+  if (isKanjiWord(word)) {
+    return null;
   }
 
   if (args.isJlpt || isJlptWord(word)) {
@@ -207,7 +211,7 @@ export function applyCourseInlineEdit(
   field: CourseInlineEditableField,
   value: string,
 ): Partial<StandardWord> | Partial<JlptWord> | Partial<CollocationWord> | Partial<IdiomWord> | Partial<PrefixWord> | Partial<PostfixWord> | null {
-  if (isFamousQuoteWord(word)) {
+  if (isFamousQuoteWord(word) || isKanjiWord(word)) {
     return null;
   }
 
