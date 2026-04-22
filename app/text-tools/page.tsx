@@ -106,6 +106,7 @@ export default function TextToolsPage() {
           })}
 
           <ParenthesesForm
+            key={group + parenthesesAction}
             horizontal
             apiPath={
               parenthesesAction === "generate"
@@ -137,6 +138,7 @@ export default function TextToolsPage() {
     if (group === "romanize") {
       return (
         <ParenthesesForm
+          key={group}
           horizontal
           apiPath="/api/text/romanize"
           submitLabel={t("textTools.romanizeAction")}
@@ -165,6 +167,7 @@ export default function TextToolsPage() {
           })}
 
           <ParenthesesForm
+            key={group + furiganaAction}
             horizontal
             apiPath={
               furiganaAction === "add"
@@ -222,6 +225,7 @@ export default function TextToolsPage() {
       return (
         <Stack spacing={2}>
           <VocabularyBatchLookup
+            key={group}
             apiPath="/api/text/vocabulary/batch"
             submitLabel={t("textTools.vocabularyBatchAction")}
             loadingLabel={t("textTools.loading")}
@@ -258,6 +262,7 @@ export default function TextToolsPage() {
     if (group === "vocabExtract") {
       return (
         <VocabExtractForm
+          key={group}
           submitLabel={t("textTools.vocabExtractAction")}
           loadingLabel={t("textTools.loading")}
           resetLabel={t("textTools.resetAction")}
@@ -305,6 +310,7 @@ export default function TextToolsPage() {
           })}
 
           <ParenthesesForm
+            key={group + removeSide}
             horizontal
             apiPath="/api/text/remove-equal-sign"
             submitLabel={t("textTools.removeEqualSignAction")}
