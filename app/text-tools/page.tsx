@@ -181,17 +181,23 @@ export default function TextToolsPage() {
             }
             validate={
               furiganaAction === "add"
-                ? (text) => {
-                    if (PARENTHESES_REGEX.test(text))
+                ? undefined
+                : (text) =>
+                    PARENTHESES_REGEX.test(text)
+                      ? null
+                      : t("textTools.inputNoParentheses")
+            }
+            validateWithCheckboxes={
+              furiganaAction === "add"
+                ? (text, checkboxValues) => {
+                    const allowParentheses = checkboxValues["allow_parentheses"] ?? false;
+                    if (!allowParentheses && PARENTHESES_REGEX.test(text))
                       return t("textTools.inputHasParentheses");
                     if (OTHER_LANGUAGE_REGEX.test(text))
                       return t("textTools.inputOtherLanguageChars");
                     return null;
                   }
-                : (text) =>
-                    PARENTHESES_REGEX.test(text)
-                      ? null
-                      : t("textTools.inputNoParentheses")
+                : undefined
             }
             checkboxOptions={
               furiganaAction === "remove"
@@ -206,6 +212,12 @@ export default function TextToolsPage() {
                     },
                   ]
                 : [
+                    {
+                      key: "allow_parentheses",
+                      label: t("textTools.addFuriganaAllowParenthesesOption"),
+                      defaultValue: false,
+                      buildPayload: () => ({}),
+                    },
                     {
                       key: "hiragana_only",
                       label: t("textTools.addFuriganaHiraganaOnlyOption"),

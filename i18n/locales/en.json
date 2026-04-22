@@ -448,6 +448,7 @@
     "networkError": "Network error. Please try again.",
     "romanizeAction": "Romanize",
     "addFuriganaAction": "Add Furigana",
+    "addFuriganaAllowParenthesesOption": "Allow parentheses",
     "addFuriganaHiraganaOnlyOption": "Hiragana only",
     "removeFuriganaAction": "Remove Furigana",
     "removeFuriganaRemoveBracketsOption": "Remove brackets at the same time.",

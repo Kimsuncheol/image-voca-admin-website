@@ -16,6 +16,7 @@ type CheckboxOptionConfig = {
   label: string;
   defaultValue: boolean;
   buildPayload: (checked: boolean) => Record<string, unknown>;
+  onCheckboxChange?: (checked: boolean) => void;
 };
 
 function getDefaultCheckboxValues(checkboxOptions?: CheckboxOptionConfig[]) {
@@ -37,6 +38,7 @@ export default function ParenthesesForm({
   extraPayload,
   horizontal = false,
   validate,
+  validateWithCheckboxes,
 }: {
   apiPath: string;
   submitLabel: string;
@@ -50,6 +52,7 @@ export default function ParenthesesForm({
   extraPayload?: Record<string, unknown>;
   horizontal?: boolean;
   validate?: (text: string) => string | null;
+  validateWithCheckboxes?: (text: string, checkboxValues: Record<string, boolean>) => string | null;
 }) {
   const { t } = useTranslation();
   const [input, setInput] = useState("");
@@ -81,12 +84,12 @@ export default function ParenthesesForm({
       return;
     }
 
-    if (validate) {
-      const validationMsg = validate(input);
-      if (validationMsg) {
-        setInputValidationError(validationMsg);
-        return;
-      }
+    const validationMsg = validateWithCheckboxes
+      ? validateWithCheckboxes(input, checkboxValues)
+      : validate?.(input) ?? null;
+    if (validationMsg) {
+      setInputValidationError(validationMsg);
+      return;
     }
 
     setLoading(true);
@@ -154,8 +157,11 @@ export default function ParenthesesForm({
         onChange={(event) => {
           const val = event.target.value;
           setInput(val);
-          if (validate && val.trim()) {
-            setInputValidationError(validate(val));
+          if (val.trim()) {
+            const msg = validateWithCheckboxes
+              ? validateWithCheckboxes(val, checkboxValues)
+              : validate?.(val) ?? null;
+            setInputValidationError(msg);
           } else {
             setInputValidationError(null);
           }
@@ -173,12 +179,14 @@ export default function ParenthesesForm({
           control={
             <Checkbox
               checked={checkboxValues[option.key] ?? option.defaultValue}
-              onChange={(event) =>
+              onChange={(event) => {
+                const checked = event.target.checked;
                 setCheckboxValues((current) => ({
                   ...current,
-                  [option.key]: event.target.checked,
-                }))
-              }
+                  [option.key]: checked,
+                }));
+                option.onCheckboxChange?.(checked);
+              }}
             />
           }
           label={option.label}

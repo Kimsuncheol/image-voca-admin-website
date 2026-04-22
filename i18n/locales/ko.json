@@ -448,6 +448,7 @@
     "networkError": "네트워크 오류가 발생했습니다. 다시 시도해주세요.",
     "romanizeAction": "로마자 변환",
     "addFuriganaAction": "후리가나 추가",
+    "addFuriganaAllowParenthesesOption": "괄호 허용",
     "addFuriganaHiraganaOnlyOption": "히라가나만 사용",
     "removeFuriganaAction": "후리가나 제거",
     "removeFuriganaRemoveBracketsOption": "괄호도 함께 제거",
