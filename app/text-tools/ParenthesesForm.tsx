@@ -181,11 +181,12 @@ export default function ParenthesesForm({
               checked={checkboxValues[option.key] ?? option.defaultValue}
               onChange={(event) => {
                 const checked = event.target.checked;
-                setCheckboxValues((current) => ({
-                  ...current,
-                  [option.key]: checked,
-                }));
+                const newCheckboxValues = { ...checkboxValues, [option.key]: checked };
+                setCheckboxValues(newCheckboxValues);
                 option.onCheckboxChange?.(checked);
+                if (input.trim() && validateWithCheckboxes) {
+                  setInputValidationError(validateWithCheckboxes(input, newCheckboxValues));
+                }
               }}
             />
           }
