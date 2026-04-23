@@ -182,11 +182,15 @@ describe("WordTable", () => {
             id: "kanji-1",
             kanji: "一",
             meaning: ["ひと", "ひと(つ)"],
+            meaningKorean: ["one person", "one thing"],
+            meaningKoreanRomanize: ["han saram", "han gae"],
             meaningExample: [{ items: ["一言", "一息"] }, { items: ["一つ"] }],
             meaningExampleHurigana: [{ items: ["ひとこと", "ひといき"] }, { items: ["ひとつ"] }],
             meaningEnglishTranslation: [{ items: ["A single word", "A breath"] }, { items: ["One"] }],
             meaningKoreanTranslation: [{ items: ["한마디 말", "한숨 돌림"] }, { items: ["한 개"] }],
             reading: ["いち"],
+            readingKorean: ["ichi"],
+            readingKoreanRomanize: ["ichi romanized"],
             readingExample: [{ items: ["一月"] }],
             readingExampleHurigana: [{ items: ["いちがつ"] }],
             readingEnglishTranslation: [{ items: ["January"] }],
@@ -208,6 +212,10 @@ describe("WordTable", () => {
     expect(markup).toContain("Kanji");
     expect(markup).toContain("Meaning");
     expect(markup).toContain("Reading");
+    expect(markup).toContain("one person");
+    expect(markup).toContain("han saram");
+    expect(markup).toContain("ichi");
+    expect(markup).toContain("ichi romanized");
     expect(markup).toContain("Examples");
     expect(markup).toContain("一言, 一息");
     expect(markup).toContain("Hurigana:");

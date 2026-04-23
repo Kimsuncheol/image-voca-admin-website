@@ -78,6 +78,46 @@ const FAMOUS_QUOTE_OPTIONAL_HEADERS = ['language'] as const;
 const KANJI_HEADERS = [
   'kanji',
   'meaning',
+  'meaningkorean',
+  'meaningkoreanromanize',
+  'meaningexample',
+  'meaningexamplehurigana',
+  'meaningenglishtranslation',
+  'meaningkoreantranslation',
+  'reading',
+  'readingkorean',
+  'readingkoreanromanize',
+  'readingexample',
+  'readingexamplehurigana',
+  'readingenglishtranslation',
+  'readingkoreantranslation',
+  'example',
+  'exampleenglishtranslation',
+  'examplekoreantranslation',
+  'examplehurigana',
+] as const;
+const KANJI_PRE_ROMANIZATION_HEADERS = [
+  'kanji',
+  'meaning',
+  'meaningkorean',
+  'meaningexample',
+  'meaningexamplehurigana',
+  'meaningenglishtranslation',
+  'meaningkoreantranslation',
+  'reading',
+  'readingkorean',
+  'readingexample',
+  'readingexamplehurigana',
+  'readingenglishtranslation',
+  'readingkoreantranslation',
+  'example',
+  'exampleenglishtranslation',
+  'examplekoreantranslation',
+  'examplehurigana',
+] as const;
+const KANJI_LEGACY_HEADERS = [
+  'kanji',
+  'meaning',
   'meaningexample',
   'meaningexamplehurigana',
   'meaningenglishtranslation',
@@ -232,36 +272,48 @@ function normalizeRow(row: Record<string, unknown>, schemaType: SchemaType): Rec
       _1: 'kanji',
       meaning: 'meaning',
       _2: 'meaning',
+      meaningkorean: 'meaningKorean',
+      _3: 'meaningKorean',
+      meaningkoreanromanize: 'meaningKoreanRomanize',
+      _4: 'meaningKoreanRomanize',
       meaningexample: 'meaningExample',
-      _3: 'meaningExample',
+      _5: 'meaningExample',
       meaningexamplehurigana: 'meaningExampleHurigana',
-      _4: 'meaningExampleHurigana',
+      _6: 'meaningExampleHurigana',
       meaningenglishtranslation: 'meaningEnglishTranslation',
-      _5: 'meaningEnglishTranslation',
+      _7: 'meaningEnglishTranslation',
       meaningkoreantranslation: 'meaningKoreanTranslation',
-      _6: 'meaningKoreanTranslation',
+      _8: 'meaningKoreanTranslation',
       reading: 'reading',
-      _7: 'reading',
+      _9: 'reading',
+      readingkorean: 'readingKorean',
+      _10: 'readingKorean',
+      readingkoreanromanize: 'readingKoreanRomanize',
+      _11: 'readingKoreanRomanize',
       readingexample: 'readingExample',
-      _8: 'readingExample',
+      _12: 'readingExample',
       readingexamplehurigana: 'readingExampleHurigana',
-      _9: 'readingExampleHurigana',
+      _13: 'readingExampleHurigana',
       readingenglishtranslation: 'readingEnglishTranslation',
-      _10: 'readingEnglishTranslation',
+      _14: 'readingEnglishTranslation',
       readingkoreantranslation: 'readingKoreanTranslation',
-      _11: 'readingKoreanTranslation',
+      _15: 'readingKoreanTranslation',
       example: 'example',
-      _12: 'example',
+      _16: 'example',
       exampleenglishtranslation: 'exampleEnglishTranslation',
-      _13: 'exampleEnglishTranslation',
+      _17: 'exampleEnglishTranslation',
       examplekoreantranslation: 'exampleKoreanTranslation',
-      _14: 'exampleKoreanTranslation',
+      _18: 'exampleKoreanTranslation',
       examplehurigana: 'exampleHurigana',
-      _15: 'exampleHurigana',
+      _19: 'exampleHurigana',
     };
     const arrayFields = new Set([
       'meaning',
+      'meaningKorean',
+      'meaningKoreanRomanize',
       'reading',
+      'readingKorean',
+      'readingKoreanRomanize',
       'example',
       'exampleEnglishTranslation',
       'exampleKoreanTranslation',
@@ -769,6 +821,30 @@ function isExactHeaderSet(
     return headers.every((header) => allowedHeaders.has(header));
   }
 
+  if (schemaType === 'kanji') {
+    const headerSet = new Set(headers);
+    const currentHeaders = [...expectedHeaders];
+    const matchesCurrent =
+      headers.length === currentHeaders.length &&
+      headerSet.size === currentHeaders.length &&
+      currentHeaders.every((h) => headerSet.has(h));
+    if (matchesCurrent) return true;
+
+    const preRomanizationHeaders = [...KANJI_PRE_ROMANIZATION_HEADERS];
+    const matchesPreRomanization =
+      headers.length === preRomanizationHeaders.length &&
+      headerSet.size === preRomanizationHeaders.length &&
+      preRomanizationHeaders.every((h) => headerSet.has(h));
+    if (matchesPreRomanization) return true;
+
+    const legacyHeaders = [...KANJI_LEGACY_HEADERS];
+    return (
+      headers.length === legacyHeaders.length &&
+      headerSet.size === legacyHeaders.length &&
+      legacyHeaders.every((h) => headerSet.has(h))
+    );
+  }
+
   if (schemaType === 'extremelyAdvanced') {
     const allowedHeaders = new Set([...expectedHeaders, ...EXTREMELY_ADVANCED_OPTIONAL_HEADERS]);
     const headerSet = new Set(headers);
@@ -862,9 +938,9 @@ function isCrossHeaderFirstRow(
 // A row qualifies as a header row when ≥2 of its cells match known field names.
 const KNOWN_FIELDS = new Set([
   'word', 'collocation', 'idiom', 'prefix', 'postfix', 'kanji', 'meaning',
-  'meaningexample', 'meaningexamplehurigana',
+  'meaningkorean', 'meaningkoreanromanize', 'meaningexample', 'meaningexamplehurigana',
   'meaningenglishtranslation', 'meaningkoreantranslation',
-  'reading', 'readingexample', 'readingexamplehurigana',
+  'reading', 'readingkorean', 'readingkoreanromanize', 'readingexample', 'readingexamplehurigana',
   'readingenglishtranslation', 'readingkoreantranslation',
   'exampleenglishtranslation', 'examplekoreantranslation',
   'meaning(english)', 'meaning english', 'meaning(korean)', 'meaning korean',

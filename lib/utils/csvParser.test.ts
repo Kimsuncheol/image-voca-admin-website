@@ -402,6 +402,94 @@ const KANJI_HEADERS = [
   "",
   "kanji",
   "meaning",
+  "meaningKorean",
+  "meaningKoreanRomanize",
+  "meaningExample",
+  "meaningExampleHurigana",
+  "meaningEnglishTranslation",
+  "meaningKoreanTranslation",
+  "reading",
+  "readingKorean",
+  "readingKoreanRomanize",
+  "readingExample",
+  "readingExampleHurigana",
+  "readingEnglishTranslation",
+  "readingKoreanTranslation",
+  "example",
+  "exampleEnglishTranslation",
+  "exampleKoreanTranslation",
+  "exampleHurigana",
+];
+
+const KANJI_SAMPLE_ROW = [
+  "",
+  "一",
+  "1. ひと\n2. ひと(つ)",
+  "1. one person\n2. one thing",
+  "1. han saram\n2. han gae",
+  "1. (一言), (一息), (一筋)\n2. (一つ)",
+  "1. (ひとこと), (ひといき), (ひとす)\n2. (ひとつ)",
+  "1. (A single word, A brief remark), (A breath, a pause, a puff), (A line)\n2. (One (general counter for objects))",
+  "1. (한마디 말), (한숨 돌림), (한 줄기, 외곬)\n2. (한 개)",
+  "1. いち 2. いつ",
+  "1. ichi\n2. itsu",
+  "1. ichi romanized\n2. itsu romanized",
+  "1. (一月), (一年), (一日), (一度)\n2. (同一), (統一)、 (一回)、(一般)",
+  "1. (いちがつ), (いちねん), (いちにち), (いちど)\n2. (どういつ), (とういつ)、 (いちかい)、(いっぱん)",
+  "1. (January), (One year), (One day), (Once)\n2. (Identical), (Unity), (1 time, 1 round), (General, Ordinary)",
+  "1. (1월), (한 해, 1년), (하루), (한 번)\n2. (동일), (통일), (1회), (일반)",
+  "1. これはいつでいくらですか。\n2. 一月新しい一年の始まりだ。",
+  "1. How much is this one?\n2. January is the beginning of a new year.",
+  "1. 이것은 한 개에 얼마입니까?\n2. 1월은 새로운 한 해의 시작이다.",
+  "1. これはいつでいくらですか。\n2. いちがつあたらしいいちねんのはじまりだ。",
+];
+
+const KANJI_PRE_ROMANIZATION_HEADERS = [
+  "",
+  "kanji",
+  "meaning",
+  "meaningKorean",
+  "meaningExample",
+  "meaningExampleHurigana",
+  "meaningEnglishTranslation",
+  "meaningKoreanTranslation",
+  "reading",
+  "readingKorean",
+  "readingExample",
+  "readingExampleHurigana",
+  "readingEnglishTranslation",
+  "readingKoreanTranslation",
+  "example",
+  "exampleEnglishTranslation",
+  "exampleKoreanTranslation",
+  "exampleHurigana",
+];
+
+const KANJI_PRE_ROMANIZATION_SAMPLE_ROW = [
+  "",
+  "一",
+  "1. ひと\n2. ひと(つ)",
+  "1. one person\n2. one thing",
+  "1. (一言), (一息), (一筋)\n2. (一つ)",
+  "1. (ひとこと), (ひといき), (ひとす)\n2. (ひとつ)",
+  "1. (A single word, A brief remark), (A breath, a pause, a puff), (A line)\n2. (One (general counter for objects))",
+  "1. (한마디 말), (한숨 돌림), (한 줄기, 외곬)\n2. (한 개)",
+  "1. いち 2. いつ",
+  "1. ichi\n2. itsu",
+  "1. (一月), (一年), (一日), (一度)\n2. (同一), (統一)、 (一回)、(一般)",
+  "1. (いちがつ), (いちねん), (いちにち), (いちど)\n2. (どういつ), (とういつ)、 (いちかい)、(いっぱん)",
+  "1. (January), (One year), (One day), (Once)\n2. (Identical), (Unity), (1 time, 1 round), (General, Ordinary)",
+  "1. (1월), (한 해, 1년), (하루), (한 번)\n2. (동일), (통일), (1회), (일반)",
+  "1. これはいつでいくらですか。\n2. 一月新しい一年の始まりだ。",
+  "1. How much is this one?\n2. January is the beginning of a new year.",
+  "1. 이것은 한 개에 얼마입니까?\n2. 1월은 새로운 한 해의 시작이다.",
+  "1. これはいつでいくらですか。\n2. いちがつあたらしいいちねんのはじまりだ。",
+];
+
+const KANJI_LEGACY_HEADERS = [
+  "",
+  "kanji",
+  "meaning",
   "meaningExample",
   "meaningExampleHurigana",
   "meaningEnglishTranslation",
@@ -417,7 +505,7 @@ const KANJI_HEADERS = [
   "exampleHurigana",
 ];
 
-const KANJI_SAMPLE_ROW = [
+const KANJI_LEGACY_SAMPLE_ROW = [
   "",
   "一",
   "1. ひと\n2. ひと(つ)",
@@ -447,6 +535,8 @@ describe("csvParser Kanji schema", () => {
     expect(result.words[0]).toMatchObject({
       kanji: "一",
       meaning: ["ひと", "ひと(つ)"],
+      meaningKorean: ["one person", "one thing"],
+      meaningKoreanRomanize: ["han saram", "han gae"],
       meaningExample: [{ items: ["一言", "一息", "一筋"] }, { items: ["一つ"] }],
       meaningExampleHurigana: [{ items: ["ひとこと", "ひといき", "ひとす"] }, { items: ["ひとつ"] }],
       meaningEnglishTranslation: [
@@ -458,6 +548,8 @@ describe("csvParser Kanji schema", () => {
         { items: ["한 개"] },
       ],
       reading: ["いち", "いつ"],
+      readingKorean: ["ichi", "itsu"],
+      readingKoreanRomanize: ["ichi romanized", "itsu romanized"],
       readingExample: [
         { items: ["一月", "一年", "一日", "一度"] },
         { items: ["同一", "統一", "一回", "一般"] },
@@ -473,6 +565,60 @@ describe("csvParser Kanji schema", () => {
       ],
     });
     expect(containsFirestoreNestedArray(result.words[0])).toBe(false);
+  });
+
+  it("parses pre-romanization Kanji rows and defaults romanization columns", () => {
+    const result = parseRowArrays(
+      [KANJI_PRE_ROMANIZATION_HEADERS, KANJI_PRE_ROMANIZATION_SAMPLE_ROW],
+      "kanji",
+    );
+
+    expect(result.blockingError).toBeUndefined();
+    expect(result.errors).toEqual([]);
+    expect(result.words[0]).toMatchObject({
+      kanji: "一",
+      meaningKorean: ["one person", "one thing"],
+      meaningKoreanRomanize: [],
+      readingKorean: ["ichi", "itsu"],
+      readingKoreanRomanize: [],
+    });
+    expect(containsFirestoreNestedArray(result.words[0])).toBe(false);
+  });
+
+  it("parses legacy Kanji rows without Korean meaning and reading columns", () => {
+    const result = parseRowArrays([KANJI_LEGACY_HEADERS, KANJI_LEGACY_SAMPLE_ROW], "kanji");
+
+    expect(result.blockingError).toBeUndefined();
+    expect(result.errors).toEqual([]);
+    expect(result.words[0]).toMatchObject({
+      kanji: "一",
+      meaning: ["ひと", "ひと(つ)"],
+      meaningKorean: [],
+      meaningKoreanRomanize: [],
+      reading: ["いち", "いつ"],
+      readingKorean: [],
+      readingKoreanRomanize: [],
+      readingExample: [
+        { items: ["一月", "一年", "一日", "一度"] },
+        { items: ["同一", "統一", "一回", "一般"] },
+      ],
+    });
+    expect(containsFirestoreNestedArray(result.words[0])).toBe(false);
+  });
+
+  it("keeps top-level nested splits while preserving commas inside parentheses", () => {
+    const result = parseRowArrays([KANJI_HEADERS, KANJI_SAMPLE_ROW], "kanji");
+
+    expect(result.words[0]).toMatchObject({
+      meaningEnglishTranslation: [
+        { items: ["A single word, A brief remark", "A breath, a pause, a puff", "A line"] },
+        { items: ["One (general counter for objects)"] },
+      ],
+      readingExample: [
+        { items: ["一月", "一年", "一日", "一度"] },
+        { items: ["同一", "統一", "一回", "一般"] },
+      ],
+    });
   });
 
   it("rejects mismatched headers when Kanji schema is forced", () => {
@@ -514,6 +660,8 @@ describe("csvParser Kanji schema", () => {
     expect(result.words[0]).toMatchObject({
       kanji: "一",
       reading: ["いち", "いつ"],
+      readingKorean: ["ichi", "itsu"],
+      readingKoreanRomanize: ["ichi romanized", "itsu romanized"],
     });
   });
 });

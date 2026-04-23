@@ -454,6 +454,18 @@ function getKanjiNestedGroup(groups: KanjiNestedListLike | undefined, index: num
   return joinKanjiItems(getKanjiGroupItems(groups[index]));
 }
 
+function formatKanjiKoreanLine(
+  korean: string | undefined,
+  romanized: string | undefined,
+  translation: string,
+): string {
+  const primary = [
+    korean,
+    romanized ? `(${romanized})` : "",
+  ].filter(Boolean).join(" ");
+  return [primary, translation].filter(Boolean).join(" / ");
+}
+
 function formatKanjiCopyText(items: string[] | KanjiNestedListLike | undefined): string {
   if (!Array.isArray(items)) return "";
   return items
@@ -1148,6 +1160,8 @@ export default function WordTable({
           m.kanji,
           [
             formatKanjiCopyText(m.meaning),
+            formatKanjiCopyText(m.meaningKorean),
+            formatKanjiCopyText(m.meaningKoreanRomanize),
             formatKanjiCopyText(m.meaningExample),
             formatKanjiCopyText(m.meaningExampleHurigana),
             formatKanjiCopyText(m.meaningEnglishTranslation),
@@ -1155,6 +1169,8 @@ export default function WordTable({
           ].filter(Boolean).join("\n"),
           [
             formatKanjiCopyText(m.reading),
+            formatKanjiCopyText(m.readingKorean),
+            formatKanjiCopyText(m.readingKoreanRomanize),
             formatKanjiCopyText(m.readingExample),
             formatKanjiCopyText(m.readingExampleHurigana),
             formatKanjiCopyText(m.readingEnglishTranslation),
@@ -2079,7 +2095,11 @@ export default function WordTable({
                           examples: getKanjiNestedGroup(mergedWord.meaningExample, index),
                           hurigana: getKanjiNestedGroup(mergedWord.meaningExampleHurigana, index),
                           english: getKanjiNestedGroup(mergedWord.meaningEnglishTranslation, index),
-                          korean: getKanjiNestedGroup(mergedWord.meaningKoreanTranslation, index),
+                          korean: formatKanjiKoreanLine(
+                            mergedWord.meaningKorean?.[index],
+                            mergedWord.meaningKoreanRomanize?.[index],
+                            getKanjiNestedGroup(mergedWord.meaningKoreanTranslation, index),
+                          ),
                         }))}
                       />
                     </TableCell>
@@ -2090,7 +2110,11 @@ export default function WordTable({
                           examples: getKanjiNestedGroup(mergedWord.readingExample, index),
                           hurigana: getKanjiNestedGroup(mergedWord.readingExampleHurigana, index),
                           english: getKanjiNestedGroup(mergedWord.readingEnglishTranslation, index),
-                          korean: getKanjiNestedGroup(mergedWord.readingKoreanTranslation, index),
+                          korean: formatKanjiKoreanLine(
+                            mergedWord.readingKorean?.[index],
+                            mergedWord.readingKoreanRomanize?.[index],
+                            getKanjiNestedGroup(mergedWord.readingKoreanTranslation, index),
+                          ),
                         }))}
                       />
                     </TableCell>
