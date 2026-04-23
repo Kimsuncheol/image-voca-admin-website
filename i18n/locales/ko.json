@@ -447,6 +447,8 @@
     "inputOtherLanguageChars": "텍스트에 다른 언어 문자가 포함되어 있습니다.",
     "networkError": "네트워크 오류가 발생했습니다. 다시 시도해주세요.",
     "romanizeAction": "로마자 변환",
+    "romanizeLanguageJapanese": "일본어",
+    "romanizeLanguageKorean": "한국어",
     "addFuriganaAction": "후리가나 추가",
     "addFuriganaAllowParenthesesOption": "괄호 허용",
     "addFuriganaHiraganaOnlyOption": "히라가나만 사용",

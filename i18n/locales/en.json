@@ -447,6 +447,8 @@
     "inputOtherLanguageChars": "The text contains characters from other languages.",
     "networkError": "Network error. Please try again.",
     "romanizeAction": "Romanize",
+    "romanizeLanguageJapanese": "Japanese",
+    "romanizeLanguageKorean": "Korean",
     "addFuriganaAction": "Add Furigana",
     "addFuriganaAllowParenthesesOption": "Allow parentheses",
     "addFuriganaHiraganaOnlyOption": "Hiragana only",

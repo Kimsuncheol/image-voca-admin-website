@@ -8,7 +8,7 @@ import ParenthesesForm from "./ParenthesesForm";
 
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({
-    t: (key: string) => key,
+    t: (key: string) => (key === "common.copy" ? "Copy" : key),
   }),
 }));
 
@@ -89,6 +89,22 @@ function createFormWithHiraganaModeOption() {
             checked ? { mode: "hiragana_only" } : {},
         },
       ]}
+    />
+  );
+}
+
+function createFormWithExtraPayload() {
+  return (
+    <ParenthesesForm
+      apiPath="/api/text/test"
+      submitLabel="Submit"
+      loadingLabel="Loading"
+      resetLabel="Reset"
+      inputLabel="Input"
+      outputLabel="Output"
+      inputRequiredMsg="Input is required"
+      networkErrorMsg="Network error"
+      extraPayload={{ language: "ko" }}
     />
   );
 }
@@ -271,6 +287,28 @@ describe("ParenthesesForm", () => {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ text: "cat", remove_brackets: true }),
+    });
+  });
+
+  it("submits configured extra payload fields", async () => {
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({ romanized_text: "annyeonghaseyo" }),
+    });
+
+    rendered = renderForm(createFormWithExtraPayload());
+    const { input } = getTextareas();
+
+    act(() => {
+      setTextareaValue(input, "안녕하세요");
+    });
+
+    await submitForm();
+
+    expect(fetchMock).toHaveBeenCalledWith("/api/text/test", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text: "안녕하세요", language: "ko" }),
     });
   });
 

@@ -17,7 +17,11 @@ vi.mock("react-i18next", () => ({
         "textTools.inputLabel": "Input Text",
         "textTools.outputLabel": "Output Text",
         "textTools.inputRequired": "Input text is required.",
+        "textTools.inputOtherLanguageChars":
+          "The text contains characters from other languages.",
         "textTools.networkError": "Network error",
+        "textTools.tabVocabExtract": "Extract",
+        "textTools.tabRemoveEqualSign": "Remove Equal Sign",
         "textTools.tabParentheses": "Parentheses",
         "textTools.tabRomanize": "Romanize",
         "textTools.tabFurigana": "Furigana",
@@ -25,9 +29,13 @@ vi.mock("react-i18next", () => ({
         "textTools.subtabGenerate": "Generate",
         "textTools.subtabRemove": "Remove",
         "textTools.subtabAdd": "Add",
+        "textTools.subtabLeft": "Left",
+        "textTools.subtabRight": "Right",
         "textTools.generateAction": "Generate Parentheses",
         "textTools.removeAction": "Remove Parentheses",
         "textTools.romanizeAction": "Romanize",
+        "textTools.romanizeLanguageJapanese": "Japanese",
+        "textTools.romanizeLanguageKorean": "Korean",
         "textTools.addFuriganaAction": "Add Furigana",
         "textTools.addFuriganaHiraganaOnlyOption": "Hiragana only",
         "textTools.removeFuriganaAction": "Remove Furigana",
@@ -62,6 +70,8 @@ vi.mock("react-i18next", () => ({
         "textTools.vocabularyLayoutTable": "Table",
         "textTools.vocabularyCommonLabel": "Common",
         "textTools.vocabularyUncommonLabel": "Uncommon",
+        "textTools.vocabExtractAction": "Extract Vocabulary",
+        "textTools.removeEqualSignAction": "Remove Equal Sign",
       };
 
       return labels[key] ?? key;
@@ -85,15 +95,30 @@ vi.mock("./ParenthesesForm", () => ({
     apiPath,
     submitLabel,
     checkboxOptions,
+    extraPayload,
+    validate,
   }: {
     apiPath: string;
     submitLabel: string;
     checkboxOptions?: Array<{ label: string }>;
+    extraPayload?: Record<string, unknown>;
+    validate?: (text: string) => string | null;
   }) => (
-    <div data-testid="mock-form">
+    <div
+      data-testid="mock-form"
+      data-extra-payload={JSON.stringify(extraPayload ?? {})}
+      data-hangul-validation={validate?.("안녕하세요") ?? ""}
+      data-latin-validation={validate?.("hello") ?? ""}
+    >
       {`${submitLabel}:${apiPath}`}
       {checkboxOptions?.map((option) => <span key={option.label}>{option.label}</span>)}
     </div>
+  ),
+}));
+
+vi.mock("./VocabExtractForm", () => ({
+  default: ({ submitLabel }: { submitLabel: string }) => (
+    <div data-testid="mock-vocab-extract-form">{submitLabel}</div>
   ),
 }));
 
@@ -135,9 +160,12 @@ function clickTab(label: string) {
 }
 
 function clickButton(label: string) {
-  const button = Array.from(
-    document.querySelectorAll('[role="button"], button, .MuiChip-root'),
-  ).find((node) => node.textContent?.includes(label));
+  const candidates = Array.from(
+    document.querySelectorAll(".MuiChip-root, button:not([role='tab'])"),
+  );
+  const button =
+    candidates.find((node) => node.textContent === label) ??
+    candidates.find((node) => node.textContent?.includes(label));
 
   expect(button).not.toBeUndefined();
 
@@ -161,18 +189,55 @@ describe("TextToolsPage", () => {
     vi.clearAllMocks();
   });
 
-  it("renders grouped text tool tabs and defaults to parentheses generate with chip actions", () => {
+  it("renders grouped text tool tabs and defaults to vocabulary extraction", () => {
     rendered = renderPage(<TextToolsPage />);
 
     expect(document.body.textContent).toContain("Text Tools");
+    expect(document.body.textContent).toContain("Extract");
     expect(document.body.textContent).toContain("Parentheses");
     expect(document.body.textContent).toContain("Romanize");
     expect(document.body.textContent).toContain("Furigana");
     expect(document.body.textContent).toContain("Vocabulary");
-    expect(document.body.textContent).toContain("Generate");
-    expect(document.body.textContent).toContain("Remove");
-    expect(document.body.textContent).toContain(
-      "Generate Parentheses:/api/text/generate-parentheses",
+    expect(document.body.textContent).toContain("Extract Vocabulary");
+    expect(document.body.textContent).not.toContain("Japanese");
+    expect(document.body.textContent).not.toContain("Korean");
+  });
+
+  it("defaults romanize requests to Japanese and shows language chips only there", () => {
+    rendered = renderPage(<TextToolsPage />);
+
+    clickTab("Romanize");
+
+    const form = document.querySelector('[data-testid="mock-form"]');
+    expect(document.body.textContent).toContain("Japanese");
+    expect(document.body.textContent).toContain("Korean");
+    expect(document.body.textContent).toContain("Romanize:/api/text/romanize");
+    expect(form?.getAttribute("data-extra-payload")).toBe(
+      JSON.stringify({ language: "ja" }),
+    );
+    expect(form?.getAttribute("data-hangul-validation")).toBe(
+      "The text contains characters from other languages.",
+    );
+
+    clickTab("Furigana");
+
+    expect(document.body.textContent).not.toContain("Japanese");
+    expect(document.body.textContent).not.toContain("Korean");
+  });
+
+  it("switches romanize requests to Korean and allows Hangul validation", () => {
+    rendered = renderPage(<TextToolsPage />);
+
+    clickTab("Romanize");
+    clickButton("Korean");
+
+    const form = document.querySelector('[data-testid="mock-form"]');
+    expect(form?.getAttribute("data-extra-payload")).toBe(
+      JSON.stringify({ language: "ko" }),
+    );
+    expect(form?.getAttribute("data-hangul-validation")).toBe("");
+    expect(form?.getAttribute("data-latin-validation")).toBe(
+      "The text contains characters from other languages.",
     );
   });
 
@@ -207,6 +272,7 @@ describe("TextToolsPage", () => {
   it("updates the active form when a chip action is selected", () => {
     rendered = renderPage(<TextToolsPage />);
 
+    clickTab("Parentheses");
     clickButton("Remove");
 
     expect(document.body.textContent).toContain(

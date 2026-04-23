@@ -28,9 +28,11 @@ type ToolGroup =
 type ParenthesesAction = "generate" | "remove";
 type FuriganaAction = "add" | "remove";
 type RemoveSide = "left" | "right";
+type RomanizeLanguage = "ja" | "ko";
 
 const PARENTHESES_REGEX = /[()（）[\]【】〔〕「」『』〈〉《》〖〗｛｝]/;
 const OTHER_LANGUAGE_REGEX = /[a-zA-Z\uAC00-\uD7A3]/;
+const LATIN_REGEX = /[a-zA-Z]/;
 const SPLITTER_REGEX = /[=\-:;,./()\[\]*"']/;
 
 export default function TextToolsPage() {
@@ -42,6 +44,8 @@ export default function TextToolsPage() {
     useState<ParenthesesAction>("generate");
   const [furiganaAction, setFuriganaAction] = useState<FuriganaAction>("add");
   const [removeSide, setRemoveSide] = useState<RemoveSide>("left");
+  const [romanizeLanguage, setRomanizeLanguage] =
+    useState<RomanizeLanguage>("ja");
 
   if (authLoading) return null;
   if (user?.role !== "admin" && user?.role !== "super-admin") return null;
@@ -137,20 +141,36 @@ export default function TextToolsPage() {
 
     if (group === "romanize") {
       return (
-        <ParenthesesForm
-          key={group}
-          horizontal
-          apiPath="/api/text/romanize"
-          submitLabel={t("textTools.romanizeAction")}
-          validate={(text) => {
-            if (PARENTHESES_REGEX.test(text))
-              return t("textTools.inputHasParentheses");
-            if (OTHER_LANGUAGE_REGEX.test(text))
-              return t("textTools.inputOtherLanguageChars");
-            return null;
-          }}
-          {...sharedFormProps}
-        />
+        <Stack spacing={2}>
+          {renderActionChips<RomanizeLanguage>({
+            actions: [
+              { value: "ja", label: t("textTools.romanizeLanguageJapanese") },
+              { value: "ko", label: t("textTools.romanizeLanguageKorean") },
+            ],
+            current: romanizeLanguage,
+            onSelect: setRomanizeLanguage,
+          })}
+
+          <ParenthesesForm
+            key={group + romanizeLanguage}
+            horizontal
+            apiPath="/api/text/romanize"
+            submitLabel={t("textTools.romanizeAction")}
+            extraPayload={{ language: romanizeLanguage }}
+            validate={(text) => {
+              if (PARENTHESES_REGEX.test(text))
+                return t("textTools.inputHasParentheses");
+              if (
+                romanizeLanguage === "ja"
+                  ? OTHER_LANGUAGE_REGEX.test(text)
+                  : LATIN_REGEX.test(text)
+              )
+                return t("textTools.inputOtherLanguageChars");
+              return null;
+            }}
+            {...sharedFormProps}
+          />
+        </Stack>
       );
     }
 
