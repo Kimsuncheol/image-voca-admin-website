@@ -158,8 +158,6 @@ export default function TextToolsPage() {
             submitLabel={t("textTools.romanizeAction")}
             extraPayload={{ language: romanizeLanguage }}
             validate={(text) => {
-              if (PARENTHESES_REGEX.test(text))
-                return t("textTools.inputHasParentheses");
               if (
                 romanizeLanguage === "ja"
                   ? OTHER_LANGUAGE_REGEX.test(text)

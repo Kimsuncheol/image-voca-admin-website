@@ -109,6 +109,8 @@ vi.mock("./ParenthesesForm", () => ({
       data-extra-payload={JSON.stringify(extraPayload ?? {})}
       data-hangul-validation={validate?.("안녕하세요") ?? ""}
       data-latin-validation={validate?.("hello") ?? ""}
+      data-parentheses-ja-validation={validate?.("こんにちは（世界）") ?? ""}
+      data-parentheses-ko-validation={validate?.("안녕하세요（세계）") ?? ""}
     >
       {`${submitLabel}:${apiPath}`}
       {checkboxOptions?.map((option) => <span key={option.label}>{option.label}</span>)}
@@ -218,6 +220,7 @@ describe("TextToolsPage", () => {
     expect(form?.getAttribute("data-hangul-validation")).toBe(
       "The text contains characters from other languages.",
     );
+    expect(form?.getAttribute("data-parentheses-ja-validation")).toBe("");
 
     clickTab("Furigana");
 
@@ -236,6 +239,7 @@ describe("TextToolsPage", () => {
       JSON.stringify({ language: "ko" }),
     );
     expect(form?.getAttribute("data-hangul-validation")).toBe("");
+    expect(form?.getAttribute("data-parentheses-ko-validation")).toBe("");
     expect(form?.getAttribute("data-latin-validation")).toBe(
       "The text contains characters from other languages.",
     );
