@@ -195,6 +195,12 @@ function splitNumberedList(value: unknown): string[] {
     .filter(Boolean);
 }
 
+function splitNumberedListWithoutOuterParens(value: unknown): string[] {
+  return splitNumberedList(value)
+    .map((item) => removeOuterParens(item))
+    .filter(Boolean);
+}
+
 function hasBalancedOuterParens(value: string, open: string, close: string): boolean {
   if (!value.startsWith(open) || !value.endsWith(close)) return false;
 
@@ -319,6 +325,12 @@ function normalizeRow(row: Record<string, unknown>, schemaType: SchemaType): Rec
       'exampleKoreanTranslation',
       'exampleHurigana',
     ]);
+    const koreanArrayFields = new Set([
+      'meaningKorean',
+      'meaningKoreanRomanize',
+      'readingKorean',
+      'readingKoreanRomanize',
+    ]);
     const nestedArrayFields = new Set<string>(KANJI_NESTED_LIST_FIELDS);
 
     for (const [key, value] of Object.entries(row)) {
@@ -330,7 +342,9 @@ function normalizeRow(row: Record<string, unknown>, schemaType: SchemaType): Rec
       }
 
       if (arrayFields.has(targetKey)) {
-        normalized[targetKey] = splitNumberedList(value);
+        normalized[targetKey] = koreanArrayFields.has(targetKey)
+          ? splitNumberedListWithoutOuterParens(value)
+          : splitNumberedList(value);
       } else if (nestedArrayFields.has(targetKey)) {
         normalized[targetKey] = splitNestedNumberedList(value);
       } else {

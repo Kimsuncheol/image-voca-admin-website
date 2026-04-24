@@ -425,15 +425,15 @@ const KANJI_SAMPLE_ROW = [
   "",
   "一",
   "1. ひと\n2. ひと(つ)",
-  "1. one person\n2. one thing",
-  "1. han saram\n2. han gae",
+  "1. (one person)\n2. (one thing)",
+  "1. (han saram)\n2. (han gae)",
   "1. (一言), (一息), (一筋)\n2. (一つ)",
   "1. (ひとこと), (ひといき), (ひとす)\n2. (ひとつ)",
   "1. (A single word, A brief remark), (A breath, a pause, a puff), (A line)\n2. (One (general counter for objects))",
   "1. (한마디 말), (한숨 돌림), (한 줄기, 외곬)\n2. (한 개)",
   "1. いち 2. いつ",
-  "1. ichi\n2. itsu",
-  "1. ichi romanized\n2. itsu romanized",
+  "1. (ichi)\n2. (itsu)",
+  "1. (ichi romanized)\n2. (itsu romanized)",
   "1. (一月), (一年), (一日), (一度)\n2. (同一), (統一)、 (一回)、(一般)",
   "1. (いちがつ), (いちねん), (いちにち), (いちど)\n2. (どういつ), (とういつ)、 (いちかい)、(いっぱん)",
   "1. (January), (One year), (One day), (Once)\n2. (Identical), (Unity), (1 time, 1 round), (General, Ordinary)",
@@ -469,13 +469,13 @@ const KANJI_PRE_ROMANIZATION_SAMPLE_ROW = [
   "",
   "一",
   "1. ひと\n2. ひと(つ)",
-  "1. one person\n2. one thing",
+  "1. (one person)\n2. (one thing)",
   "1. (一言), (一息), (一筋)\n2. (一つ)",
   "1. (ひとこと), (ひといき), (ひとす)\n2. (ひとつ)",
   "1. (A single word, A brief remark), (A breath, a pause, a puff), (A line)\n2. (One (general counter for objects))",
   "1. (한마디 말), (한숨 돌림), (한 줄기, 외곬)\n2. (한 개)",
   "1. いち 2. いつ",
-  "1. ichi\n2. itsu",
+  "1. (ichi)\n2. (itsu)",
   "1. (一月), (一年), (一日), (一度)\n2. (同一), (統一)、 (一回)、(一般)",
   "1. (いちがつ), (いちねん), (いちにち), (いちど)\n2. (どういつ), (とういつ)、 (いちかい)、(いっぱん)",
   "1. (January), (One year), (One day), (Once)\n2. (Identical), (Unity), (1 time, 1 round), (General, Ordinary)",
@@ -618,6 +618,17 @@ describe("csvParser Kanji schema", () => {
         { items: ["一月", "一年", "一日", "一度"] },
         { items: ["同一", "統一", "一回", "一般"] },
       ],
+    });
+  });
+
+  it("removes only outer parentheses from Korean and romanized numbered-list fields", () => {
+    const result = parseRowArrays([KANJI_HEADERS, KANJI_SAMPLE_ROW], "kanji");
+
+    expect(result.words[0]).toMatchObject({
+      meaningKorean: ["one person", "one thing"],
+      meaningKoreanRomanize: ["han saram", "han gae"],
+      readingKorean: ["ichi", "itsu"],
+      readingKoreanRomanize: ["ichi romanized", "itsu romanized"],
     });
   });
 
