@@ -15,6 +15,7 @@ import {
   normalizeWordFinderText,
 } from "@/lib/server/wordFinderSearch";
 import { verifySessionUser } from "@/lib/server/sessionUser";
+import { capitalizeFirstCharacter } from "@/lib/utils/textFormat";
 import {
   COURSES,
   JLPT_COUNTER_OPTIONS,
@@ -28,9 +29,7 @@ import type {
 } from "@/types/wordFinder";
 
 const MAX_RESULTS = 200;
-const SEARCHABLE_COURSES = [...COURSES, ...JLPT_LEVEL_COURSES].filter(
-  (course) => course.schema !== "kanji",
-);
+const SEARCHABLE_COURSES = [...COURSES, ...JLPT_LEVEL_COURSES];
 
 // ---------------------------------------------------------------------------
 // Type-aware course selection
@@ -43,6 +42,7 @@ function filterCoursesByType(courses: Course[], type: string): Course[] {
     return courses.filter((c) => c.id === "COLLOCATIONS");
   if (type === "idiom")
     return courses.filter((c) => c.id === "IDIOMS");
+  if (type === "kanji") return courses.filter((c) => c.schema === "kanji");
   // "standard" — everything except flat courses, COLLOCATIONS, and IDIOMS
   return courses.filter((c) => c.storageMode !== "flat" && c.id !== "COLLOCATIONS" && c.id !== "IDIOMS" && c.schema !== "kanji");
 }
@@ -89,6 +89,88 @@ function createStandardResult(
     pronunciation: normalizeNullableWordFinderText(data.pronunciation),
     imageUrl: normalizeNullableWordFinderText(data.imageUrl),
     derivative: normalizeDerivativeEntries(data.derivative),
+  };
+}
+
+function getStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value.map((item) => normalizeWordFinderText(item)).filter(Boolean);
+}
+
+function formatKanjiIndexedLine(
+  primary: string | undefined,
+  korean: string | undefined,
+  romanized: string | undefined,
+): string {
+  const koreanParts = [
+    korean,
+    romanized ? `(${capitalizeFirstCharacter(romanized)})` : "",
+  ].filter(Boolean);
+  return [primary, koreanParts.join(" ")].filter(Boolean).join(" / ");
+}
+
+function formatKanjiIndexedSummary(
+  primaryValues: string[],
+  koreanValues: string[],
+  romanizedValues: string[],
+): string | null {
+  const lines = primaryValues
+    .map((value, index) =>
+      formatKanjiIndexedLine(value, koreanValues[index], romanizedValues[index]),
+    )
+    .filter(Boolean)
+    .map((line, index) => `${index + 1}. ${line}`);
+  return lines.length ? lines.join("\n") : null;
+}
+
+function createKanjiResult(
+  course: Course,
+  dayId: string,
+  id: string,
+  data: Record<string, unknown>,
+): WordFinderResult | null {
+  const kanji = normalizeWordFinderText(data.kanji);
+  if (!kanji) return null;
+
+  const meaning = getStringArray(data.meaning);
+  const meaningKorean = getStringArray(data.meaningKorean);
+  const meaningKoreanRomanize = getStringArray(data.meaningKoreanRomanize);
+  const reading = getStringArray(data.reading);
+  const readingKorean = getStringArray(data.readingKorean);
+  const readingKoreanRomanize = getStringArray(data.readingKoreanRomanize);
+  const examples = getStringArray(data.example);
+  const meaningSummary = formatKanjiIndexedSummary(
+    meaning,
+    meaningKorean,
+    meaningKoreanRomanize,
+  );
+  const readingSummary = formatKanjiIndexedSummary(
+    reading,
+    readingKorean,
+    readingKoreanRomanize,
+  );
+  const exampleSummary = examples.length
+    ? examples.map((example, index) => `${index + 1}. ${example}`).join("\n")
+    : null;
+
+  return {
+    id,
+    courseId: course.id,
+    courseLabel: course.label,
+    coursePath: course.path,
+    schemaVariant: "kanji",
+    dayId,
+    sourceHref: buildCourseSourceHref(course.id, id, dayId),
+    type: "kanji",
+    primaryText: kanji,
+    secondaryText: meaningSummary,
+    meaning: meaningSummary,
+    translation: exampleSummary,
+    example: exampleSummary,
+    pronunciation: readingSummary,
+    imageUrl: null,
+    meaningKoreanRomanize,
+    readingKoreanRomanize,
   };
 }
 
@@ -439,6 +521,8 @@ async function getCourseResults(course: Course): Promise<WordFinderResult[]> {
                 ? createIdiomResult(course, dayId, doc.id, data)
               : course.schema === "jlpt"
                 ? createJlptResult(course, dayId, doc.id, data)
+              : course.schema === "kanji"
+                ? createKanjiResult(course, dayId, doc.id, data)
               : createStandardResult(course, dayId, doc.id, data);
           if (result) dayResults.push(result);
         });

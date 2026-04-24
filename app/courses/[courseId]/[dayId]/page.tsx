@@ -423,7 +423,7 @@ export default function DayWordsPage({
 
   const filteredResults = useMemo(
     () =>
-      course && !isKanji
+      course
         ? filteredWords.map((word) =>
             adaptCourseWordToWordFinderResult({
               word,

@@ -236,6 +236,7 @@
     "typeCollocation": "Collocation",
     "typeIdiom": "Idiom",
     "typeFamousQuote": "Famous quote",
+    "typeKanji": "Kanji",
     "typePrefix": "Prefix",
     "typePostfix": "Postfix",
     "removeImage": "Remove image",

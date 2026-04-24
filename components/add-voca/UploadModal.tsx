@@ -115,10 +115,21 @@ const KANJI_PREVIEW_COLUMNS = [
   "exampleHurigana",
 ] as const;
 
-function formatPreviewValue(value: unknown): string {
+function isKanjiRomanizePreviewColumn(column: string): boolean {
+  return column === "meaningKoreanRomanize" || column === "readingKoreanRomanize";
+}
+
+function uppercaseFirstRomanLetter(value?: string | null): string {
+  return value ? value.replace(/[A-Za-z]/, (match) => match.toUpperCase()) : "";
+}
+
+function formatPreviewValue(value: unknown, column = ""): string {
   if (Array.isArray(value)) {
     return value
       .map((item) => {
+        if (isKanjiRomanizePreviewColumn(column)) {
+          return uppercaseFirstRomanLetter(String(item ?? ""));
+        }
         if (Array.isArray(item)) return item.join(", ");
         if (isKanjiNestedListGroup(item)) return item.items.join(", ");
         return String(item ?? "");
@@ -598,7 +609,7 @@ export default function UploadModal({
                         <TableRow key={i}>
                           {columns.map((col) => (
                             <TableCell key={col}>
-                              {formatPreviewValue((word as Record<string, unknown>)[col])}
+                              {formatPreviewValue((word as Record<string, unknown>)[col], col)}
                             </TableCell>
                           ))}
                         </TableRow>

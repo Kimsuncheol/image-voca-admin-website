@@ -113,14 +113,14 @@ function createKanjiParseResult(): ParseResult {
         kanji: "一",
         meaning: ["ひと", "ひと(つ)"],
         meaningKorean: ["one person", "one thing"],
-        meaningKoreanRomanize: ["han saram", "han gae"],
+        meaningKoreanRomanize: ["achim", "han saram"],
         meaningExample: [{ items: ["一言", "一息"] }, { items: ["一つ"] }],
         meaningExampleHurigana: [{ items: ["ひとこと", "ひといき"] }, { items: ["ひとつ"] }],
         meaningEnglishTranslation: [{ items: ["A single word", "A breath"] }, { items: ["One"] }],
         meaningKoreanTranslation: [{ items: ["한마디 말", "한숨 돌림"] }, { items: ["한 개"] }],
         reading: ["いち"],
         readingKorean: ["ichi"],
-        readingKoreanRomanize: ["ichi romanized"],
+        readingKoreanRomanize: ["jo", "(il)"],
         readingExample: [{ items: ["一月"] }],
         readingExampleHurigana: [{ items: ["いちがつ"] }],
         readingEnglishTranslation: [{ items: ["January"] }],
@@ -259,9 +259,11 @@ describe("UploadModal", () => {
     expect(headers).toContain("readingKoreanRomanize");
     expect(headers).toContain("exampleHurigana");
     expect(document.body.textContent).toContain("one person");
-    expect(document.body.textContent).toContain("han saram");
+    expect(document.body.textContent).toContain("Achim");
+    expect(document.body.textContent).toContain("Han saram");
     expect(document.body.textContent).toContain("ichi");
-    expect(document.body.textContent).toContain("ichi romanized");
+    expect(document.body.textContent).toContain("Jo");
+    expect(document.body.textContent).toContain("(Il)");
     expect(document.body.textContent).toContain("一言, 一息");
     expect(document.body.textContent).toContain("いちがつです。");
   });

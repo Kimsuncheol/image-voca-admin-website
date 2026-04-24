@@ -5,12 +5,13 @@ import type {
   FamousQuoteWord,
   IdiomWord,
   JlptWord,
+  KanjiWord,
   PostfixWord,
   PrefixWord,
   StandardWord,
   Word,
 } from "../types/word.ts";
-import { isIdiomWord, isJlptWord, isPrefixWord, isPostfixWord } from "../types/word.ts";
+import { isIdiomWord, isJlptWord, isKanjiWord, isPrefixWord, isPostfixWord } from "../types/word.ts";
 import type {
   CourseDayActionableMissingField,
   CourseDayMissingField,
@@ -23,6 +24,7 @@ import type {
 } from "../types/wordFinder.ts";
 import { hasDerivativeEntries } from "./derivativeGeneration.ts";
 import { hasParentheticalFurigana } from "./furigana.ts";
+import { capitalizeFirstCharacter } from "./utils/textFormat.ts";
 
 interface AdaptCourseWordToWordFinderResultArgs {
   word: Word;
@@ -81,6 +83,40 @@ export type CourseWordResolvedUpdates = Partial<
 
 function hasTrimmedText(value: string | null | undefined): boolean {
   return typeof value === "string" && value.trim().length > 0;
+}
+
+function formatKanjiIndexedLine(
+  primary: string | undefined,
+  korean: string | undefined,
+  romanized: string | undefined,
+): string {
+  const koreanParts = [
+    korean,
+    romanized ? `(${capitalizeFirstCharacter(romanized)})` : "",
+  ].filter(hasTrimmedText);
+  return [primary, koreanParts.join(" ")].filter(hasTrimmedText).join(" / ");
+}
+
+function formatKanjiIndexedSummary(
+  primaryValues: string[] | undefined,
+  koreanValues: string[] | undefined,
+  romanizedValues: string[] | undefined,
+): string | null {
+  if (!Array.isArray(primaryValues)) return null;
+  const lines = primaryValues
+    .map((value, index) =>
+      formatKanjiIndexedLine(value, koreanValues?.[index], romanizedValues?.[index]),
+    )
+    .filter(hasTrimmedText)
+    .map((line, index) => `${index + 1}. ${line}`);
+  return lines.length ? lines.join("\n") : null;
+}
+
+function getKanjiExampleSummary(kanji: KanjiWord): string | null {
+  const examples = Array.isArray(kanji.example)
+    ? kanji.example.filter(hasTrimmedText)
+    : [];
+  return examples.length ? examples.map((example, index) => `${index + 1}. ${example}`).join("\n") : null;
 }
 
 function getWordFinderType(
@@ -244,6 +280,39 @@ export function adaptCourseWordToWordFinderResult(
       pronunciation: jlpt.pronunciation || null,
       pronunciationRoman: jlpt.pronunciationRoman || null,
       imageUrl: jlpt.imageUrl || null,
+    };
+  }
+
+  if (isKanjiWord(word)) {
+    const meaningSummary = formatKanjiIndexedSummary(
+      word.meaning,
+      word.meaningKorean,
+      word.meaningKoreanRomanize,
+    );
+    const readingSummary = formatKanjiIndexedSummary(
+      word.reading,
+      word.readingKorean,
+      word.readingKoreanRomanize,
+    );
+
+    return {
+      id: word.id,
+      courseId,
+      courseLabel,
+      coursePath,
+      schemaVariant: "kanji",
+      dayId: dayId ?? null,
+      sourceHref: buildCourseWordSourceHref(courseId, word.id, dayId),
+      type: "kanji",
+      primaryText: word.kanji,
+      secondaryText: meaningSummary,
+      meaning: meaningSummary,
+      translation: getKanjiExampleSummary(word),
+      example: getKanjiExampleSummary(word),
+      pronunciation: readingSummary,
+      imageUrl: null,
+      meaningKoreanRomanize: word.meaningKoreanRomanize,
+      readingKoreanRomanize: word.readingKoreanRomanize,
     };
   }
 

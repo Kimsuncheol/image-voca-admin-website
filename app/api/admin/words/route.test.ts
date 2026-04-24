@@ -14,6 +14,13 @@ vi.mock("@/types/course", () => ({
       schema: "extremelyAdvanced",
       storageMode: "day",
     },
+    {
+      id: "KANJI",
+      label: "Kanji",
+      path: "courses/KANJI",
+      schema: "kanji",
+      storageMode: "day",
+    },
   ],
   JLPT_COUNTER_OPTIONS: [
     {
@@ -162,6 +169,61 @@ describe("GET /api/admin/words", () => {
           pronunciation: null,
           derivative: null,
           imageUrl: "https://example.com/fuddle.png",
+        },
+      ],
+    });
+  });
+
+  it("returns Kanji rows with capitalized Korean romanization summaries", async () => {
+    verifySessionUser.mockResolvedValue({ role: "admin" });
+    getMock
+      .mockResolvedValueOnce({
+        data: () => ({ totalDays: 1 }),
+      })
+      .mockResolvedValueOnce({
+        docs: [
+          {
+            id: "kanji-1",
+            data: () => ({
+              kanji: "一",
+              meaning: ["ひと", "ひと(つ)"],
+              meaningKorean: ["one person", "one thing"],
+              meaningKoreanRomanize: ["han saram", "han gae"],
+              reading: ["いち"],
+              readingKorean: ["ichi"],
+              readingKoreanRomanize: ["ichi romanized"],
+              example: ["一月です。"],
+            }),
+          },
+        ],
+      });
+
+    const { GET } = await import("./route");
+    const response = await GET(
+      new NextRequest(
+        "http://localhost/api/admin/words?courseId=KANJI&type=kanji&missingField=all",
+      ),
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      ok: true,
+      total: 1,
+      limited: false,
+      results: [
+        {
+          id: "kanji-1",
+          courseId: "KANJI",
+          courseLabel: "Kanji",
+          schemaVariant: "kanji",
+          type: "kanji",
+          dayId: "Day1",
+          sourceHref: "/courses/KANJI/Day1#kanji-1",
+          primaryText: "一",
+          meaning: "1. ひと / one person (Han saram)\n2. ひと(つ) / one thing (Han gae)",
+          pronunciation: "1. いち / ichi (Ichi romanized)",
+          translation: "1. 一月です。",
+          imageUrl: null,
         },
       ],
     });

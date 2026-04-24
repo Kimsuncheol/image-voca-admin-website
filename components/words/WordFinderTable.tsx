@@ -66,6 +66,10 @@ function isExtremelyAdvancedResult(result: WordFinderResult): boolean {
   return result.schemaVariant === "extremelyAdvanced";
 }
 
+function isKanjiResult(result: WordFinderResult | undefined): boolean {
+  return result?.schemaVariant === "kanji" || result?.type === "kanji";
+}
+
 function shouldShowPronunciationColumn(results: WordFinderResult[]): boolean {
   return results.some((result) => !isExtremelyAdvancedResult(result));
 }
@@ -151,6 +155,8 @@ function getTypeLabel(
       return t("words.typeIdiom");
     case "famousQuote":
       return t("words.typeFamousQuote");
+    case "kanji":
+      return t("words.typeKanji");
     case "standard":
     default:
       return t("words.typeStandard");
@@ -442,6 +448,8 @@ export default function WordFinderTable({
 
   const handleContextMenuGenerate = useCallback(() => {
     if (!contextMenu || !onMissingFieldClick) return;
+    const result = results[contextMenu.row];
+    if (!result || isKanjiResult(result)) return;
     const field = getColField(
       contextMenu.col,
       hasSynonymColumn,
@@ -450,8 +458,6 @@ export default function WordFinderTable({
       hasExampleHuriganaColumn,
     );
     if (!field) return;
-    const result = results[contextMenu.row];
-    if (!result) return;
     onMissingFieldClick(result, field);
   }, [contextMenu, results, onMissingFieldClick, hasSynonymColumn, hasPronunciationColumn, isExampleHuriganaMode, hasExampleHuriganaColumn]);
 
@@ -467,7 +473,8 @@ export default function WordFinderTable({
     onAddFuriganaClick(result, field);
   }, [contextMenu, onAddFuriganaClick, results, isExampleHuriganaMode]);
 
-  const contextMenuField = contextMenu
+  const contextMenuResult = contextMenu ? results[contextMenu.row] : undefined;
+  const contextMenuField = contextMenu && !isKanjiResult(contextMenuResult)
     ? getColField(
         contextMenu.col,
         hasSynonymColumn,
@@ -678,7 +685,7 @@ export default function WordFinderTable({
                 {...selectableCellProps(rowIdx, imageCol)}
                 sx={{ minWidth: 120, ...selectableCellSx(rowIdx, imageCol) }}
               >
-                {result.type === "famousQuote" ? null : result.imageUrl ? (
+                {result.type === "famousQuote" || isKanjiResult(result) ? null : result.imageUrl ? (
                   <Box
                     component="img"
                     src={result.imageUrl}
@@ -718,7 +725,7 @@ export default function WordFinderTable({
                 sx={{ minWidth: 220, ...selectableCellSx(rowIdx, statusCol) }}
               >
                 <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap>
-                  {result.type !== "famousQuote" && (
+                  {result.type !== "famousQuote" && !isKanjiResult(result) && (
                     renderStatusChip(
                       result,
                       "image",
@@ -740,7 +747,7 @@ export default function WordFinderTable({
                       isJapaneseFuriganaResult(result),
                     )
                   )}
-                  {result.type !== "famousQuote" && (
+                  {result.type !== "famousQuote" && !isKanjiResult(result) && (
                     renderStatusChip(
                       result,
                       "example",
@@ -750,7 +757,7 @@ export default function WordFinderTable({
                       isJapaneseFuriganaResult(result),
                     )
                   )}
-                  {renderStatusChip(
+                  {!isKanjiResult(result) && renderStatusChip(
                     result,
                     "translation",
                     result.translation

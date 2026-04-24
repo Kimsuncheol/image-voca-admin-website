@@ -42,7 +42,7 @@ import {
   isDerivativeGenerationEligibleResult,
 } from "@/lib/derivativeGeneration";
 import { containsKorean } from "@/lib/utils/korean";
-import { insertNumberedBreaks } from "@/lib/utils/textFormat";
+import { capitalizeFirstCharacter, insertNumberedBreaks } from "@/lib/utils/textFormat";
 import {
   findSpreadsheetBoundary,
   focusSpreadsheetCell,
@@ -459,9 +459,10 @@ function formatKanjiKoreanLine(
   romanized: string | undefined,
   translation: string,
 ): string {
+  const capitalizedRomanized = capitalizeFirstCharacter(romanized);
   const primary = [
     korean,
-    romanized ? `(${romanized})` : "",
+    capitalizedRomanized ? `(${capitalizedRomanized})` : "",
   ].filter(Boolean).join(" ");
   return [primary, translation].filter(Boolean).join(" / ");
 }
@@ -472,6 +473,13 @@ function formatKanjiCopyText(items: string[] | KanjiNestedListLike | undefined):
     .map((item, index) =>
       `${index + 1}. ${Array.isArray(item) || isKanjiNestedListGroup(item) ? joinKanjiItems(getKanjiGroupItems(item)) : item}`,
     )
+    .join("\n");
+}
+
+function formatKanjiRomanizedCopyText(items: string[] | undefined): string {
+  if (!Array.isArray(items)) return "";
+  return items
+    .map((item, index) => `${index + 1}. ${capitalizeFirstCharacter(item)}`)
     .join("\n");
 }
 
@@ -1161,7 +1169,7 @@ export default function WordTable({
           [
             formatKanjiCopyText(m.meaning),
             formatKanjiCopyText(m.meaningKorean),
-            formatKanjiCopyText(m.meaningKoreanRomanize),
+            formatKanjiRomanizedCopyText(m.meaningKoreanRomanize),
             formatKanjiCopyText(m.meaningExample),
             formatKanjiCopyText(m.meaningExampleHurigana),
             formatKanjiCopyText(m.meaningEnglishTranslation),
@@ -1170,7 +1178,7 @@ export default function WordTable({
           [
             formatKanjiCopyText(m.reading),
             formatKanjiCopyText(m.readingKorean),
-            formatKanjiCopyText(m.readingKoreanRomanize),
+            formatKanjiRomanizedCopyText(m.readingKoreanRomanize),
             formatKanjiCopyText(m.readingExample),
             formatKanjiCopyText(m.readingExampleHurigana),
             formatKanjiCopyText(m.readingEnglishTranslation),

@@ -6,3 +6,7 @@
 export function insertNumberedBreaks(text: string): string {
   return (text ?? "").replace(/ (\d+\.)/g, "\n$1");
 }
+
+export function capitalizeFirstCharacter(value?: string | null): string {
+  return value ? value.charAt(0).toUpperCase() + value.slice(1) : "";
+}

@@ -85,7 +85,7 @@ export function matchesMissingField(
     case "all":
       return true;
     case "image":
-      return result.type !== "famousQuote" && !result.imageUrl;
+      return result.type !== "famousQuote" && result.type !== "kanji" && !result.imageUrl;
     case "pronunciation":
       return (
         result.type === "standard" &&
@@ -93,7 +93,7 @@ export function matchesMissingField(
         !result.pronunciation
       );
     case "example":
-      return result.type !== "famousQuote" && !result.example;
+      return result.type !== "famousQuote" && result.type !== "kanji" && !result.example;
     case "exampleHurigana":
       return (
         result.schemaVariant === "jlpt" &&
@@ -106,7 +106,7 @@ export function matchesMissingField(
         !hasDerivativeEntries(result.derivative)
       );
     case "translation":
-      return !result.translation;
+      return result.type !== "kanji" && !result.translation;
     default:
       return true;
   }

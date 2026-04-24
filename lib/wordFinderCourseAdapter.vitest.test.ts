@@ -61,6 +61,46 @@ describe("wordFinderCourseAdapter derivatives", () => {
     expect(result.imageUrl).toBe("https://example.com/counter.png");
   });
 
+  it("maps Kanji rows with capitalized Korean romanization summaries", () => {
+    const result = adaptCourseWordToWordFinderResult({
+      word: {
+        id: "kanji-1",
+        kanji: "一",
+        meaning: ["ひと", "ひと(つ)"],
+        meaningKorean: ["one person", "one thing"],
+        meaningKoreanRomanize: ["han saram", "han gae"],
+        meaningExample: [{ items: ["一言", "一息"] }, { items: ["一つ"] }],
+        meaningExampleHurigana: [{ items: ["ひとこと", "ひといき"] }, { items: ["ひとつ"] }],
+        meaningEnglishTranslation: [{ items: ["A single word", "A breath"] }, { items: ["One"] }],
+        meaningKoreanTranslation: [{ items: ["한마디 말", "한숨 돌림"] }, { items: ["한 개"] }],
+        reading: ["いち"],
+        readingKorean: ["ichi"],
+        readingKoreanRomanize: ["ichi romanized"],
+        readingExample: [{ items: ["一月"] }],
+        readingExampleHurigana: [{ items: ["いちがつ"] }],
+        readingEnglishTranslation: [{ items: ["January"] }],
+        readingKoreanTranslation: [{ items: ["1월"] }],
+        example: ["一月です。"],
+        exampleEnglishTranslation: ["It is January."],
+        exampleKoreanTranslation: ["1월입니다."],
+        exampleHurigana: ["いちがつです。"],
+      },
+      courseId: "KANJI",
+      courseLabel: "Kanji",
+      coursePath: "courses/KANJI",
+      dayId: "Day1",
+      isCollocation: false,
+    });
+
+    expect(result.schemaVariant).toBe("kanji");
+    expect(result.type).toBe("kanji");
+    expect(result.primaryText).toBe("一");
+    expect(result.meaning).toContain("Han saram");
+    expect(result.meaning).toContain("Han gae");
+    expect(result.pronunciation).toContain("Ichi romanized");
+    expect(result.translation).toBe("1. 一月です。");
+  });
+
   it("includes derivative as a missing field only for supported standard rows", () => {
     const missingFields = getCourseWordMissingFields(
       {

@@ -91,7 +91,7 @@ export default function WordFinderFilters({
             onChange={(event) => onCourseIdChange(event.target.value)}
           >
             <MenuItem value="all">{t("words.allCourses")}</MenuItem>
-            {COURSES.filter((course) => Boolean(course.path) && course.schema !== "kanji").map((course) => (
+            {COURSES.filter((course) => Boolean(course.path)).map((course) => (
               <MenuItem key={course.id} value={course.id}>
                 {course.label}
               </MenuItem>
@@ -120,6 +120,7 @@ export default function WordFinderFilters({
             <MenuItem value="standard">{t("words.typeStandard")}</MenuItem>
             <MenuItem value="collocation">{t("words.typeCollocation")}</MenuItem>
             <MenuItem value="famousQuote">{t("words.typeFamousQuote")}</MenuItem>
+            <MenuItem value="kanji">{t("words.typeKanji")}</MenuItem>
           </Select>
         </FormControl>
 

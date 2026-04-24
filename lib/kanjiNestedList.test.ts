@@ -22,15 +22,19 @@ describe("Kanji nested list normalization", () => {
         meaningExampleHurigana: [["ひとこと"]],
         meaningEnglishTranslation: [["A single word"]],
         meaningKoreanTranslation: [["한마디 말"]],
+        meaningKoreanRomanize: ["achim", "han saram"],
         readingExample: [["一月"]],
         readingExampleHurigana: [["いちがつ"]],
         readingEnglishTranslation: [["January"]],
         readingKoreanTranslation: [["1월"]],
+        readingKoreanRomanize: ["jo", "(il)"],
       },
     ]);
 
     expect(word.meaningExample).toEqual([{ items: ["一言"] }]);
     expect(word.readingExample).toEqual([{ items: ["一月"] }]);
+    expect(word.meaningKoreanRomanize).toEqual(["Achim", "Han saram"]);
+    expect(word.readingKoreanRomanize).toEqual(["Jo", "(Il)"]);
     expect(Object.values(word).some((value) => Array.isArray(value) && value.some(Array.isArray))).toBe(false);
   });
 });

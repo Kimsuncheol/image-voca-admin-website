@@ -1,10 +1,11 @@
 import type { CourseId } from "./course";
 
-export type WordFinderType = "standard" | "collocation" | "idiom" | "famousQuote";
+export type WordFinderType = "standard" | "collocation" | "idiom" | "famousQuote" | "kanji";
 export type WordFinderSchemaVariant =
   | "standard"
   | "extremelyAdvanced"
   | "jlpt"
+  | "kanji"
   | "collocation"
   | "idiom"
   | "famousQuote"
@@ -49,6 +50,8 @@ export interface WordFinderResult {
   derivative?: Array<{ word: string; meaning: string }> | null;
   prefix?: string | null;
   postfix?: string | null;
+  meaningKoreanRomanize?: string[] | null;
+  readingKoreanRomanize?: string[] | null;
 }
 
 export type WordFinderResultFieldUpdates = Partial<

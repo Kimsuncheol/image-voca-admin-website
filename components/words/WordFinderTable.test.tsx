@@ -42,6 +42,7 @@ vi.mock("react-i18next", () => ({
         "words.typeStandard": "Standard",
         "words.typeCollocation": "Collocation",
         "words.typeFamousQuote": "Famous Quote",
+        "words.typeKanji": "Kanji",
         "words.typePrefix": "Prefix",
         "words.typePostfix": "Postfix",
         "words.hasImage": "Has image",
@@ -210,6 +211,42 @@ describe("WordFinderTable", () => {
     expect(markup).toContain("本");
     expect(markup).toContain("Has pronunciation");
     expect(markup).toContain("Has example");
+  });
+
+  it("renders Kanji results with capitalized Korean romanization and no status actions", () => {
+    const markup = renderToStaticMarkup(
+      <WordFinderTable
+        results={[
+          createResult({
+            id: "kanji-1",
+            courseId: "KANJI",
+            courseLabel: "Kanji",
+            coursePath: "courses/KANJI",
+            sourceHref: "/courses/KANJI/Day1#kanji-1",
+            dayId: "Day1",
+            schemaVariant: "kanji",
+            type: "kanji",
+            primaryText: "一",
+            secondaryText: "1. ひと / one person (Han saram)",
+            meaning: "1. ひと / one person (Han saram)",
+            pronunciation: "1. いち / ichi (Ichi romanized)",
+            translation: "1. 一月です。",
+            example: "1. 一月です。",
+            imageUrl: null,
+            meaningKoreanRomanize: ["han saram"],
+            readingKoreanRomanize: ["ichi romanized"],
+          }),
+        ]}
+      />,
+    );
+
+    expect(markup).toContain("Kanji");
+    expect(markup).toContain("一");
+    expect(markup).toContain("Han saram");
+    expect(markup).toContain("Ichi romanized");
+    expect(markup).not.toContain("Missing image");
+    expect(markup).not.toContain("Has translation");
+    expect(markup).not.toContain("Has example");
   });
 
   it("shows the exampleHurigana column only in the dedicated missing-field mode", () => {

@@ -213,9 +213,9 @@ describe("WordTable", () => {
     expect(markup).toContain("Meaning");
     expect(markup).toContain("Reading");
     expect(markup).toContain("one person");
-    expect(markup).toContain("han saram");
+    expect(markup).toContain("Han saram");
     expect(markup).toContain("ichi");
-    expect(markup).toContain("ichi romanized");
+    expect(markup).toContain("Ichi romanized");
     expect(markup).toContain("Examples");
     expect(markup).toContain("一言, 一息");
     expect(markup).toContain("Hurigana:");

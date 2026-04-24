@@ -15,6 +15,13 @@ export const KANJI_NESTED_LIST_FIELDS = [
 
 export type KanjiNestedListField = (typeof KANJI_NESTED_LIST_FIELDS)[number];
 
+export const KANJI_ROMANIZE_FIELDS = [
+  "meaningKoreanRomanize",
+  "readingKoreanRomanize",
+] as const;
+
+export type KanjiRomanizeField = (typeof KANJI_ROMANIZE_FIELDS)[number];
+
 export function isKanjiNestedListGroup(value: unknown): value is KanjiNestedListGroup {
   return (
     typeof value === "object" &&
@@ -50,6 +57,17 @@ export function normalizeKanjiNestedListGroups(value: unknown): KanjiNestedListG
     .filter((group) => group.items.length > 0);
 }
 
+export function normalizeKanjiRomanizeList(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((item) =>
+      String(item ?? "")
+        .trim()
+        .replace(/[A-Za-z]/, (match) => match.toUpperCase()),
+    )
+    .filter(Boolean);
+}
+
 export function normalizeKanjiWordNestedLists<T extends Record<string, unknown>>(
   word: T,
 ): T {
@@ -58,6 +76,9 @@ export function normalizeKanjiWordNestedLists<T extends Record<string, unknown>>
   const normalized: Record<string, unknown> = { ...word };
   for (const field of KANJI_NESTED_LIST_FIELDS) {
     normalized[field] = normalizeKanjiNestedListGroups(normalized[field]);
+  }
+  for (const field of KANJI_ROMANIZE_FIELDS) {
+    normalized[field] = normalizeKanjiRomanizeList(normalized[field]);
   }
   return normalized as T;
 }
