@@ -24,7 +24,7 @@ vi.mock("@/lib/firebase/admin", () => ({
 }));
 
 vi.mock("@/lib/server/textApi", () => ({
-  buildVocabApiUrl: () => "https://text-api.example/v1/quizzes/generate",
+  buildVocabApiUrl: (path: string) => `https://text-api.example${path}`,
 }));
 
 function createRequest(body: unknown) {
@@ -67,7 +67,7 @@ describe("POST /api/text/quiz-generate", () => {
 
     global.fetch = vi.fn(async () =>
       Response.json({
-        quiz_type: "matching",
+        pop_quiz_type: "matching_game",
         language: "english",
         course: "TOEIC",
         level: null,
@@ -96,7 +96,7 @@ describe("POST /api/text/quiz-generate", () => {
 
     expect(response.status).toBe(200);
     expect(global.fetch).toHaveBeenCalledWith(
-      "https://text-api.example/v1/quizzes/generate",
+      "https://text-api.example/v1/pop-quizzes/generate",
       expect.objectContaining({
         body: expect.stringContaining('"count":10'),
       }),
@@ -125,11 +125,171 @@ describe("POST /api/text/quiz-generate", () => {
 
     expect(response.status).toBe(200);
     expect(global.fetch).toHaveBeenCalledWith(
-      "https://text-api.example/v1/quizzes/generate",
+      "https://text-api.example/v1/pop-quizzes/generate",
       expect.objectContaining({
         body: expect.stringContaining('"count":5'),
       }),
     );
+  });
+
+  it("caps matching game upstream count at 20", async () => {
+    mockDayWordCount(30);
+
+    const { POST } = await import("./route");
+    const response = await POST(
+      createRequest({
+        quiz_type: "matching",
+        language: "english",
+        course: "TOEIC",
+        level: null,
+        day: 19,
+        count: 30,
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(global.fetch).toHaveBeenCalledWith(
+      "https://text-api.example/v1/pop-quizzes/generate",
+      expect.objectContaining({
+        body: expect.stringContaining('"count":20'),
+      }),
+    );
+    await expect(response.json()).resolves.toMatchObject({
+      max_count: 30,
+      requested_count: 30,
+    });
+  });
+
+  it("sends the pop quiz matching request schema upstream", async () => {
+    mockDayWordCount(10);
+
+    const { POST } = await import("./route");
+    const response = await POST(
+      createRequest({
+        quiz_type: "matching",
+        language: "japanese",
+        course: "JLPT",
+        level: "N2",
+        day: 3,
+        count: 7,
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    const [, init] = vi.mocked(global.fetch).mock.calls[0] ?? [];
+    expect(init?.body).toBe(JSON.stringify({
+      pop_quiz_type: "matching_game",
+      language: "japanese",
+      course: "JLPT",
+      level: "N2",
+      day: 3,
+      count: 7,
+    }));
+  });
+
+  it("keeps fill-in-the-blank generation on the legacy quiz endpoint", async () => {
+    mockDayWordCount(10);
+    vi.mocked(global.fetch).mockResolvedValueOnce(
+      Response.json({
+        quiz_type: "fill_blank",
+        language: "english",
+        course: "TOEIC",
+        level: null,
+        day: 1,
+        questions: [],
+      }),
+    );
+
+    const { POST } = await import("./route");
+    const response = await POST(
+      createRequest({
+        quiz_type: "fill_blank",
+        language: "english",
+        course: "TOEIC",
+        level: null,
+        day: 1,
+        count: 5,
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(global.fetch).toHaveBeenCalledWith(
+      "https://text-api.example/v1/quizzes/generate",
+      expect.objectContaining({
+        body: expect.stringContaining('"quiz_type":"fill_blank"'),
+      }),
+    );
+  });
+
+  it("normalizes English pop quiz matching items and choices to the existing shape", async () => {
+    mockDayWordCount(10);
+    vi.mocked(global.fetch).mockResolvedValueOnce(
+      Response.json({
+        pop_quiz_type: "matching_game",
+        language: "english",
+        course: "COLLOCATION",
+        level: null,
+        day: 12,
+        items: [
+          {
+            id: "q1",
+            text: "make a decision",
+            meaning: "decide",
+          },
+        ],
+        choices: [
+          {
+            id: "c1",
+            text: "decide",
+          },
+        ],
+        answer_key: [
+          { item_id: "q1", choice_id: "c1" },
+        ],
+      }),
+    );
+
+    const { POST } = await import("./route");
+    const response = await POST(
+      createRequest({
+        quiz_type: "matching",
+        language: "english",
+        course: "COLLOCATION",
+        level: null,
+        day: 12,
+        count: 1,
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      quiz_type: "matching",
+      language: "english",
+      course: "COLLOCATION",
+      level: null,
+      day: 12,
+      items: [
+        {
+          id: "q1",
+          word: "make a decision",
+          meaning: "decide",
+          meaningEnglish: "decide",
+          meaningKorean: "decide",
+        },
+      ],
+      choices: [
+        {
+          id: "c1",
+          word: "decide",
+          meaning: "decide",
+          meaningEnglish: "decide",
+          meaningKorean: "decide",
+        },
+      ],
+      answer_key: [
+        { item_id: "q1", choice_id: "c1" },
+      ],
+    });
   });
 
   it("returns an error and does not call upstream when the day has no words", async () => {
@@ -160,7 +320,7 @@ describe("POST /api/text/quiz-generate", () => {
     mockDayWordCount(10);
     vi.mocked(global.fetch).mockResolvedValueOnce(
       Response.json({
-        quiz_type: "matching",
+        pop_quiz_type: "matching_game",
         language: "japanese",
         course: "JLPT",
         level: "N3",
@@ -174,24 +334,19 @@ describe("POST /api/text/quiz-generate", () => {
           },
           {
             id: "item-2",
-            word: "見る",
-            text: {
-              meaningEnglish: "to see",
-              meaningKorean: "보다",
-            },
+            text: "見る",
+            meaningEnglish: "to see",
+            meaningKorean: "보다",
           },
         ],
         choices: [
           {
             id: "choice-1",
-            text: {
-              meaningEnglish: "to eat",
-              meaningKorean: "먹다",
-            },
+            text: "to eat",
           },
           {
             id: "choice-2",
-            text: "fallback meaning",
+            text: "to see",
           },
         ],
         answer_key: [
@@ -215,6 +370,7 @@ describe("POST /api/text/quiz-generate", () => {
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toMatchObject({
+      quiz_type: "matching",
       items: [
         {
           id: "item-1",
@@ -232,13 +388,13 @@ describe("POST /api/text/quiz-generate", () => {
       choices: [
         {
           id: "choice-1",
-          word: "食べる",
+          word: "to eat",
           meaningEnglish: "to eat",
           meaningKorean: "먹다",
         },
         {
           id: "choice-2",
-          word: "見る",
+          word: "to see",
           meaningEnglish: "to see",
           meaningKorean: "보다",
         },

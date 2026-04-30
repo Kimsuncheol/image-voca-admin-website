@@ -19,6 +19,12 @@ vi.mock("react-i18next", () => ({
         "dashboard.userManagementDesc": "Manage users and roles",
         "dashboard.textTools": "Text Tools",
         "dashboard.textToolsDesc": "Parentheses, romanization, and furigana utilities",
+        "dashboard.popQuiz": "Pop Quiz",
+        "dashboard.popQuizDesc": "Generate matching-game pop quizzes from vocabulary courses",
+        "quiz.title": "Quiz",
+        "quiz.description": "Generate and review quizzes from vocabulary courses.",
+        "manga.title": "Manga",
+        "manga.desc": "Generate manga panel descriptions and images from a prompt",
         "dashboard.settings": "Settings",
         "dashboard.settingsDesc": "Configure AI models for generation",
       };
@@ -56,5 +62,13 @@ describe("Dashboard page", () => {
     expect(markup).toContain("Text Tools");
     expect(markup).toContain("Parentheses, romanization, and furigana utilities");
     expect(markup).toContain("/text-tools");
+  });
+
+  it("includes the Pop Quiz card", () => {
+    const markup = renderToStaticMarkup(<Home />);
+
+    expect(markup).toContain("Pop Quiz");
+    expect(markup).toContain("Generate matching-game pop quizzes from vocabulary courses");
+    expect(markup).toContain("/pop-quiz");
   });
 });

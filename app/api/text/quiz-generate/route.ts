@@ -25,6 +25,7 @@ type MatchingRawItem = {
   id?: string;
   word?: string;
   text?: MatchingChoiceText;
+  meaning?: string;
   meaningEnglish?: string;
   meaningKorean?: string;
 };
@@ -33,13 +34,18 @@ type MatchingRawChoice = {
   id?: string;
   word?: string;
   text?: MatchingChoiceText;
+  meaning?: string;
   meaningEnglish?: string;
   meaningKorean?: string;
 };
 
 type MatchingQuizResponse = {
   quiz_type?: string;
+  pop_quiz_type?: string;
   language?: string;
+  course?: string;
+  level?: string | null;
+  day?: number;
   items?: MatchingRawItem[];
   choices?: MatchingRawChoice[];
   answer_key?: Array<{
@@ -47,6 +53,10 @@ type MatchingQuizResponse = {
     choice_id?: string;
   }>;
 };
+
+type UpstreamQuizRequest = Record<string, unknown>;
+
+const MATCHING_GAME_MAX_COUNT = 20;
 
 function hasText(value: unknown): value is string {
   return typeof value === "string" && value.trim().length > 0;
@@ -83,10 +93,14 @@ function getChoiceWord(
   item: MatchingRawItem | undefined,
 ): string {
   if (hasText(choice.word)) return choice.word.trim();
+  if (typeof choice.text === "string" && hasText(choice.text)) {
+    return choice.text.trim();
+  }
   return getRawWord(item);
 }
 
 function getRawMeanings(entry: MatchingRawItem | MatchingRawChoice | undefined): {
+  meaning?: string;
   meaningEnglish?: string;
   meaningKorean?: string;
   fallback?: string;
@@ -94,6 +108,7 @@ function getRawMeanings(entry: MatchingRawItem | MatchingRawChoice | undefined):
   const textMeaning = getTextMeaning(entry?.text);
 
   return {
+    meaning: hasText(entry?.meaning) ? entry.meaning.trim() : undefined,
     meaningEnglish: hasText(entry?.meaningEnglish)
       ? entry.meaningEnglish.trim()
       : textMeaning.meaningEnglish,
@@ -102,6 +117,45 @@ function getRawMeanings(entry: MatchingRawItem | MatchingRawChoice | undefined):
       : textMeaning.meaningKorean,
     fallback: textMeaning.fallback,
   };
+}
+
+function buildMatchingRequest(
+  body: QuizGenerateBody,
+  count: number,
+): UpstreamQuizRequest {
+  return {
+    pop_quiz_type: "matching_game",
+    language: body.language,
+    course: body.course,
+    level: body.language === "japanese" ? body.level : null,
+    day: body.day,
+    count,
+  };
+}
+
+function buildLegacyQuizRequest(
+  body: QuizGenerateBody,
+  count: number,
+): UpstreamQuizRequest {
+  return {
+    ...body,
+    count,
+  };
+}
+
+function validateMatchingRequest(body: QuizGenerateBody): string | null {
+  if (body.language === "japanese") {
+    if (body.course !== "JLPT") return "Japanese matching games require JLPT.";
+    if (!hasText(body.level)) return "Japanese matching games require a JLPT level.";
+    return null;
+  }
+
+  if (body.language === "english") {
+    if (body.course === "JLPT") return "English matching games cannot use JLPT.";
+    return null;
+  }
+
+  return "Invalid matching game language.";
 }
 
 function normalizeMatchingQuiz(
@@ -132,28 +186,44 @@ function normalizeMatchingQuiz(
 
   return {
     ...quiz,
+    quiz_type: "matching",
+    pop_quiz_type: undefined,
     items: quiz.items.map((item) => {
       const meanings = getRawMeanings(item);
-      const fallback = meanings.fallback;
+      const fallback = meanings.meaning ?? meanings.fallback;
 
       return {
         id: item.id,
         word: getRawWord(item),
-        meaningEnglish: meanings.meaningEnglish ?? fallback,
-        meaningKorean: meanings.meaningKorean ?? fallback,
+        ...(fallback ? { meaning: fallback } : {}),
+        ...(meanings.meaningEnglish || fallback
+          ? { meaningEnglish: meanings.meaningEnglish ?? fallback }
+          : {}),
+        ...(meanings.meaningKorean || fallback
+          ? { meaningKorean: meanings.meaningKorean ?? fallback }
+          : {}),
       };
     }),
     choices: quiz.choices.map((choice) => {
       const item = itemsById.get(itemIdByChoiceId.get(choice.id));
       const meanings = getRawMeanings(choice);
       const itemMeanings = getRawMeanings(item);
-      const fallback = meanings.fallback ?? itemMeanings.fallback;
+      const fallback =
+        meanings.meaning ??
+        meanings.fallback ??
+        itemMeanings.meaning ??
+        itemMeanings.fallback;
 
       return {
         id: choice.id,
         word: getChoiceWord(choice, item),
-        meaningEnglish: meanings.meaningEnglish ?? itemMeanings.meaningEnglish ?? fallback,
-        meaningKorean: meanings.meaningKorean ?? itemMeanings.meaningKorean ?? fallback,
+        ...(fallback ? { meaning: fallback } : {}),
+        ...(meanings.meaningEnglish || itemMeanings.meaningEnglish || fallback
+          ? { meaningEnglish: meanings.meaningEnglish ?? itemMeanings.meaningEnglish ?? fallback }
+          : {}),
+        ...(meanings.meaningKorean || itemMeanings.meaningKorean || fallback
+          ? { meaningKorean: meanings.meaningKorean ?? itemMeanings.meaningKorean ?? fallback }
+          : {}),
       };
     }),
   };
@@ -197,20 +267,31 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const clampedCount = clampQuizCount(requestedCount, dayWordCount);
-  const upstreamBody = {
-    ...body,
-    count: clampedCount,
-  };
+  if (body.quiz_type === "matching") {
+    const validationError = validateMatchingRequest(body);
+    if (validationError) {
+      return NextResponse.json({ error: validationError }, { status: 400 });
+    }
+  }
 
-  const upstream = await fetch(buildVocabApiUrl("/v1/quizzes/generate"), {
+  const clampedCount = body.quiz_type === "matching"
+    ? Math.min(clampQuizCount(requestedCount, dayWordCount), MATCHING_GAME_MAX_COUNT)
+    : clampQuizCount(requestedCount, dayWordCount);
+  const upstreamBody = body.quiz_type === "matching"
+    ? buildMatchingRequest(body, clampedCount)
+    : buildLegacyQuizRequest(body, clampedCount);
+  const upstreamPath = body.quiz_type === "matching"
+    ? "/v1/pop-quizzes/generate"
+    : "/v1/quizzes/generate";
+
+  const upstream = await fetch(buildVocabApiUrl(upstreamPath), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(upstreamBody),
   });
 
   const data = (await upstream.json()) as unknown;
-  const normalizedData = normalizeMatchingQuiz(data, upstreamBody);
+  const normalizedData = normalizeMatchingQuiz(data, body);
 
   return NextResponse.json({
     ...(normalizedData && typeof normalizedData === "object" ? normalizedData : { data: normalizedData }),

@@ -89,6 +89,7 @@ type FillBlankQuizResponse = {
 };
 
 type QuizResponse = MatchingQuizResponse | FillBlankQuizResponse;
+type SaveTarget = "quiz" | "pop_quiz";
 
 type QuizCountResponse = {
   max_days?: number;
@@ -135,6 +136,9 @@ function renderSentenceWithBlank(sentence: string) {
 }
 
 export default function QuizGeneratorForm({
+  fixedQuizType,
+  hideQuizTypeSelector = false,
+  saveTarget = "quiz",
   submitLabel,
   loadingLabel,
   resetLabel,
@@ -165,6 +169,9 @@ export default function QuizGeneratorForm({
   meaningEnglishLabel,
   meaningKoreanLabel,
 }: {
+  fixedQuizType?: QuizType;
+  hideQuizTypeSelector?: boolean;
+  saveTarget?: SaveTarget;
   submitLabel: string;
   loadingLabel: string;
   resetLabel: string;
@@ -195,7 +202,7 @@ export default function QuizGeneratorForm({
   meaningEnglishLabel: string;
   meaningKoreanLabel: string;
 }) {
-  const [quizType, setQuizType] = useState<QuizType>("matching");
+  const [quizType, setQuizType] = useState<QuizType>(fixedQuizType ?? "matching");
   const [language, setLanguage] = useState<Language>("english");
   const [course, setCourse] = useState<Course>("TOEIC");
   const [level, setLevel] = useState<JlptLevel>("N3");
@@ -219,6 +226,10 @@ export default function QuizGeneratorForm({
   const [saveSuccess, setSaveSuccess] = useState(false);
 
   countRef.current = count;
+
+  useEffect(() => {
+    if (fixedQuizType) setQuizType(fixedQuizType);
+  }, [fixedQuizType]);
 
   function toggleAnswer(questionId: string) {
     setShownAnswers((prev) => {
@@ -424,6 +435,7 @@ export default function QuizGeneratorForm({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           quiz_type: result.quiz_type,
+          save_target: saveTarget,
           course,
           level: course === "JLPT" ? level : null,
           day,
@@ -704,20 +716,25 @@ export default function QuizGeneratorForm({
     <Box component="form" onSubmit={handleSubmit}>
       <Stack spacing={3}>
         <Grid container spacing={2}>
-          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-            <FormControl fullWidth>
-              <InputLabel id="quiz-type-label">{quizTypeLabel}</InputLabel>
-              <Select
-                labelId="quiz-type-label"
-                value={quizType}
-                label={quizTypeLabel}
-                onChange={(e) => setQuizType(e.target.value as QuizType)}
-              >
-                <MenuItem value="matching">{matchingLabel}</MenuItem>
-                <MenuItem value="fill_blank">{fillBlankLabel}</MenuItem>
-              </Select>
-            </FormControl>
-          </Grid>
+          {!hideQuizTypeSelector && (
+            <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+              <FormControl fullWidth>
+                <InputLabel id="quiz-type-label">{quizTypeLabel}</InputLabel>
+                <Select
+                  labelId="quiz-type-label"
+                  value={quizType}
+                  label={quizTypeLabel}
+                  onChange={(e) => {
+                    if (fixedQuizType) return;
+                    setQuizType(e.target.value as QuizType);
+                  }}
+                >
+                  <MenuItem value="matching">{matchingLabel}</MenuItem>
+                  <MenuItem value="fill_blank">{fillBlankLabel}</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+          )}
 
           <Grid size={{ xs: 12, sm: 6, md: 3 }}>
             <FormControl fullWidth>

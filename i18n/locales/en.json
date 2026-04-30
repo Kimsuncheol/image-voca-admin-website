@@ -31,6 +31,8 @@
     "userManagementDesc": "Manage users and roles",
     "textTools": "Text Tools",
     "textToolsDesc": "Parentheses, romanization, and furigana utilities",
+    "popQuiz": "Pop Quiz",
+    "popQuizDesc": "Generate matching-game pop quizzes from vocabulary courses",
     "manga": "Manga",
     "mangaDesc": "Generate manga panel descriptions and images from a prompt",
     "settings": "Settings",
@@ -526,6 +528,14 @@
     "description": "Generate and review quizzes from vocabulary courses.",
     "generatorTab": "Generator",
     "reviewTab": "Review"
+  },
+  "popQuiz": {
+    "title": "Pop Quiz",
+    "description": "Generate and save matching-game pop quizzes from vocabulary courses.",
+    "submitLabel": "Generate Pop Quiz",
+    "standbyTitle": "Ready to generate a pop quiz?",
+    "standbyDescription": "Select a language, course, and day, then generate a matching game.",
+    "processingDescription": "Generating a matching-game pop quiz using the vocabulary database. Please wait."
   },
   "quizReview": {
     "loadButton": "Load",

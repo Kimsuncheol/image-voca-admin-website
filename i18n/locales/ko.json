@@ -31,6 +31,8 @@
     "userManagementDesc": "사용자 및 역할 관리",
     "textTools": "텍스트 도구",
     "textToolsDesc": "괄호, 로마자 변환, 후리가나 도구",
+    "popQuiz": "팝 퀴즈",
+    "popQuizDesc": "어휘 코스에서 연결형 팝 퀴즈를 생성합니다",
     "manga": "만화",
     "mangaDesc": "프롬프트로 만화 패널 설명과 이미지를 생성합니다",
     "settings": "설정",
@@ -526,6 +528,14 @@
     "description": "어휘 코스에서 퀴즈를 생성하고 검토합니다.",
     "generatorTab": "생성기",
     "reviewTab": "검토"
+  },
+  "popQuiz": {
+    "title": "팝 퀴즈",
+    "description": "어휘 코스에서 연결형 팝 퀴즈를 생성하고 저장합니다.",
+    "submitLabel": "팝 퀴즈 생성",
+    "standbyTitle": "팝 퀴즈를 생성할 준비가 됐나요?",
+    "standbyDescription": "언어, 코스, Day를 선택한 뒤 연결형 게임을 생성하세요.",
+    "processingDescription": "어휘 데이터베이스에서 연결형 팝 퀴즈를 생성하고 있습니다. 잠시만 기다려 주세요."
   },
   "quizReview": {
     "loadButton": "불러오기",

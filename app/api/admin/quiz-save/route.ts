@@ -6,6 +6,7 @@ import { getQuizCourse } from "@/lib/server/quizGeneration";
 
 interface QuizSaveBody {
   quiz_type: "matching" | "fill_blank";
+  save_target?: "quiz" | "pop_quiz";
   course: string;
   level: string | null;
   day: number;
@@ -34,6 +35,31 @@ function normalizeQuizData(
   return { ...quiz_data, choices: normalizedChoices };
 }
 
+function getPopQuizBasePath(language: unknown): string | null {
+  if (language === "english") return process.env.NEXT_PUBLIC_POP_QUIZ_ENGLISH ?? null;
+  if (language === "japanese") return process.env.NEXT_PUBLIC_POP_QUIZ_JAPANESE ?? null;
+  return null;
+}
+
+function resolvePopQuizCollectionPath(
+  quiz_type: QuizSaveBody["quiz_type"],
+  quiz_data: Record<string, unknown>,
+): { collectionPath?: string; error?: string } {
+  if (quiz_type !== "matching") {
+    return { error: "Pop quiz saves only support matching quizzes." };
+  }
+
+  const language = quiz_data.language;
+  const basePath = getPopQuizBasePath(language);
+  if (!basePath) {
+    return { error: "Pop quiz storage path is not configured." };
+  }
+
+  return {
+    collectionPath: basePath,
+  };
+}
+
 export async function POST(req: NextRequest) {
   const caller = await verifySessionUser(req);
   if (!caller) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -42,7 +68,31 @@ export async function POST(req: NextRequest) {
   }
 
   const body = (await req.json()) as QuizSaveBody;
-  const { quiz_type, course, level, day, quiz_data } = body;
+  const { quiz_type, save_target = "quiz", course, level, day, quiz_data } = body;
+
+  const normalized = normalizeQuizData(quiz_type, course, quiz_data);
+
+  if (save_target === "pop_quiz") {
+    const result = resolvePopQuizCollectionPath(quiz_type, quiz_data);
+    if (!result.collectionPath) {
+      return NextResponse.json(
+        { error: result.error ?? "Invalid pop quiz save request." },
+        { status: 400 },
+      );
+    }
+
+    const docRef = adminDb.collection(result.collectionPath).doc("data");
+    await docRef.set(
+      {
+        days: {
+          [String(day)]: normalized,
+        },
+      },
+      { merge: true },
+    );
+
+    return NextResponse.json({ id: docRef.id });
+  }
 
   const courseConfig = getQuizCourse({ course, level });
 
@@ -52,8 +102,6 @@ export async function POST(req: NextRequest) {
 
   const subcollName = quiz_type === "matching" ? "matching" : "fill_in_the_blank";
   const collectionPath = `${courseConfig.path}/Day${day}/Day${day}-quiz/${subcollName}`;
-
-  const normalized = normalizeQuizData(quiz_type, course, quiz_data);
 
   const docRef = adminDb.collection(collectionPath).doc("data");
   await docRef.set(normalized);

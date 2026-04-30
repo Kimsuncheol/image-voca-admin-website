@@ -215,6 +215,56 @@ describe("QuizGeneratorForm", () => {
     expect("meaning_language" in body).toBe(false);
   });
 
+  it("can hide the quiz type selector and force matching generation", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      Response.json({ max_days: 20, max_count: 4 }),
+    ).mockResolvedValueOnce(
+      Response.json({
+        quiz_type: "matching",
+        language: "english",
+        course: "TOEIC",
+        level: null,
+        day: 1,
+        items: [],
+        choices: [],
+        answer_key: [],
+      }),
+    );
+
+    rendered = renderForm(
+      <QuizGeneratorForm
+        {...defaultProps}
+        fixedQuizType="matching"
+        hideQuizTypeSelector
+      />,
+    );
+
+    await waitFor(() => {
+      expect(getCountInput().value).toBe("4");
+      expect(document.body.textContent).not.toContain("Quiz Type");
+      expect(document.body.textContent).not.toContain("Fill in the Blank");
+    });
+
+    const button = Array.from(document.querySelectorAll("button")).find(
+      (node) => node.textContent === "Generate Quiz",
+    );
+    expect(button).toBeTruthy();
+
+    await act(async () => {
+      button?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+    });
+
+    const generateRequest = fetchMock.mock.calls[1]?.[1];
+    const body = JSON.parse(String(generateRequest?.body)) as {
+      quiz_type?: string;
+    };
+    expect(body.quiz_type).toBe("matching");
+  });
+
   it("renders Korean and English meanings for matching items and choices and saves without meaning_language", async () => {
     const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
       Response.json({ max_days: 20, max_count: 2 }),
@@ -299,6 +349,7 @@ describe("QuizGeneratorForm", () => {
 
     const saveRequest = fetchMock.mock.calls[2]?.[1];
     const saveBody = JSON.parse(String(saveRequest?.body)) as {
+      save_target?: string;
       meaning_language?: string;
       quiz_data?: {
         items?: Array<{
@@ -315,6 +366,7 @@ describe("QuizGeneratorForm", () => {
         }>;
       };
     };
+    expect(saveBody.save_target).toBe("quiz");
     expect("meaning_language" in saveBody).toBe(false);
     expect(saveBody.quiz_data?.items).toMatchObject([
       {
@@ -342,5 +394,69 @@ describe("QuizGeneratorForm", () => {
     ]);
     expect(saveBody.quiz_data?.items?.some((item) => "text" in item)).toBe(false);
     expect(saveBody.quiz_data?.choices?.some((choice) => "text" in choice)).toBe(false);
+  });
+
+  it("sends pop quiz save target when configured", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      Response.json({ max_days: 20, max_count: 1 }),
+    ).mockResolvedValueOnce(
+      Response.json({
+        quiz_type: "matching",
+        language: "english",
+        course: "TOEIC",
+        level: null,
+        day: 1,
+        items: [{ id: "q1", word: "make a decision", meaning: "decide" }],
+        choices: [{ id: "c1", word: "decide", meaning: "decide" }],
+        answer_key: [{ item_id: "q1", choice_id: "c1" }],
+      }),
+    ).mockResolvedValueOnce(Response.json({ id: "data" }));
+
+    rendered = renderForm(
+      <QuizGeneratorForm
+        {...defaultProps}
+        fixedQuizType="matching"
+        hideQuizTypeSelector
+        saveTarget="pop_quiz"
+      />,
+    );
+
+    await waitFor(() => {
+      expect(getCountInput().value).toBe("1");
+    });
+
+    const generateButton = Array.from(document.querySelectorAll("button")).find(
+      (node) => node.textContent === "Generate Quiz",
+    );
+    expect(generateButton).toBeTruthy();
+
+    await act(async () => {
+      generateButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    await waitFor(() => {
+      expect(document.body.textContent).toContain("make a decision");
+    });
+
+    const addButton = Array.from(document.querySelectorAll("button")).find(
+      (node) => node.textContent === "Add",
+    );
+    expect(addButton).toBeTruthy();
+
+    await act(async () => {
+      addButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledTimes(3);
+    });
+
+    const saveRequest = fetchMock.mock.calls[2]?.[1];
+    const saveBody = JSON.parse(String(saveRequest?.body)) as {
+      save_target?: string;
+      quiz_type?: string;
+    };
+    expect(saveBody.save_target).toBe("pop_quiz");
+    expect(saveBody.quiz_type).toBe("matching");
   });
 });

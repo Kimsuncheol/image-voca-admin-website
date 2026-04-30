@@ -81,6 +81,12 @@ export default function Home() {
       href: "/quiz",
     },
     {
+      title: t("dashboard.popQuiz"),
+      description: t("dashboard.popQuizDesc"),
+      icon: <QuizIcon />,
+      href: "/pop-quiz",
+    },
+    {
       title: t("manga.title"),
       description: t("manga.desc"),
       icon: <AutoStoriesIcon />,
