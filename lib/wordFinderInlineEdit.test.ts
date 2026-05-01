@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import { test } from "vitest";
 
 import {
   applyCourseInlineEdit,
@@ -127,6 +127,63 @@ test("course word mapping rejects famous quotes and maps word text correctly", (
   assert.equal(famousQuote, null);
 });
 
+test("standard pronunciation edits map to the pronunciation field", () => {
+  const word = {
+    id: "word-1",
+    word: "wander",
+    meaning: "to move around",
+    pronunciation: "wan-der",
+    example: "",
+    translation: "",
+  };
+
+  assert.deepEqual(
+    resolveCourseInlineEditField({
+      word,
+      isCollocation: false,
+      field: "pronunciation",
+    }),
+    {
+      sourceField: "pronunciation",
+      value: "wan-der",
+    },
+  );
+  assert.deepEqual(applyCourseInlineEdit(word, "pronunciation", "wahn-der"), {
+    pronunciation: "wahn-der",
+  });
+});
+
+test("JLPT pronunciation edits map to the pronunciation field", () => {
+  const word = {
+    id: "jlpt-1",
+    word: "猫",
+    meaningEnglish: "cat",
+    meaningKorean: "고양이",
+    pronunciation: "ねこ",
+    pronunciationRoman: "neko",
+    example: "",
+    exampleRoman: "",
+    translationEnglish: "",
+    translationKorean: "",
+  };
+
+  assert.deepEqual(
+    resolveCourseInlineEditField({
+      word,
+      isCollocation: false,
+      isJlpt: true,
+      field: "pronunciation",
+    }),
+    {
+      sourceField: "pronunciation",
+      value: "ねこ",
+    },
+  );
+  assert.deepEqual(applyCourseInlineEdit(word, "pronunciation", "ネコ"), {
+    pronunciation: "ネコ",
+  });
+});
+
 test("inline edit patches update word finder rows and course rows locally", () => {
   const updatedResult = applyWordFinderInlineEdit(
     createResult(),
@@ -190,6 +247,19 @@ test("prefix meaningEnglish resolves correctly", () => {
   assert.deepEqual(result, { sourceField: "meaningEnglish", value: "again" });
 });
 
+test("prefix pronunciation resolves and applies correctly", () => {
+  const result = resolveCourseInlineEditField({
+    word: prefixWord,
+    isCollocation: false,
+    isPrefix: true,
+    field: "pronunciation",
+  });
+  const patch = applyCourseInlineEdit(prefixWord, "pronunciation", "さい-new");
+
+  assert.deepEqual(result, { sourceField: "pronunciation", value: "さい" });
+  assert.deepEqual(patch, { pronunciation: "さい-new" });
+});
+
 test("prefix word detected by type guard without isPrefix flag", () => {
   const result = resolveCourseInlineEditField({
     word: prefixWord,
@@ -249,6 +319,19 @@ test("postfix word detected by type guard without isPostfix flag", () => {
   });
 
   assert.deepEqual(result, { sourceField: "postfix", value: "-的" });
+});
+
+test("postfix pronunciation resolves and applies correctly", () => {
+  const result = resolveCourseInlineEditField({
+    word: postfixWord,
+    isCollocation: false,
+    isPostfix: true,
+    field: "pronunciation",
+  });
+  const patch = applyCourseInlineEdit(postfixWord, "pronunciation", "てき-new");
+
+  assert.deepEqual(result, { sourceField: "pronunciation", value: "てき" });
+  assert.deepEqual(patch, { pronunciation: "てき-new" });
 });
 
 test("applyCourseInlineEdit maps primaryText to postfix field", () => {

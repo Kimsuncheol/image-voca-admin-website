@@ -165,20 +165,35 @@ function getWordTableColField(
   return null;
 }
 
-function getWordTableColEditField(col: number, word: Word): CourseInlineEditableField | null {
+function getWordTableColEditField(
+  col: number,
+  word: Word,
+  hasSynonymColumn = false,
+  isExtremelyAdvanced = false,
+  isJlptExampleHuriganaMode = false,
+): CourseInlineEditableField | null {
   if (isPrefixWord(word) || isPostfixWord(word)) {
     if (col === 0) return "primaryText";
     if (col === 1) return "meaningEnglish";
     if (col === 2) return "meaningKorean";
+    if (col === 3) return "pronunciation";
     if (col === 4) return "example";
     if (col === 5) return "translationEnglish";
     if (col === 6) return "translationKorean";
     return null;
   }
   if (isJlptWord(word)) {
+    if (isJlptExampleHuriganaMode) {
+      if (col === 0) return "primaryText";
+      if (col === 1) return "meaningEnglish";
+      if (col === 2) return "meaningKorean";
+      if (col === 3) return "example";
+      return null;
+    }
     if (col === 0) return "primaryText";
     if (col === 1) return "meaningEnglish";
     if (col === 2) return "meaningKorean";
+    if (col === 3) return "pronunciation";
     if (col === 4) return "example";
     if (col === 5) return "translationEnglish";
     if (col === 6) return "translationKorean";
@@ -187,6 +202,10 @@ function getWordTableColEditField(col: number, word: Word): CourseInlineEditable
   if (isCollocationWord(word) || isIdiomWord(word) || (!isFamousQuoteWord(word))) {
     if (col === 0) return "primaryText";
     if (col === 1) return "meaning";
+    if (!isCollocationWord(word) && !isIdiomWord(word) && !isExtremelyAdvanced) {
+      const pronunciationCol = hasSynonymColumn ? 3 : 2;
+      if (col === pronunciationCol) return "pronunciation";
+    }
   }
   return null;
 }
@@ -1129,6 +1148,23 @@ export default function WordTable({
     );
   }
 
+  function MissingPronunciationButton({ wordId }: { wordId: string }) {
+    return (
+      <Tooltip title={t("courses.generatePronunciation")}>
+        <IconButton
+          size="small"
+          onClick={(event) => {
+            event.stopPropagation();
+            openFieldModal(wordId, "pronunciation");
+          }}
+          sx={{ p: 0 }}
+        >
+          <AutoFixHighIcon fontSize="small" color="action" />
+        </IconButton>
+      </Tooltip>
+    );
+  }
+
   const isMissingField = useCallback(
     (word: Word, field: WordFinderActionField | "primaryText" | "meaning") =>
       isCourseWordFieldMissing(
@@ -1328,9 +1364,21 @@ export default function WordTable({
   const contextMenuEditField = useMemo(
     () =>
       contextMenu && contextMenuWord
-        ? getWordTableColEditField(contextMenu.col, contextMenuWord)
+        ? getWordTableColEditField(
+            contextMenu.col,
+          contextMenuWord,
+          hasSynonymColumn,
+          isExtremelyAdvanced,
+          isJlptExampleHuriganaMode,
+        )
         : null,
-    [contextMenu, contextMenuWord],
+    [
+      contextMenu,
+      contextMenuWord,
+      hasSynonymColumn,
+      isExtremelyAdvanced,
+      isJlptExampleHuriganaMode,
+    ],
   );
 
   const contextMenuCanTranslate = useMemo(
@@ -1450,10 +1498,24 @@ export default function WordTable({
     const word = words[row];
     if (!word) return;
     const mergedWord = { ...word, ...localWordUpdates[word.id] } as Word;
-    const editField = getWordTableColEditField(col, mergedWord);
+    const editField = getWordTableColEditField(
+      col,
+      mergedWord,
+      hasSynonymColumn,
+      isExtremelyAdvanced,
+      isJlptExampleHuriganaMode,
+    );
     if (!editField) return;
     activateInlineEdit(mergedWord, editField);
-  }, [contextMenu, words, localWordUpdates, activateInlineEdit]);
+  }, [
+    contextMenu,
+    words,
+    localWordUpdates,
+    hasSynonymColumn,
+    isExtremelyAdvanced,
+    isJlptExampleHuriganaMode,
+    activateInlineEdit,
+  ]);
 
   const handleContextMenuTranslate = useCallback(async () => {
     if (!contextMenu || !coursePath || !storageMode) return;
@@ -2202,19 +2264,18 @@ export default function WordTable({
                       <>
                         <TableCell
                           {...selectableCellProps(rowIdx, 3)}
-                          onClick={(e) => {
-                            handleCellClick(e, rowIdx, 3);
-                            openFieldModal(word.id, "pronunciation");
-                          }}
                           onContextMenu={(e) => handleCellContextMenu(e, rowIdx, 3)}
                           sx={selectableCellSx(rowIdx, 3)}
                         >
                           {!isMissingField(mergedWord, "pronunciation") ? (
-                            mergedWord.pronunciation
+                            renderEditableTextCell(
+                              mergedWord,
+                              "pronunciation",
+                              mergedWord.pronunciation,
+                              { textVariant: "body2" },
+                            )
                           ) : (
-                            <Tooltip title={t("courses.generatePronunciation")}>
-                              <AutoFixHighIcon fontSize="small" color="action" />
-                            </Tooltip>
+                            <MissingPronunciationButton wordId={word.id} />
                           )}
                         </TableCell>
                         <TableCell
@@ -2343,14 +2404,14 @@ export default function WordTable({
                     </TableCell>
                     <TableCell
                       {...selectableCellProps(rowIdx, 3)}
-                      onClick={(e) => {
-                        handleCellClick(e, rowIdx, 3);
-                        openFieldModal(word.id, "pronunciation");
-                      }}
                       onContextMenu={(e) => handleCellContextMenu(e, rowIdx, 3)}
                       sx={selectableCellSx(rowIdx, 3)}
                     >
-                      {!isMissingField(mergedWord, "pronunciation") ? mergedWord.pronunciation : <Tooltip title={t("courses.generatePronunciation")}><AutoFixHighIcon fontSize="small" color="action" /></Tooltip>}
+                      {!isMissingField(mergedWord, "pronunciation") ? (
+                        renderEditableTextCell(mergedWord, "pronunciation", mergedWord.pronunciation, { textVariant: "body2" })
+                      ) : (
+                        <MissingPronunciationButton wordId={word.id} />
+                      )}
                     </TableCell>
                     <TableCell {...selectableCellProps(rowIdx, 4)}>
                       {renderEditableTextCell(mergedWord, "example", mergedWord.example, { emptyLabel: t("words.none"), textVariant: "body2" })}
@@ -2375,14 +2436,14 @@ export default function WordTable({
                     </TableCell>
                     <TableCell
                       {...selectableCellProps(rowIdx, 3)}
-                      onClick={(e) => {
-                        handleCellClick(e, rowIdx, 3);
-                        openFieldModal(word.id, "pronunciation");
-                      }}
                       onContextMenu={(e) => handleCellContextMenu(e, rowIdx, 3)}
                       sx={selectableCellSx(rowIdx, 3)}
                     >
-                      {!isMissingField(mergedWord, "pronunciation") ? mergedWord.pronunciation : <Tooltip title={t("courses.generatePronunciation")}><AutoFixHighIcon fontSize="small" color="action" /></Tooltip>}
+                      {!isMissingField(mergedWord, "pronunciation") ? (
+                        renderEditableTextCell(mergedWord, "pronunciation", mergedWord.pronunciation, { textVariant: "body2" })
+                      ) : (
+                        <MissingPronunciationButton wordId={word.id} />
+                      )}
                     </TableCell>
                     <TableCell {...selectableCellProps(rowIdx, 4)}>
                       {renderEditableTextCell(mergedWord, "example", mergedWord.example, { emptyLabel: t("words.none"), textVariant: "body2" })}
@@ -2558,19 +2619,19 @@ export default function WordTable({
                     )}
                     <TableCell
                       {...selectableCellProps(rowIdx, hasSynonymColumn ? 3 : 2)}
-                      onClick={(e) => {
-                        handleCellClick(e, rowIdx, hasSynonymColumn ? 3 : 2);
-                        openFieldModal(word.id, "pronunciation");
-                      }}
                       onContextMenu={(e) => handleCellContextMenu(e, rowIdx, hasSynonymColumn ? 3 : 2)}
                       sx={selectableCellSx(rowIdx, hasSynonymColumn ? 3 : 2)}
                     >
                       {!isMissingField(mergedWord, "pronunciation") ? (
-                        getResolvedTextField(word.id, "pronunciation") || (mergedWord as StandardWord).pronunciation
+                        renderEditableTextCell(
+                          mergedWord,
+                          "pronunciation",
+                          getResolvedTextField(word.id, "pronunciation") ||
+                            (mergedWord as StandardWord).pronunciation,
+                          { textVariant: "body2" },
+                        )
                       ) : (
-                        <Tooltip title={t("courses.generatePronunciation")}>
-                          <AutoFixHighIcon fontSize="small" color="action" />
-                        </Tooltip>
+                        <MissingPronunciationButton wordId={word.id} />
                       )}
                     </TableCell>
                     {!isMissingField(mergedWord, "example") ? (

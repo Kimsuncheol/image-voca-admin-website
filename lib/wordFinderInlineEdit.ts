@@ -15,6 +15,7 @@ export type CourseInlineEditableField =
   | InlineEditableWordFinderField
   | "meaningEnglish"
   | "meaningKorean"
+  | "pronunciation"
   | "example"
   | "exampleRoman"
   | "translationEnglish"
@@ -28,6 +29,7 @@ export type EditableWordTextField =
   | "idiom"
   | "meaningEnglish"
   | "meaningKorean"
+  | "pronunciation"
   | "example"
   | "exampleRoman"
   | "translation"
@@ -85,6 +87,7 @@ export function resolveCourseInlineEditField(
       case "primaryText": return { sourceField: "prefix", value: p.prefix };
       case "meaningEnglish": return { sourceField: "meaningEnglish", value: p.meaningEnglish };
       case "meaningKorean": return { sourceField: "meaningKorean", value: p.meaningKorean };
+      case "pronunciation": return { sourceField: "pronunciation", value: p.pronunciation };
       case "example": return { sourceField: "example", value: p.example };
       case "exampleRoman": return { sourceField: "exampleRoman", value: p.exampleRoman };
       case "translationEnglish": return { sourceField: "translationEnglish", value: p.translationEnglish };
@@ -99,6 +102,7 @@ export function resolveCourseInlineEditField(
       case "primaryText": return { sourceField: "postfix", value: p.postfix };
       case "meaningEnglish": return { sourceField: "meaningEnglish", value: p.meaningEnglish };
       case "meaningKorean": return { sourceField: "meaningKorean", value: p.meaningKorean };
+      case "pronunciation": return { sourceField: "pronunciation", value: p.pronunciation };
       case "example": return { sourceField: "example", value: p.example };
       case "exampleRoman": return { sourceField: "exampleRoman", value: p.exampleRoman };
       case "translationEnglish": return { sourceField: "translationEnglish", value: p.translationEnglish };
@@ -129,6 +133,11 @@ export function resolveCourseInlineEditField(
         return {
           sourceField: "meaningKorean",
           value: jlptWord.meaningKorean,
+        };
+      case "pronunciation":
+        return {
+          sourceField: "pronunciation",
+          value: jlptWord.pronunciation,
         };
       case "example":
         return {
@@ -181,6 +190,13 @@ export function resolveCourseInlineEditField(
   }
 
   const standardWord = word as StandardWord;
+  if (field === "pronunciation") {
+    return {
+      sourceField: "pronunciation",
+      value: standardWord.pronunciation,
+    };
+  }
+
   return {
     sourceField: "word",
     value: standardWord.word,
@@ -220,6 +236,7 @@ export function applyCourseInlineEdit(
       case "primaryText": return { prefix: value };
       case "meaningEnglish": return { meaningEnglish: value };
       case "meaningKorean": return { meaningKorean: value };
+      case "pronunciation": return { pronunciation: value };
       case "example": return { example: value };
       case "exampleRoman": return { exampleRoman: value };
       case "translationEnglish": return { translationEnglish: value };
@@ -233,6 +250,7 @@ export function applyCourseInlineEdit(
       case "primaryText": return { postfix: value };
       case "meaningEnglish": return { meaningEnglish: value };
       case "meaningKorean": return { meaningKorean: value };
+      case "pronunciation": return { pronunciation: value };
       case "example": return { example: value };
       case "exampleRoman": return { exampleRoman: value };
       case "translationEnglish": return { translationEnglish: value };
@@ -249,6 +267,8 @@ export function applyCourseInlineEdit(
         return { meaningEnglish: value };
       case "meaningKorean":
         return { meaningKorean: value };
+      case "pronunciation":
+        return { pronunciation: value };
       case "example":
         return { example: value };
       case "exampleRoman":
@@ -272,6 +292,10 @@ export function applyCourseInlineEdit(
 
   if (isIdiomWord(word)) {
     return { idiom: value };
+  }
+
+  if (field === "pronunciation") {
+    return { pronunciation: value };
   }
 
   return { word: value };
