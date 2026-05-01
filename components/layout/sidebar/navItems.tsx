@@ -70,11 +70,6 @@ export function useNavItems(): NavItem[] {
       href: "/quiz",
     },
     {
-      title: t("dashboard.popQuiz", "Pop Quiz"),
-      icon: <QuizIcon />,
-      href: "/pop-quiz",
-    },
-    {
       title: t("dashboard.wordFinder", "Word Finder"),
       icon: <SearchIcon />,
       href: "/words",

@@ -525,7 +525,7 @@
   },
   "quiz": {
     "title": "퀴즈",
-    "description": "어휘 코스에서 퀴즈를 생성하고 검토합니다.",
+    "description": "어휘 코스에서 퀴즈와 팝 퀴즈를 생성하고 검토합니다.",
     "generatorTab": "생성기",
     "reviewTab": "검토"
   },

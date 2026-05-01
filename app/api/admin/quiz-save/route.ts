@@ -3,6 +3,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase/admin";
 import { verifySessionUser } from "@/lib/server/sessionUser";
 import { getQuizCourse } from "@/lib/server/quizGeneration";
+import {
+  buildPopQuizDayMergePayload,
+  getPopQuizCollectionPath,
+  getPopQuizDayFieldPath,
+} from "@/lib/server/popQuizStorage";
 
 interface QuizSaveBody {
   quiz_type: "matching" | "fill_blank";
@@ -35,12 +40,6 @@ function normalizeQuizData(
   return { ...quiz_data, choices: normalizedChoices };
 }
 
-function getPopQuizBasePath(language: unknown): string | null {
-  if (language === "english") return process.env.NEXT_PUBLIC_POP_QUIZ_ENGLISH ?? null;
-  if (language === "japanese") return process.env.NEXT_PUBLIC_POP_QUIZ_JAPANESE ?? null;
-  return null;
-}
-
 function resolvePopQuizCollectionPath(
   quiz_type: QuizSaveBody["quiz_type"],
   quiz_data: Record<string, unknown>,
@@ -50,7 +49,7 @@ function resolvePopQuizCollectionPath(
   }
 
   const language = quiz_data.language;
-  const basePath = getPopQuizBasePath(language);
+  const basePath = getPopQuizCollectionPath(language);
   if (!basePath) {
     return { error: "Pop quiz storage path is not configured." };
   }
@@ -80,14 +79,22 @@ export async function POST(req: NextRequest) {
         { status: 400 },
       );
     }
+    const fieldPath = getPopQuizDayFieldPath({
+      language: typeof quiz_data.language === "string" ? quiz_data.language : null,
+      course,
+      level,
+      day,
+    });
+    if (!fieldPath) {
+      return NextResponse.json(
+        { error: "Invalid pop quiz save request." },
+        { status: 400 },
+      );
+    }
 
     const docRef = adminDb.collection(result.collectionPath).doc("data");
     await docRef.set(
-      {
-        days: {
-          [String(day)]: normalized,
-        },
-      },
+      buildPopQuizDayMergePayload(fieldPath, normalized),
       { merge: true },
     );
 

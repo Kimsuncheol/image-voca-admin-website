@@ -195,10 +195,18 @@ function FillBlankTable({ data }: { data: FillBlankQuizData }) {
   );
 }
 
-export default function QuizReviewTab() {
+export default function QuizReviewTab({
+  saveTarget = "quiz",
+  fixedQuizType,
+  hideQuizTypeSelector = false,
+}: {
+  saveTarget?: "quiz" | "pop_quiz";
+  fixedQuizType?: QuizType;
+  hideQuizTypeSelector?: boolean;
+}) {
   const { t } = useTranslation();
 
-  const [quizType, setQuizType] = useState<QuizType>("matching");
+  const [quizType, setQuizType] = useState<QuizType>(fixedQuizType ?? "matching");
   const [language, setLanguage] = useState<Language>("english");
   const [course, setCourse] = useState<Course>("TOEIC");
   const [level, setLevel] = useState<JlptLevel>("N3");
@@ -226,11 +234,12 @@ export default function QuizReviewTab() {
         language,
         course: effectiveCourse,
       });
+      if (saveTarget !== "quiz") params.set("save_target", saveTarget);
       if (effectiveCourse === "JLPT") params.set("level", level);
       if (day !== undefined) params.set("day", String(day));
       return params;
     },
-    [quizType, language, effectiveCourse, level],
+    [quizType, language, effectiveCourse, level, saveTarget],
   );
 
   async function handleLoad() {
@@ -313,20 +322,28 @@ export default function QuizReviewTab() {
   return (
     <Box>
       <Grid container spacing={2} sx={{ mb: 3 }}>
-        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-          <FormControl fullWidth>
-            <InputLabel id="review-quiz-type-label">{t("quizGenerator.quizTypeLabel")}</InputLabel>
-            <Select
-              labelId="review-quiz-type-label"
-              value={quizType}
-              label={t("quizGenerator.quizTypeLabel")}
-              onChange={(e) => { setQuizType(e.target.value as QuizType); setStatus(null); setSelectedDay(null); setQuizData(null); }}
-            >
-              <MenuItem value="matching">{t("quizGenerator.matching")}</MenuItem>
-              <MenuItem value="fill_blank">{t("quizGenerator.fillBlank")}</MenuItem>
-            </Select>
-          </FormControl>
-        </Grid>
+        {!hideQuizTypeSelector && (
+          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+            <FormControl fullWidth>
+              <InputLabel id="review-quiz-type-label">{t("quizGenerator.quizTypeLabel")}</InputLabel>
+              <Select
+                labelId="review-quiz-type-label"
+                value={quizType}
+                label={t("quizGenerator.quizTypeLabel")}
+                onChange={(e) => {
+                  if (fixedQuizType) return;
+                  setQuizType(e.target.value as QuizType);
+                  setStatus(null);
+                  setSelectedDay(null);
+                  setQuizData(null);
+                }}
+              >
+                <MenuItem value="matching">{t("quizGenerator.matching")}</MenuItem>
+                <MenuItem value="fill_blank">{t("quizGenerator.fillBlank")}</MenuItem>
+              </Select>
+            </FormControl>
+          </Grid>
+        )}
 
         <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <FormControl fullWidth>

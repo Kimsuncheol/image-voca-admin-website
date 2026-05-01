@@ -19,8 +19,6 @@ vi.mock("react-i18next", () => ({
         "dashboard.userManagementDesc": "Manage users and roles",
         "dashboard.textTools": "Text Tools",
         "dashboard.textToolsDesc": "Parentheses, romanization, and furigana utilities",
-        "dashboard.popQuiz": "Pop Quiz",
-        "dashboard.popQuizDesc": "Generate matching-game pop quizzes from vocabulary courses",
         "quiz.title": "Quiz",
         "quiz.description": "Generate and review quizzes from vocabulary courses.",
         "manga.title": "Manga",
@@ -64,11 +62,9 @@ describe("Dashboard page", () => {
     expect(markup).toContain("/text-tools");
   });
 
-  it("includes the Pop Quiz card", () => {
+  it("does not include a separate Pop Quiz card", () => {
     const markup = renderToStaticMarkup(<Home />);
 
-    expect(markup).toContain("Pop Quiz");
-    expect(markup).toContain("Generate matching-game pop quizzes from vocabulary courses");
-    expect(markup).toContain("/pop-quiz");
+    expect(markup).not.toContain("/pop-quiz");
   });
 });

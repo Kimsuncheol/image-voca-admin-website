@@ -3,6 +3,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase/admin";
 import { verifySessionUser } from "@/lib/server/sessionUser";
 import { getQuizCourse, getQuizCourseTotalDays } from "@/lib/server/quizGeneration";
+import {
+  getPopQuizCollectionPath,
+  getPopQuizSavedDays,
+} from "@/lib/server/popQuizStorage";
 
 export async function GET(req: NextRequest) {
   const caller = await verifySessionUser(req);
@@ -15,6 +19,8 @@ export async function GET(req: NextRequest) {
   const quiz_type = searchParams.get("quiz_type");
   const course = searchParams.get("course");
   const level = searchParams.get("level");
+  const language = searchParams.get("language");
+  const save_target = searchParams.get("save_target");
 
   if (!quiz_type || !course) {
     return NextResponse.json({ error: "Invalid parameters" }, { status: 400 });
@@ -28,6 +34,19 @@ export async function GET(req: NextRequest) {
   const { totalDays } = await getQuizCourseTotalDays({ course, level });
   if (totalDays === 0) {
     return NextResponse.json({ total: 0, days: [] });
+  }
+
+  if (save_target === "pop_quiz") {
+    const collectionPath = getPopQuizCollectionPath(language);
+    if (!collectionPath || quiz_type !== "matching") {
+      return NextResponse.json({ error: "Invalid parameters" }, { status: 400 });
+    }
+
+    const snap = await adminDb.collection(collectionPath).doc("data").get();
+    return NextResponse.json({
+      total: totalDays,
+      days: getPopQuizSavedDays(snap.data(), language, course, level),
+    });
   }
 
   const subcollName = quiz_type === "matching" ? "matching" : "fill_in_the_blank";

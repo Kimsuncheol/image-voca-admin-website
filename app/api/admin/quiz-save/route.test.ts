@@ -110,8 +110,12 @@ describe("POST /api/admin/quiz-save", () => {
     expect(docMock).toHaveBeenCalledWith("data");
     expect(setMock).toHaveBeenCalledWith(
       {
-        days: {
-          "1": quizData,
+        courses: {
+          TOEIC: {
+            days: {
+              "1": quizData,
+            },
+          },
         },
       },
       { merge: true },
@@ -146,8 +150,12 @@ describe("POST /api/admin/quiz-save", () => {
     expect(docMock).toHaveBeenCalledWith("data");
     expect(setMock).toHaveBeenCalledWith(
       {
-        days: {
-          "3": quizData,
+        levels: {
+          N2: {
+            days: {
+              "3": quizData,
+            },
+          },
         },
       },
       { merge: true },

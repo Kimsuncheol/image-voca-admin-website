@@ -525,7 +525,7 @@
   },
   "quiz": {
     "title": "Quiz",
-    "description": "Generate and review quizzes from vocabulary courses.",
+    "description": "Generate and review quizzes and pop quizzes from vocabulary courses.",
     "generatorTab": "Generator",
     "reviewTab": "Review"
   },
