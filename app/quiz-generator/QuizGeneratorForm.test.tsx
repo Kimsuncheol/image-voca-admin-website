@@ -459,4 +459,70 @@ describe("QuizGeneratorForm", () => {
     expect(saveBody.save_target).toBe("pop_quiz");
     expect(saveBody.quiz_type).toBe("matching");
   });
+
+  it("shows server save error messages", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      Response.json({ max_days: 20, max_count: 1 }),
+    ).mockResolvedValueOnce(
+      Response.json({
+        quiz_type: "matching",
+        language: "english",
+        course: "TOEIC",
+        level: null,
+        day: 1,
+        items: [{ id: "q1", word: "make a decision", meaning: "decide" }],
+        choices: [{ id: "c1", word: "decide", meaning: "decide" }],
+        answer_key: [{ item_id: "q1", choice_id: "c1" }],
+      }),
+    ).mockResolvedValueOnce(
+      Response.json(
+        {
+          error: "POP_QUIZ_STORAGE_PATH_NOT_CONFIGURED",
+          message: "Pop quiz storage path is not configured.",
+        },
+        { status: 400 },
+      ),
+    );
+
+    rendered = renderForm(
+      <QuizGeneratorForm
+        {...defaultProps}
+        fixedQuizType="matching"
+        hideQuizTypeSelector
+        saveTarget="pop_quiz"
+      />,
+    );
+
+    await waitFor(() => {
+      expect(getCountInput().value).toBe("1");
+    });
+
+    const generateButton = Array.from(document.querySelectorAll("button")).find(
+      (node) => node.textContent === "Generate Quiz",
+    );
+    expect(generateButton).toBeTruthy();
+
+    await act(async () => {
+      generateButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    await waitFor(() => {
+      expect(document.body.textContent).toContain("make a decision");
+    });
+
+    const addButton = Array.from(document.querySelectorAll("button")).find(
+      (node) => node.textContent === "Add",
+    );
+    expect(addButton).toBeTruthy();
+
+    await act(async () => {
+      addButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    await waitFor(() => {
+      expect(document.body.textContent).toContain(
+        "Pop quiz storage path is not configured.",
+      );
+    });
+  });
 });

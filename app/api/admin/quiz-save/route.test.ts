@@ -183,7 +183,58 @@ describe("POST /api/admin/quiz-save", () => {
     expect(response.status).toBe(400);
     expect(collectionMock).not.toHaveBeenCalled();
     await expect(response.json()).resolves.toMatchObject({
-      error: "Pop quiz storage path is not configured.",
+      error: "POP_QUIZ_STORAGE_PATH_NOT_CONFIGURED",
+      message: "Pop quiz storage path is not configured.",
+    });
+  });
+
+  it("returns 400 when the pop quiz env path is not a collection path", async () => {
+    process.env.NEXT_PUBLIC_POP_QUIZ_ENGLISH = "/pop-quiz/root/English/base";
+
+    const { POST } = await import("./route");
+    const response = await POST(
+      createRequest({
+        quiz_type: "matching",
+        save_target: "pop_quiz",
+        course: "TOEIC",
+        level: null,
+        day: 1,
+        quiz_data: {
+          quiz_type: "matching",
+          language: "english",
+        },
+      }),
+    );
+
+    expect(response.status).toBe(400);
+    expect(collectionMock).not.toHaveBeenCalled();
+    await expect(response.json()).resolves.toMatchObject({
+      error: "POP_QUIZ_STORAGE_PATH_NOT_CONFIGURED",
+      message: "Pop quiz storage path is not configured.",
+    });
+  });
+
+  it("returns 400 when a Japanese pop quiz save has no level key", async () => {
+    const { POST } = await import("./route");
+    const response = await POST(
+      createRequest({
+        quiz_type: "matching",
+        save_target: "pop_quiz",
+        course: "JLPT",
+        level: null,
+        day: 1,
+        quiz_data: {
+          quiz_type: "matching",
+          language: "japanese",
+        },
+      }),
+    );
+
+    expect(response.status).toBe(400);
+    expect(collectionMock).not.toHaveBeenCalled();
+    await expect(response.json()).resolves.toMatchObject({
+      error: "POP_QUIZ_INVALID_STORAGE_KEY",
+      message: "Invalid pop quiz save request.",
     });
   });
 
@@ -206,7 +257,8 @@ describe("POST /api/admin/quiz-save", () => {
     expect(response.status).toBe(400);
     expect(collectionMock).not.toHaveBeenCalled();
     await expect(response.json()).resolves.toMatchObject({
-      error: "Pop quiz saves only support matching quizzes.",
+      error: "POP_QUIZ_UNSUPPORTED_QUIZ_TYPE",
+      message: "Pop quiz saves only support matching quizzes.",
     });
   });
 });

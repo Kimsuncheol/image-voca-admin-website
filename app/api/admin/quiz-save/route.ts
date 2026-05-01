@@ -20,6 +20,14 @@ interface QuizSaveBody {
 
 type RawChoice = Record<string, unknown>;
 
+const POP_QUIZ_STORAGE_PATH_NOT_CONFIGURED = "POP_QUIZ_STORAGE_PATH_NOT_CONFIGURED";
+const POP_QUIZ_UNSUPPORTED_QUIZ_TYPE = "POP_QUIZ_UNSUPPORTED_QUIZ_TYPE";
+const POP_QUIZ_INVALID_STORAGE_KEY = "POP_QUIZ_INVALID_STORAGE_KEY";
+
+function badPopQuizRequest(code: string, message: string) {
+  return NextResponse.json({ error: code, message }, { status: 400 });
+}
+
 function normalizeQuizData(
   quiz_type: string,
   course: string,
@@ -45,13 +53,18 @@ function resolvePopQuizCollectionPath(
   quiz_data: Record<string, unknown>,
 ): { collectionPath?: string; error?: string } {
   if (quiz_type !== "matching") {
-    return { error: "Pop quiz saves only support matching quizzes." };
+    return { error: POP_QUIZ_UNSUPPORTED_QUIZ_TYPE };
   }
 
   const language = quiz_data.language;
   const basePath = getPopQuizCollectionPath(language);
   if (!basePath) {
-    return { error: "Pop quiz storage path is not configured." };
+    return { error: POP_QUIZ_STORAGE_PATH_NOT_CONFIGURED };
+  }
+
+  const pathComponentCount = basePath.split("/").filter(Boolean).length;
+  if (pathComponentCount % 2 === 0) {
+    return { error: POP_QUIZ_STORAGE_PATH_NOT_CONFIGURED };
   }
 
   return {
@@ -74,9 +87,12 @@ export async function POST(req: NextRequest) {
   if (save_target === "pop_quiz") {
     const result = resolvePopQuizCollectionPath(quiz_type, quiz_data);
     if (!result.collectionPath) {
-      return NextResponse.json(
-        { error: result.error ?? "Invalid pop quiz save request." },
-        { status: 400 },
+      const code = result.error ?? POP_QUIZ_INVALID_STORAGE_KEY;
+      return badPopQuizRequest(
+        code,
+        code === POP_QUIZ_UNSUPPORTED_QUIZ_TYPE
+          ? "Pop quiz saves only support matching quizzes."
+          : "Pop quiz storage path is not configured.",
       );
     }
     const fieldPath = getPopQuizDayFieldPath({
@@ -86,9 +102,9 @@ export async function POST(req: NextRequest) {
       day,
     });
     if (!fieldPath) {
-      return NextResponse.json(
-        { error: "Invalid pop quiz save request." },
-        { status: 400 },
+      return badPopQuizRequest(
+        POP_QUIZ_INVALID_STORAGE_KEY,
+        "Invalid pop quiz save request.",
       );
     }
 

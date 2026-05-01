@@ -97,6 +97,11 @@ type QuizCountResponse = {
   error?: string;
 };
 
+type ApiErrorResponse = {
+  error?: string;
+  message?: string;
+};
+
 const COURSES: Course[] = [
   "CSAT",
   "CSAT_IDIOMS",
@@ -444,7 +449,14 @@ export default function QuizGeneratorForm({
       });
 
       if (!response.ok) {
-        setSaveError(addErrorMsg);
+        let errorMessage = addErrorMsg;
+        try {
+          const errorData = (await response.json()) as ApiErrorResponse;
+          errorMessage = errorData.message ?? errorData.error ?? addErrorMsg;
+        } catch {
+          // Fall back to the localized generic message.
+        }
+        setSaveError(errorMessage);
         return;
       }
 
