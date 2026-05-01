@@ -97,7 +97,7 @@ describe("GET /api/admin/quiz/status", () => {
   it("returns saved pop quiz days for the selected English course", async () => {
     const { GET } = await import("./route");
     const response = await GET(
-      createRequest("quiz_type=matching&save_target=pop_quiz&language=english&course=TOEIC"),
+      createRequest("quiz_type=matching&save_target=pop_quiz&language=English&course=TOEIC"),
     );
 
     expect(response.status).toBe(200);
@@ -109,7 +109,7 @@ describe("GET /api/admin/quiz/status", () => {
   it("returns saved pop quiz days for the selected Japanese level", async () => {
     const { GET } = await import("./route");
     const response = await GET(
-      createRequest("quiz_type=matching&save_target=pop_quiz&language=japanese&course=JLPT&level=N2"),
+      createRequest("quiz_type=matching&save_target=pop_quiz&language=Japanese&course=JLPT&level=N2"),
     );
 
     expect(response.status).toBe(200);

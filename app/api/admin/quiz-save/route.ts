@@ -7,6 +7,8 @@ import {
   buildPopQuizDayMergePayload,
   getPopQuizCollectionPath,
   getPopQuizDayFieldPath,
+  getPopQuizStorageEnvName,
+  normalizePopQuizLanguage,
 } from "@/lib/server/popQuizStorage";
 
 interface QuizSaveBody {
@@ -24,8 +26,12 @@ const POP_QUIZ_STORAGE_PATH_NOT_CONFIGURED = "POP_QUIZ_STORAGE_PATH_NOT_CONFIGUR
 const POP_QUIZ_UNSUPPORTED_QUIZ_TYPE = "POP_QUIZ_UNSUPPORTED_QUIZ_TYPE";
 const POP_QUIZ_INVALID_STORAGE_KEY = "POP_QUIZ_INVALID_STORAGE_KEY";
 
-function badPopQuizRequest(code: string, message: string) {
-  return NextResponse.json({ error: code, message }, { status: 400 });
+function badPopQuizRequest(
+  code: string,
+  message: string,
+  details?: Record<string, unknown>,
+) {
+  return NextResponse.json({ error: code, message, ...details }, { status: 400 });
 }
 
 function normalizeQuizData(
@@ -51,24 +57,41 @@ function normalizeQuizData(
 function resolvePopQuizCollectionPath(
   quiz_type: QuizSaveBody["quiz_type"],
   quiz_data: Record<string, unknown>,
-): { collectionPath?: string; error?: string } {
+): {
+  collectionPath?: string;
+  envName?: string | null;
+  error?: string;
+  language?: string | null;
+} {
   if (quiz_type !== "matching") {
     return { error: POP_QUIZ_UNSUPPORTED_QUIZ_TYPE };
   }
 
   const language = quiz_data.language;
+  const normalizedLanguage = normalizePopQuizLanguage(language);
+  const envName = getPopQuizStorageEnvName(language);
   const basePath = getPopQuizCollectionPath(language);
   if (!basePath) {
-    return { error: POP_QUIZ_STORAGE_PATH_NOT_CONFIGURED };
+    return {
+      envName,
+      error: POP_QUIZ_STORAGE_PATH_NOT_CONFIGURED,
+      language: normalizedLanguage,
+    };
   }
 
   const pathComponentCount = basePath.split("/").filter(Boolean).length;
   if (pathComponentCount % 2 === 0) {
-    return { error: POP_QUIZ_STORAGE_PATH_NOT_CONFIGURED };
+    return {
+      envName,
+      error: POP_QUIZ_STORAGE_PATH_NOT_CONFIGURED,
+      language: normalizedLanguage,
+    };
   }
 
   return {
     collectionPath: basePath,
+    envName,
+    language: normalizedLanguage,
   };
 }
 
@@ -88,11 +111,20 @@ export async function POST(req: NextRequest) {
     const result = resolvePopQuizCollectionPath(quiz_type, quiz_data);
     if (!result.collectionPath) {
       const code = result.error ?? POP_QUIZ_INVALID_STORAGE_KEY;
+      const configuredMessage = result.envName
+        ? `${result.envName} is not configured or is not a Firestore collection path.`
+        : "Pop quiz storage path is not configured.";
       return badPopQuizRequest(
         code,
         code === POP_QUIZ_UNSUPPORTED_QUIZ_TYPE
           ? "Pop quiz saves only support matching quizzes."
-          : "Pop quiz storage path is not configured.",
+          : configuredMessage,
+        {
+          course,
+          level,
+          language: result.language ?? null,
+          save_target,
+        },
       );
     }
     const fieldPath = getPopQuizDayFieldPath({

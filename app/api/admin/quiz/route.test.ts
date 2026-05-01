@@ -108,7 +108,7 @@ describe("/api/admin/quiz", () => {
   it("returns selected English pop quiz day data", async () => {
     const { GET } = await import("./route");
     const response = await GET(
-      createRequest("quiz_type=matching&save_target=pop_quiz&language=english&course=TOEIC&day=1"),
+      createRequest("quiz_type=matching&save_target=pop_quiz&language=English&course=TOEIC&day=1"),
     );
 
     expect(response.status).toBe(200);
@@ -124,7 +124,7 @@ describe("/api/admin/quiz", () => {
   it("returns selected Japanese pop quiz day data", async () => {
     const { GET } = await import("./route");
     const response = await GET(
-      createRequest("quiz_type=matching&save_target=pop_quiz&language=japanese&course=JLPT&level=N2&day=3"),
+      createRequest("quiz_type=matching&save_target=pop_quiz&language=Japanese&course=JLPT&level=N2&day=3"),
     );
 
     expect(response.status).toBe(200);
@@ -140,7 +140,7 @@ describe("/api/admin/quiz", () => {
     const { DELETE } = await import("./route");
     const response = await DELETE(
       createRequest(
-        "quiz_type=matching&save_target=pop_quiz&language=english&course=TOEIC&day=1",
+        "quiz_type=matching&save_target=pop_quiz&language=English&course=TOEIC&day=1",
         "DELETE",
       ),
     );

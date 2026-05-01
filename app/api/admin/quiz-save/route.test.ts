@@ -85,7 +85,7 @@ describe("POST /api/admin/quiz-save", () => {
   it("saves English pop quizzes into the configured matching collection data document", async () => {
     const quizData = {
       quiz_type: "matching",
-      language: "english",
+      language: "English",
       items: [],
       choices: [],
       answer_key: [],
@@ -125,7 +125,7 @@ describe("POST /api/admin/quiz-save", () => {
   it("saves Japanese pop quizzes into the configured matching collection data document", async () => {
     const quizData = {
       quiz_type: "matching",
-      language: "japanese",
+      language: "Japanese",
       items: [],
       choices: [],
       answer_key: [],
@@ -184,7 +184,11 @@ describe("POST /api/admin/quiz-save", () => {
     expect(collectionMock).not.toHaveBeenCalled();
     await expect(response.json()).resolves.toMatchObject({
       error: "POP_QUIZ_STORAGE_PATH_NOT_CONFIGURED",
-      message: "Pop quiz storage path is not configured.",
+      message: "NEXT_PUBLIC_POP_QUIZ_ENGLISH is not configured or is not a Firestore collection path.",
+      language: "english",
+      course: "TOEIC",
+      level: null,
+      save_target: "pop_quiz",
     });
   });
 
@@ -210,7 +214,11 @@ describe("POST /api/admin/quiz-save", () => {
     expect(collectionMock).not.toHaveBeenCalled();
     await expect(response.json()).resolves.toMatchObject({
       error: "POP_QUIZ_STORAGE_PATH_NOT_CONFIGURED",
-      message: "Pop quiz storage path is not configured.",
+      message: "NEXT_PUBLIC_POP_QUIZ_ENGLISH is not configured or is not a Firestore collection path.",
+      language: "english",
+      course: "TOEIC",
+      level: null,
+      save_target: "pop_quiz",
     });
   });
 

@@ -8,8 +8,23 @@ function asRecord(value: unknown): Record<string, unknown> | undefined {
 }
 
 export function getPopQuizCollectionPath(language: unknown): string | null {
-  if (language === "english") return process.env.NEXT_PUBLIC_POP_QUIZ_ENGLISH ?? null;
-  if (language === "japanese") return process.env.NEXT_PUBLIC_POP_QUIZ_JAPANESE ?? null;
+  const normalizedLanguage = normalizePopQuizLanguage(language);
+  if (normalizedLanguage === "english") return process.env.NEXT_PUBLIC_POP_QUIZ_ENGLISH ?? null;
+  if (normalizedLanguage === "japanese") return process.env.NEXT_PUBLIC_POP_QUIZ_JAPANESE ?? null;
+  return null;
+}
+
+export function getPopQuizStorageEnvName(language: unknown): string | null {
+  const normalizedLanguage = normalizePopQuizLanguage(language);
+  if (normalizedLanguage === "english") return "NEXT_PUBLIC_POP_QUIZ_ENGLISH";
+  if (normalizedLanguage === "japanese") return "NEXT_PUBLIC_POP_QUIZ_JAPANESE";
+  return null;
+}
+
+export function normalizePopQuizLanguage(language: unknown): PopQuizLanguage | null {
+  if (typeof language !== "string") return null;
+  const normalized = language.toLowerCase();
+  if (normalized === "english" || normalized === "japanese") return normalized;
   return null;
 }
 
@@ -24,11 +39,12 @@ export function getPopQuizDayFieldPath({
   level: string | null;
   day: number;
 }): string | null {
-  if (language === "english" && course && course !== "JLPT") {
+  const normalizedLanguage = normalizePopQuizLanguage(language);
+  if (normalizedLanguage === "english" && course && course !== "JLPT") {
     return `courses.${course}.days.${day}`;
   }
 
-  if (language === "japanese" && level) {
+  if (normalizedLanguage === "japanese" && level) {
     return `levels.${level}.days.${day}`;
   }
 
@@ -55,7 +71,9 @@ export function getPopQuizSavedDays(
   level: string | null,
 ): number[] {
   const root = asRecord(data);
-  const parent = language === "japanese"
+  const normalizedLanguage = normalizePopQuizLanguage(language);
+  if (!normalizedLanguage) return [];
+  const parent = normalizedLanguage === "japanese"
     ? asRecord(asRecord(root?.levels)?.[level ?? ""])
     : asRecord(asRecord(root?.courses)?.[course ?? ""]);
   const days = asRecord(parent?.days);
@@ -76,7 +94,9 @@ export function getPopQuizDayData(
   day: number,
 ): Record<string, unknown> | null {
   const root = asRecord(data);
-  const parent = language === "japanese"
+  const normalizedLanguage = normalizePopQuizLanguage(language);
+  if (!normalizedLanguage) return null;
+  const parent = normalizedLanguage === "japanese"
     ? asRecord(asRecord(root?.levels)?.[level ?? ""])
     : asRecord(asRecord(root?.courses)?.[course ?? ""]);
   const quiz = asRecord(asRecord(parent?.days)?.[String(day)]);
