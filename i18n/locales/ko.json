@@ -317,6 +317,7 @@
     "contextMenuCopy": "복사",
     "contextMenuEdit": "수정",
     "contextMenuAddFurigana": "후리가나 추가",
+    "contextMenuAnalyze": "대상 단어 마스킹",
     "contextMenuGenerate": "생성"
   },
   "users": {

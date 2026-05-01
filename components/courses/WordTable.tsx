@@ -26,6 +26,7 @@ import CellContextMenu from "@/components/shared/CellContextMenu";
 import InlineEditableText from "@/components/shared/InlineEditableText";
 import WordFinderMissingFieldDialog from "@/components/words/WordFinderMissingFieldDialog";
 import { addFuriganaText } from "@/lib/addFurigana";
+import { analyzeSentence } from "@/lib/analyzeText";
 import {
   type EditableWordTextField,
   updateCollectionWordDerivatives,
@@ -78,6 +79,11 @@ import type {
 } from "@/types/wordFinder";
 
 type FuriganaActionField = Extract<WordFinderActionField, "pronunciation" | "example">;
+
+interface AnalyzeActionRequest {
+  sentence: string;
+  targetBaseForm: string;
+}
 
 function hasTrimmedText(value: string | null | undefined): value is string {
   return typeof value === "string" && value.trim().length > 0;
@@ -241,6 +247,43 @@ function getWordTableAddFuriganaSource(
 
   if (isJlptWord(word) || isPrefixWord(word) || isPostfixWord(word)) {
     return hasTrimmedText(word.example) ? word.example : null;
+  }
+
+  return null;
+}
+
+function stripBoundaryAsciiHyphens(value: string): string {
+  return value.trim().replace(/^-+|-+$/g, "").trim();
+}
+
+function getWordTableAnalyzeRequest(
+  col: number,
+  word: Word,
+  isJlptExampleHuriganaMode = false,
+): AnalyzeActionRequest | null {
+  if (isJlptWord(word)) {
+    const exampleCol = isJlptExampleHuriganaMode ? 3 : 4;
+    if (col !== exampleCol) return null;
+
+    const sentence = word.example.trim();
+    const targetBaseForm = word.word.trim();
+    return sentence && targetBaseForm ? { sentence, targetBaseForm } : null;
+  }
+
+  if (isPrefixWord(word)) {
+    if (col !== 4) return null;
+
+    const sentence = word.example.trim();
+    const targetBaseForm = stripBoundaryAsciiHyphens(word.prefix);
+    return sentence && targetBaseForm ? { sentence, targetBaseForm } : null;
+  }
+
+  if (isPostfixWord(word)) {
+    if (col !== 4) return null;
+
+    const sentence = word.example.trim();
+    const targetBaseForm = stripBoundaryAsciiHyphens(word.postfix);
+    return sentence && targetBaseForm ? { sentence, targetBaseForm } : null;
   }
 
   return null;
@@ -1402,6 +1445,16 @@ export default function WordTable({
     return getWordTableAddFuriganaSource(contextMenuWord, field) ? field : null;
   }, [contextMenu, contextMenuWord, isJlptExampleHuriganaMode]);
 
+  const contextMenuAnalyzeRequest = useMemo(() => {
+    if (!contextMenu || !contextMenuWord) return null;
+
+    return getWordTableAnalyzeRequest(
+      contextMenu.col,
+      contextMenuWord,
+      isJlptExampleHuriganaMode,
+    );
+  }, [contextMenu, contextMenuWord, isJlptExampleHuriganaMode]);
+
   const isCellSelected = useCallback(
     (row: number, col: number): boolean => {
       if (!selectionAnchor || !selectionExtent) return false;
@@ -1618,6 +1671,53 @@ export default function WordTable({
       }));
 
       onWordFieldsUpdated?.(word.id, { [field]: nextValue });
+    } catch (error) {
+      window.alert(
+        error instanceof Error ? error.message : t("words.generateActionError"),
+      );
+    }
+  }, [
+    contextMenu,
+    localWordUpdates,
+    onWordFieldsUpdated,
+    persistTextField,
+    t,
+    words,
+    isJlptExampleHuriganaMode,
+  ]);
+
+  const handleContextMenuAnalyze = useCallback(async () => {
+    if (!contextMenu) return;
+
+    const word = words[contextMenu.row];
+    if (!word) return;
+
+    const mergedWord = { ...word, ...localWordUpdates[word.id] } as Word;
+    const request = getWordTableAnalyzeRequest(
+      contextMenu.col,
+      mergedWord,
+      isJlptExampleHuriganaMode,
+    );
+    if (!request) return;
+
+    try {
+      const maskedSentence = await analyzeSentence({
+        language: "ja",
+        sentence: request.sentence,
+        target_base_form: request.targetBaseForm,
+      });
+
+      await persistTextField(word.id, "example", maskedSentence);
+
+      setLocalWordUpdates((prev) => ({
+        ...prev,
+        [word.id]: {
+          ...prev[word.id],
+          example: maskedSentence,
+        },
+      }));
+
+      onWordFieldsUpdated?.(word.id, { example: maskedSentence });
     } catch (error) {
       window.alert(
         error instanceof Error ? error.message : t("words.generateActionError"),
@@ -2842,6 +2942,9 @@ export default function WordTable({
         onTranslate={contextMenuCanTranslate ? handleContextMenuTranslate : null}
         translateLabel={
           contextMenuCanTranslate ? "correct it with DeepL" : undefined
+        }
+        onAnalyze={
+          contextMenuAnalyzeRequest ? handleContextMenuAnalyze : null
         }
         onAddFurigana={
           contextMenuAddFuriganaField ? handleContextMenuAddFurigana : null

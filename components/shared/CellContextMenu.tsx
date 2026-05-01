@@ -12,6 +12,8 @@ interface CellContextMenuProps {
   onEdit?: (() => void) | null;
   onTranslate?: (() => void) | null;
   translateLabel?: string;
+  onAnalyze?: (() => void) | null;
+  analyzeLabel?: string;
   onAddFurigana?: (() => void) | null;
   addFuriganaLabel?: string;
   onGenerate: (() => void) | null;
@@ -24,6 +26,8 @@ export default function CellContextMenu({
   onEdit,
   onTranslate = null,
   translateLabel,
+  onAnalyze = null,
+  analyzeLabel,
   onAddFurigana = null,
   addFuriganaLabel,
   onGenerate,
@@ -63,6 +67,13 @@ export default function CellContextMenu({
     onClose();
   }, [onAddFurigana, onClose]);
 
+  const handleAnalyze = useCallback(() => {
+    if (!onAnalyze) return;
+    deferredActionRef.current = null;
+    onAnalyze();
+    onClose();
+  }, [onAnalyze, onClose]);
+
   const handleExited = useCallback(() => {
     const deferredAction = deferredActionRef.current;
     deferredActionRef.current = null;
@@ -92,6 +103,11 @@ export default function CellContextMenu({
       {onAddFurigana ? (
         <MenuItem onClick={handleAddFurigana}>
           {addFuriganaLabel || t("words.contextMenuAddFurigana")}
+        </MenuItem>
+      ) : null}
+      {onAnalyze ? (
+        <MenuItem onClick={handleAnalyze}>
+          {analyzeLabel || t("words.contextMenuAnalyze")}
         </MenuItem>
       ) : null}
       {onGenerate !== null ? (

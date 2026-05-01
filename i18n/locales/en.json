@@ -317,6 +317,7 @@
     "contextMenuCopy": "Copy",
     "contextMenuEdit": "Edit",
     "contextMenuAddFurigana": "Add furigana",
+    "contextMenuAnalyze": "Mask target word",
     "contextMenuGenerate": "Generate"
   },
   "users": {

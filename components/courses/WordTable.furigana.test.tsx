@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import WordTable from "./WordTable";
 import { addFuriganaText } from "@/lib/addFurigana";
+import { analyzeSentence } from "@/lib/analyzeText";
 import {
   updateSingleListWordTextField,
   updateWordTextField,
@@ -22,6 +23,7 @@ vi.mock("react-i18next", () => ({
         "courses.translation": "Translation",
         "courses.generatePronunciation": "Generate pronunciation",
         "words.contextMenuAddFurigana": "Add furigana",
+        "words.contextMenuAnalyze": "Mask target word",
         "words.contextMenuEdit": "Edit",
         "words.contextMenuGenerate": "Generate",
         "words.none": "None",
@@ -45,14 +47,19 @@ vi.mock("@/components/shared/CellContextMenu", () => ({
   default: ({
     anchorPosition,
     onAddFurigana,
+    onAnalyze,
   }: {
     anchorPosition: { top: number; left: number } | null;
     onAddFurigana?: (() => void) | null;
+    onAnalyze?: (() => void) | null;
   }) =>
     anchorPosition ? (
       <div data-testid="cell-context-menu">
         {onAddFurigana ? (
           <button onClick={onAddFurigana}>Add furigana</button>
+        ) : null}
+        {onAnalyze ? (
+          <button onClick={onAnalyze}>Mask target word</button>
         ) : null}
       </div>
     ) : null,
@@ -70,13 +77,20 @@ vi.mock("@/lib/addFurigana", () => ({
   addFuriganaText: vi.fn(),
 }));
 
+vi.mock("@/lib/analyzeText", () => ({
+  analyzeSentence: vi.fn(),
+}));
+
 vi.mock("@/lib/firebase/firestore", () => ({
   updateWordTextField: vi.fn().mockResolvedValue(undefined),
   updateSingleListWordTextField: vi.fn().mockResolvedValue(undefined),
+  updateCollectionWordTextField: vi.fn().mockResolvedValue(undefined),
   updateWordImageUrl: vi.fn(),
   updateSingleListWordImageUrl: vi.fn(),
+  updateCollectionWordImageUrl: vi.fn(),
   updateWordDerivatives: vi.fn(),
   updateSingleListWordDerivatives: vi.fn(),
+  updateCollectionWordDerivatives: vi.fn(),
 }));
 
 function renderTable(element: ReactElement) {
@@ -131,6 +145,20 @@ async function clickAddFurigana() {
   });
 }
 
+async function clickAnalyze() {
+  const button = Array.from(document.querySelectorAll("button")).find((node) =>
+    node.textContent?.includes("Mask target word"),
+  );
+
+  expect(button).not.toBeUndefined();
+
+  await act(async () => {
+    button?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    await Promise.resolve();
+    await Promise.resolve();
+  });
+}
+
 describe("WordTable furigana actions", () => {
   let rendered: ReturnType<typeof renderTable> | null = null;
 
@@ -162,6 +190,7 @@ describe("WordTable furigana actions", () => {
             pronunciation: "ネコ",
             pronunciationRoman: "neko",
             example: "猫がいる。",
+            exampleHurigana: "ねこがいる。",
             exampleRoman: "neko ga iru.",
             translationEnglish: "There is a cat.",
             translationKorean: "고양이가 있다.",
@@ -256,6 +285,172 @@ describe("WordTable furigana actions", () => {
     expect(
       Array.from(document.querySelectorAll("button")).find((node) =>
         node.textContent?.includes("Add furigana"),
+      ),
+    ).toBeUndefined();
+  });
+
+  it("masks JLPT examples through the analyze endpoint and persists the example", async () => {
+    const onWordFieldsUpdated = vi.fn();
+    vi.mocked(analyzeSentence).mockResolvedValue("[MASK]て、また[MASK]ました。");
+
+    rendered = renderTable(
+      <WordTable
+        words={[
+          {
+            id: "jlpt-1",
+            word: "食べる",
+            meaningEnglish: "eat",
+            meaningKorean: "먹다",
+            pronunciation: "たべる",
+            pronunciationRoman: "taberu",
+            example: "食べて、また食べました。",
+            exampleHurigana: "",
+            exampleRoman: "",
+            translationEnglish: "I ate and ate again.",
+            translationKorean: "먹고 또 먹었습니다.",
+          },
+        ]}
+        isCollocation={false}
+        isJlpt
+        courseId="JLPT"
+        coursePath="courses/JLPT"
+        dayId="Day1"
+        onWordFieldsUpdated={onWordFieldsUpdated}
+      />,
+    );
+
+    await openContextMenu(getCell("食べて、また食べました。"));
+    await clickAnalyze();
+
+    expect(analyzeSentence).toHaveBeenCalledWith({
+      language: "ja",
+      sentence: "食べて、また食べました。",
+      target_base_form: "食べる",
+    });
+    expect(updateWordTextField).toHaveBeenCalledWith(
+      "courses/JLPT",
+      "Day1",
+      "jlpt-1",
+      "example",
+      "[MASK]て、また[MASK]ました。",
+    );
+    expect(onWordFieldsUpdated).toHaveBeenCalledWith("jlpt-1", {
+      example: "[MASK]て、また[MASK]ました。",
+    });
+    expect(document.body.textContent).toContain("[MASK]て、また[MASK]ました。");
+  });
+
+  it("normalizes prefix base forms before analyzing examples", async () => {
+    vi.mocked(analyzeSentence).mockResolvedValue("[MASK]生する");
+
+    rendered = renderTable(
+      <WordTable
+        words={[
+          {
+            id: "prefix-1",
+            prefix: "再-",
+            meaningEnglish: "again",
+            meaningKorean: "다시",
+            pronunciation: "さい",
+            pronunciationRoman: "sai",
+            example: "再生する",
+            exampleRoman: "saisei suru",
+            translationEnglish: "to regenerate",
+            translationKorean: "재생하다",
+          },
+        ]}
+        isCollocation={false}
+        isPrefix
+        courseId="JLPT_PREFIX"
+        coursePath="courses/JLPT_PREFIX"
+      />,
+    );
+
+    await openContextMenu(getCell("再生する"));
+    await clickAnalyze();
+
+    expect(analyzeSentence).toHaveBeenCalledWith({
+      language: "ja",
+      sentence: "再生する",
+      target_base_form: "再",
+    });
+    expect(updateSingleListWordTextField).toHaveBeenCalledWith(
+      "JLPT_PREFIX",
+      "courses/JLPT_PREFIX",
+      "prefix-1",
+      "example",
+      "[MASK]生する",
+    );
+  });
+
+  it("normalizes postfix base forms before analyzing examples", async () => {
+    vi.mocked(analyzeSentence).mockResolvedValue("科学[MASK]");
+
+    rendered = renderTable(
+      <WordTable
+        words={[
+          {
+            id: "postfix-1",
+            postfix: "-的",
+            meaningEnglish: "-like",
+            meaningKorean: "-적",
+            pronunciation: "てき",
+            pronunciationRoman: "teki",
+            example: "科学的",
+            exampleRoman: "kagakuteki",
+            translationEnglish: "scientific",
+            translationKorean: "과학적",
+          },
+        ]}
+        isCollocation={false}
+        isPostfix
+        courseId="JLPT_POSTFIX"
+        coursePath="courses/JLPT_POSTFIX"
+      />,
+    );
+
+    await openContextMenu(getCell("科学的"));
+    await clickAnalyze();
+
+    expect(analyzeSentence).toHaveBeenCalledWith({
+      language: "ja",
+      sentence: "科学的",
+      target_base_form: "的",
+    });
+    expect(updateSingleListWordTextField).toHaveBeenCalledWith(
+      "JLPT_POSTFIX",
+      "courses/JLPT_POSTFIX",
+      "postfix-1",
+      "example",
+      "科学[MASK]",
+    );
+  });
+
+  it("does not expose analyze for standard English rows", async () => {
+    rendered = renderTable(
+      <WordTable
+        words={[
+          {
+            id: "std-1",
+            word: "wander",
+            meaning: "to move around",
+            pronunciation: "wan-der",
+            example: "We wander through the city.",
+            translation: "돌아다니다",
+          },
+        ]}
+        isCollocation={false}
+        courseId="TOEIC"
+        coursePath="courses/TOEIC"
+        dayId="Day1"
+      />,
+    );
+
+    await openContextMenu(getCell("We wander through the city."));
+
+    expect(
+      Array.from(document.querySelectorAll("button")).find((node) =>
+        node.textContent?.includes("Mask target word"),
       ),
     ).toBeUndefined();
   });
