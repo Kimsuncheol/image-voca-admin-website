@@ -256,6 +256,14 @@ function stripBoundaryAsciiHyphens(value: string): string {
   return value.trim().replace(/^-+|-+$/g, "").trim();
 }
 
+function stripRoundParentheticals(value: string): string {
+  return value
+    .replace(/\([^()]*\)/g, "")
+    .replace(/（[^（）]*）/g, "")
+    .replace(/[ \t]{2,}/g, " ")
+    .trim();
+}
+
 function getWordTableAnalyzeRequest(
   col: number,
   word: Word,
@@ -265,7 +273,7 @@ function getWordTableAnalyzeRequest(
     const exampleCol = isJlptExampleHuriganaMode ? 3 : 4;
     if (col !== exampleCol) return null;
 
-    const sentence = word.example.trim();
+    const sentence = stripRoundParentheticals(word.example);
     const targetBaseForm = word.word.trim();
     return sentence && targetBaseForm ? { sentence, targetBaseForm } : null;
   }
@@ -273,7 +281,7 @@ function getWordTableAnalyzeRequest(
   if (isPrefixWord(word)) {
     if (col !== 4) return null;
 
-    const sentence = word.example.trim();
+    const sentence = stripRoundParentheticals(word.example);
     const targetBaseForm = stripBoundaryAsciiHyphens(word.prefix);
     return sentence && targetBaseForm ? { sentence, targetBaseForm } : null;
   }
@@ -281,7 +289,7 @@ function getWordTableAnalyzeRequest(
   if (isPostfixWord(word)) {
     if (col !== 4) return null;
 
-    const sentence = word.example.trim();
+    const sentence = stripRoundParentheticals(word.example);
     const targetBaseForm = stripBoundaryAsciiHyphens(word.postfix);
     return sentence && targetBaseForm ? { sentence, targetBaseForm } : null;
   }

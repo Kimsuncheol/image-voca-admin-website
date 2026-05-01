@@ -303,7 +303,7 @@ describe("WordTable furigana actions", () => {
             meaningKorean: "먹다",
             pronunciation: "たべる",
             pronunciationRoman: "taberu",
-            example: "食べて、また食べました。",
+            example: "食べ(たべ)て、また食べました。",
             exampleHurigana: "",
             exampleRoman: "",
             translationEnglish: "I ate and ate again.",
@@ -319,7 +319,8 @@ describe("WordTable furigana actions", () => {
       />,
     );
 
-    await openContextMenu(getCell("食べて、また食べました。"));
+    await openContextMenu(getCell("食べ(たべ)て、また食べました。"));
+    expect(document.body.textContent).toContain("食べ(たべ)て、また食べました。");
     await clickAnalyze();
 
     expect(analyzeSentence).toHaveBeenCalledWith({
@@ -353,7 +354,7 @@ describe("WordTable furigana actions", () => {
             meaningKorean: "다시",
             pronunciation: "さい",
             pronunciationRoman: "sai",
-            example: "再生する",
+            example: "再（ふたた）び再生する",
             exampleRoman: "saisei suru",
             translationEnglish: "to regenerate",
             translationKorean: "재생하다",
@@ -366,12 +367,12 @@ describe("WordTable furigana actions", () => {
       />,
     );
 
-    await openContextMenu(getCell("再生する"));
+    await openContextMenu(getCell("再（ふたた）び再生する"));
     await clickAnalyze();
 
     expect(analyzeSentence).toHaveBeenCalledWith({
       language: "ja",
-      sentence: "再生する",
+      sentence: "再び再生する",
       target_base_form: "再",
     });
     expect(updateSingleListWordTextField).toHaveBeenCalledWith(
@@ -396,7 +397,7 @@ describe("WordTable furigana actions", () => {
             meaningKorean: "-적",
             pronunciation: "てき",
             pronunciationRoman: "teki",
-            example: "科学的",
+            example: "科学（かがく）的",
             exampleRoman: "kagakuteki",
             translationEnglish: "scientific",
             translationKorean: "과학적",
@@ -409,7 +410,7 @@ describe("WordTable furigana actions", () => {
       />,
     );
 
-    await openContextMenu(getCell("科学的"));
+    await openContextMenu(getCell("科学（かがく）的"));
     await clickAnalyze();
 
     expect(analyzeSentence).toHaveBeenCalledWith({
