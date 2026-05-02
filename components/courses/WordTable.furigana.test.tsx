@@ -93,6 +93,10 @@ vi.mock("@/lib/firebase/firestore", () => ({
   updateCollectionWordDerivatives: vi.fn(),
 }));
 
+vi.mock("@/lib/firebase/storage", () => ({
+  uploadWordImage: vi.fn(),
+}));
+
 function renderTable(element: ReactElement) {
   const container = document.createElement("div");
   document.body.appendChild(container);

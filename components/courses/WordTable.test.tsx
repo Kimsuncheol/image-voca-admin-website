@@ -60,6 +60,18 @@ vi.mock("@/components/shared/InlineEditableText", () => ({
 
 vi.mock("@/lib/firebase/firestore", () => ({
   updateWordTextField: vi.fn(),
+  updateSingleListWordTextField: vi.fn(),
+  updateCollectionWordTextField: vi.fn(),
+  updateWordImageUrl: vi.fn(),
+  updateSingleListWordImageUrl: vi.fn(),
+  updateCollectionWordImageUrl: vi.fn(),
+  updateWordDerivatives: vi.fn(),
+  updateSingleListWordDerivatives: vi.fn(),
+  updateCollectionWordDerivatives: vi.fn(),
+}));
+
+vi.mock("@/lib/firebase/storage", () => ({
+  uploadWordImage: vi.fn(),
 }));
 
 vi.mock("@/components/words/WordFinderMissingFieldDialog", () => ({

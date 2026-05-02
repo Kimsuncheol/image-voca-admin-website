@@ -5,7 +5,8 @@ import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import WordTable from "./WordTable";
-import { updateWordDerivatives } from "@/lib/firebase/firestore";
+import { updateCollectionWordImageUrl, updateWordDerivatives, updateWordImageUrl } from "@/lib/firebase/firestore";
+import { uploadWordImage } from "@/lib/firebase/storage";
 
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({
@@ -72,10 +73,77 @@ vi.mock("@/components/courses/DerivativeEditDialog", () => ({
     ) : null,
 }));
 
+vi.mock("@/types/course", () => ({
+  getCourseById: (id: string) => {
+    if (id === "JLPT_COUNTER") {
+      return {
+        id,
+        label: "Counters",
+        path: "courses/JLPT_COUNTER/counter_hon",
+        schema: "jlpt",
+        storageMode: "collection",
+      };
+    }
+    if (id === "JLPT_PREFIX") {
+      return {
+        id,
+        label: "Prefix",
+        path: "courses/JLPT_PREFIX",
+        schema: "prefix",
+        storageMode: "singleList",
+        singleListSubcollection: "prefix",
+      };
+    }
+    return {
+      id,
+      label: id,
+      path: `courses/${id}`,
+      schema: "standard",
+      storageMode: "day",
+    };
+  },
+  getJlptCounterOptionByPath: (path: string) =>
+    path === "courses/JLPT_COUNTER/counter_hon"
+      ? { id: "counter_hon", label: "Counter Hon", path }
+      : undefined,
+  getSingleListSubcollectionByCourseId: (id: string) =>
+    id === "JLPT_PREFIX" ? "prefix" : null,
+}));
+
+vi.mock("react-dropzone", () => ({
+  useDropzone: ({
+    onDrop,
+    disabled,
+  }: {
+    onDrop: (acceptedFiles: File[]) => void;
+    disabled?: boolean;
+  }) => ({
+    getRootProps: () => ({
+      onDrop: (event: DragEvent) => {
+        event.preventDefault();
+        if (disabled) return;
+        onDrop(Array.from(event.dataTransfer?.files ?? []));
+      },
+      onDragOver: (event: DragEvent) => event.preventDefault(),
+    }),
+    isDragActive: false,
+  }),
+}));
+
 vi.mock("@/lib/firebase/firestore", () => ({
-  updateWordTextField: vi.fn(),
-  updateWordImageUrl: vi.fn(),
+  updateWordTextField: vi.fn().mockResolvedValue(undefined),
+  updateSingleListWordTextField: vi.fn().mockResolvedValue(undefined),
+  updateCollectionWordTextField: vi.fn().mockResolvedValue(undefined),
+  updateWordImageUrl: vi.fn().mockResolvedValue(undefined),
+  updateSingleListWordImageUrl: vi.fn().mockResolvedValue(undefined),
+  updateCollectionWordImageUrl: vi.fn().mockResolvedValue(undefined),
   updateWordDerivatives: vi.fn().mockResolvedValue(undefined),
+  updateSingleListWordDerivatives: vi.fn().mockResolvedValue(undefined),
+  updateCollectionWordDerivatives: vi.fn().mockResolvedValue(undefined),
+}));
+
+vi.mock("@/lib/firebase/storage", () => ({
+  uploadWordImage: vi.fn().mockResolvedValue("https://example.com/uploaded.png"),
 }));
 
 function renderTable(element: ReactElement) {
@@ -101,6 +169,16 @@ function getSelectableCell(text: string): HTMLTableCellElement | null {
   return Array.from(document.querySelectorAll('td[aria-selected]')).find((node) =>
     node.textContent?.includes(text),
   ) as HTMLTableCellElement | null;
+}
+
+function dropFile(target: Element, file: File) {
+  const event = new Event("drop", { bubbles: true });
+  Object.defineProperty(event, "dataTransfer", {
+    value: {
+      files: [file],
+    },
+  });
+  target.dispatchEvent(event);
 }
 
 describe("WordTable derivative dialog integration", () => {
@@ -185,7 +263,7 @@ describe("WordTable derivative dialog integration", () => {
       button?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
 
-    expect(selectedCell?.getAttribute("aria-selected")).toBe("false");
+    expect(getSelectableCell("care")?.getAttribute("aria-selected")).toBe("false");
     expect(button?.closest("td")?.hasAttribute("aria-selected")).toBe(false);
     expect(document.body.textContent).toContain("dialog:care:true");
   });
@@ -277,7 +355,7 @@ describe("WordTable derivative dialog integration", () => {
       derivativeCell?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
 
-    expect(selectedCell?.getAttribute("aria-selected")).toBe("false");
+    expect(getSelectableCell("use")?.getAttribute("aria-selected")).toBe("false");
     expect(derivativeCell?.hasAttribute("aria-selected")).toBe(false);
     expect(document.body.textContent).toContain("dialog:use:true");
   });
@@ -305,7 +383,7 @@ describe("WordTable derivative dialog integration", () => {
     );
 
     const selectedCell = getSelectableCell("care");
-    const imageButton = document.querySelector('button[aria-label="Generate new image"]');
+    let imageButton = document.querySelector('button[aria-label="Generate new image"]');
     expect(selectedCell).not.toBeNull();
     expect(imageButton).not.toBeNull();
 
@@ -314,12 +392,13 @@ describe("WordTable derivative dialog integration", () => {
     });
 
     expect(selectedCell?.getAttribute("aria-selected")).toBe("true");
+    imageButton = document.querySelector('button[aria-label="Generate new image"]');
 
     act(() => {
       imageButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
 
-    expect(selectedCell?.getAttribute("aria-selected")).toBe("false");
+    expect(getSelectableCell("care")?.getAttribute("aria-selected")).toBe("false");
     expect(imageButton?.closest("td")?.hasAttribute("aria-selected")).toBe(false);
     expect(document.body.textContent).toContain("missing:image");
   });
@@ -348,7 +427,7 @@ describe("WordTable derivative dialog integration", () => {
 
     const selectedCell = getSelectableCell("use");
     const image = document.querySelector('img[alt="use"]');
-    const imageButton = image?.closest("button");
+    let imageButton = image?.closest("button");
     expect(selectedCell).not.toBeNull();
     expect(imageButton).not.toBeNull();
 
@@ -357,13 +436,114 @@ describe("WordTable derivative dialog integration", () => {
     });
 
     expect(selectedCell?.getAttribute("aria-selected")).toBe("true");
+    imageButton = document.querySelector('img[alt="use"]')?.closest("button");
 
     act(() => {
       imageButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
 
-    expect(selectedCell?.getAttribute("aria-selected")).toBe("false");
+    expect(getSelectableCell("use")?.getAttribute("aria-selected")).toBe("false");
     expect(imageButton?.closest("td")?.hasAttribute("aria-selected")).toBe(false);
     expect(document.body.textContent).toContain("missing:image");
+  });
+
+  it("uploads a dropped image for day-storage image cells", async () => {
+    const onWordImageUpdated = vi.fn();
+
+    rendered = renderTable(
+      <WordTable
+        words={[
+          {
+            id: "img-upload-1",
+            word: "care",
+            meaning: "attention",
+            pronunciation: "",
+            example: "",
+            translation: "",
+            imageUrl: "",
+          },
+        ]}
+        isCollocation={false}
+        showImageUrl
+        courseId="TOEIC"
+        coursePath="courses/TOEIC"
+        dayId="Day1"
+        onWordImageUpdated={onWordImageUpdated}
+      />,
+    );
+
+    const dropzone = document.querySelector('[data-testid="word-image-dropzone-img-upload-1"]');
+    expect(dropzone).not.toBeNull();
+
+    await act(async () => {
+      dropFile(dropzone as Element, new File(["image"], "care.png", { type: "image/png" }));
+    });
+
+    expect(uploadWordImage).toHaveBeenCalledWith(
+      expect.any(File),
+      "TOEIC",
+      "Day1",
+      "img-upload-1",
+    );
+    expect(updateWordImageUrl).toHaveBeenCalledWith(
+      "courses/TOEIC",
+      "Day1",
+      "img-upload-1",
+      "https://example.com/uploaded.png",
+    );
+    expect(onWordImageUpdated).toHaveBeenCalledWith(
+      "img-upload-1",
+      "https://example.com/uploaded.png",
+    );
+    expect(document.querySelector('img[alt="care"]')?.getAttribute("src")).toBe(
+      "https://example.com/uploaded.png",
+    );
+  });
+
+  it("uploads a dropped image for JLPT counter collection image cells", async () => {
+    rendered = renderTable(
+      <WordTable
+        words={[
+          {
+            id: "counter-1",
+            word: "本",
+            meaningEnglish: "counter",
+            meaningKorean: "개수사",
+            pronunciation: "ほん",
+            pronunciationRoman: "",
+            example: "ペンを三本買った。",
+            exampleHurigana: "",
+            exampleRoman: "",
+            translationEnglish: "",
+            translationKorean: "",
+            imageUrl: "",
+          },
+        ]}
+        isCollocation={false}
+        isJlpt
+        showImageUrl
+        courseId="JLPT_COUNTER"
+        coursePath="courses/JLPT_COUNTER/counter_hon"
+      />,
+    );
+
+    const dropzone = document.querySelector('[data-testid="word-image-dropzone-counter-1"]');
+    expect(dropzone).not.toBeNull();
+
+    await act(async () => {
+      dropFile(dropzone as Element, new File(["image"], "counter.webp", { type: "image/webp" }));
+    });
+
+    expect(uploadWordImage).toHaveBeenCalledWith(
+      expect.any(File),
+      "JLPT_COUNTER",
+      expect.any(String),
+      "counter-1",
+    );
+    expect(updateCollectionWordImageUrl).toHaveBeenCalledWith(
+      "courses/JLPT_COUNTER/counter_hon",
+      "counter-1",
+      "https://example.com/uploaded.png",
+    );
   });
 });

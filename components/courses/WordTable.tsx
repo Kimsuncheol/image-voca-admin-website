@@ -15,11 +15,13 @@ import Snackbar from "@mui/material/Snackbar";
 import Typography from "@mui/material/Typography";
 import Tooltip from "@mui/material/Tooltip";
 import Stack from "@mui/material/Stack";
+import CircularProgress from "@mui/material/CircularProgress";
 import type { Theme } from "@mui/material/styles";
 import AddPhotoAlternateIcon from "@mui/icons-material/AddPhotoAlternate";
 import AutoFixHighIcon from "@mui/icons-material/AutoFixHigh";
 import CloseIcon from "@mui/icons-material/Close";
 import EditIcon from "@mui/icons-material/Edit";
+import { useDropzone } from "react-dropzone";
 import { useTranslation } from "react-i18next";
 
 import CellContextMenu from "@/components/shared/CellContextMenu";
@@ -39,6 +41,7 @@ import {
   updateWordImageUrl,
   updateWordTextField,
 } from "@/lib/firebase/firestore";
+import { uploadWordImage } from "@/lib/firebase/storage";
 import {
   isDerivativeGenerationEligibleResult,
 } from "@/lib/derivativeGeneration";
@@ -54,7 +57,12 @@ import {
   type CellCoord,
 } from "@/lib/utils/spreadsheetNavigation";
 import { supportsDerivativeCourse } from "@/constants/supportedDerivativeCourses";
-import { getCourseById, type CourseId } from "@/types/course";
+import {
+  getCourseById,
+  getJlptCounterOptionByPath,
+  getSingleListSubcollectionByCourseId,
+  type CourseId,
+} from "@/types/course";
 import type { CourseDayMissingField } from "@/types/courseDayMissingField";
 import type { CollocationWord, ExtremelyAdvancedWord, JlptWord, KanjiWord, PostfixWord, PrefixWord, StandardWord, Word } from "@/types/word";
 import DerivativeEditDialog from "@/components/courses/DerivativeEditDialog";
@@ -733,6 +741,14 @@ export default function WordTable({
   const [selectionExtent, setSelectionExtent] = useState<CellPos | null>(null);
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const [copySnackbar, setCopySnackbar] = useState<{ open: boolean; success: boolean }>({ open: false, success: true });
+  const [imageUploadSnackbar, setImageUploadSnackbar] = useState<{
+    open: boolean;
+    success: boolean;
+    message?: string;
+  }>({ open: false, success: true });
+  const [uploadingImageWordIds, setUploadingImageWordIds] = useState<Set<string>>(
+    () => new Set(),
+  );
   const [derivativeDialogWordId, setDerivativeDialogWordId] = useState<string | null>(null);
   const isJlptExampleHuriganaMode =
     Boolean(isJlpt) && activeMissingField === "exampleHurigana";
@@ -916,6 +932,70 @@ export default function WordTable({
   const getResolvedImage = (wordId: string): string => {
     return localWordUpdates[wordId]?.imageUrl ?? "";
   };
+
+  const resolveImageUploadTarget = useCallback((): string | null => {
+    if (!courseId || !coursePath || !storageMode) return null;
+
+    if (storageMode === "day") return dayId ?? null;
+    if (storageMode === "singleList") {
+      return getSingleListSubcollectionByCourseId(courseId);
+    }
+    if (storageMode === "collection") {
+      return getJlptCounterOptionByPath(coursePath)?.id ?? null;
+    }
+
+    return null;
+  }, [courseId, coursePath, dayId, storageMode]);
+
+  const handleImageDropUpload = useCallback(
+    async (wordId: string, file: File) => {
+      if (!courseId) return;
+
+      const imageTarget = resolveImageUploadTarget();
+      if (!imageTarget) {
+        setImageUploadSnackbar({
+          open: true,
+          success: false,
+          message: t("words.imageUploadUnavailable"),
+        });
+        return;
+      }
+
+      setUploadingImageWordIds((prev) => {
+        const next = new Set(prev);
+        next.add(wordId);
+        return next;
+      });
+
+      try {
+        const imageUrl = await uploadWordImage(file, courseId, imageTarget, wordId);
+        await persistImageField(wordId, imageUrl);
+
+        setLocalWordUpdates((prev) => ({
+          ...prev,
+          [wordId]: { ...prev[wordId], imageUrl },
+        }));
+        onWordImageUpdated?.(wordId, imageUrl);
+        setImageUploadSnackbar({ open: true, success: true });
+      } catch (error) {
+        setImageUploadSnackbar({
+          open: true,
+          success: false,
+          message:
+            error instanceof Error
+              ? error.message
+              : t("words.uploadActionError", "Image upload failed."),
+        });
+      } finally {
+        setUploadingImageWordIds((prev) => {
+          const next = new Set(prev);
+          next.delete(wordId);
+          return next;
+        });
+      }
+    },
+    [courseId, onWordImageUpdated, persistImageField, resolveImageUploadTarget, t],
+  );
 
   const handleResolved = (updates: WordFinderResultFieldUpdates) => {
     if (!activeWordId || !activeWord) return;
@@ -1213,6 +1293,132 @@ export default function WordTable({
           <AutoFixHighIcon fontSize="small" color="action" />
         </IconButton>
       </Tooltip>
+    );
+  }
+
+  function ImageDropCell({
+    wordId,
+    imageUrl,
+    alt,
+    row,
+    col,
+  }: {
+    wordId: string;
+    imageUrl: string;
+    alt: string;
+    row: number;
+    col: number;
+  }) {
+    const isUploading = uploadingImageWordIds.has(wordId);
+    const hasImage = hasTrimmedText(imageUrl);
+    const { getRootProps, isDragActive } = useDropzone({
+      onDrop: (acceptedFiles) => {
+        const file = acceptedFiles[0];
+        if (!file) return;
+        void handleImageDropUpload(wordId, file);
+      },
+      accept: { "image/*": [".png", ".jpg", ".jpeg", ".webp"] },
+      multiple: false,
+      noClick: true,
+      noKeyboard: true,
+      disabled: isUploading,
+    });
+
+    return (
+      <TableCell {...selectableCellProps(row, col, { omitUnselectedAria: true })}>
+        <Box
+          {...getRootProps()}
+          data-testid={`word-image-dropzone-${wordId}`}
+          sx={{
+            position: "relative",
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            width: 72,
+            height: 72,
+            border: "2px dashed",
+            borderColor: isDragActive ? "primary.main" : "divider",
+            borderRadius: 1,
+            bgcolor: isDragActive ? "action.hover" : "transparent",
+            transition: "border-color 0.15s, background-color 0.15s",
+            "&:hover .remove-img-btn": { opacity: 1 },
+          }}
+        >
+          <Tooltip title={t("words.generateNewImage")}>
+            <IconButton
+              size="small"
+              aria-label={t("words.generateNewImage")}
+              onClick={(e) => {
+                e.stopPropagation();
+                openFieldModal(wordId, "image");
+              }}
+              disabled={isUploading}
+              sx={{ p: 0 }}
+            >
+              {hasImage ? (
+                <Box
+                  component="img"
+                  src={imageUrl}
+                  alt={alt}
+                  sx={{
+                    width: 64,
+                    height: 64,
+                    objectFit: "cover",
+                    borderRadius: 1,
+                  }}
+                />
+              ) : (
+                <AddPhotoAlternateIcon fontSize="small" />
+              )}
+            </IconButton>
+          </Tooltip>
+          {isUploading && (
+            <Box
+              sx={{
+                position: "absolute",
+                inset: 0,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                borderRadius: 1,
+                bgcolor: "rgba(255,255,255,0.72)",
+              }}
+            >
+              <CircularProgress size={20} />
+            </Box>
+          )}
+          {hasImage && !isUploading && (
+            <Tooltip title={t("words.removeImage")}>
+              <IconButton
+                className="remove-img-btn"
+                size="small"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleRemoveImage(wordId);
+                }}
+                sx={{
+                  position: "absolute",
+                  top: -6,
+                  right: -6,
+                  opacity: 0,
+                  transition: "opacity 0.15s",
+                  bgcolor: "background.paper",
+                  border: "1px solid",
+                  borderColor: "divider",
+                  p: "2px",
+                  "&:hover": {
+                    bgcolor: "error.main",
+                    color: "white",
+                    borderColor: "error.main",
+                  },
+                }}
+              >
+                <CloseIcon sx={{ fontSize: 12 }} />
+              </IconButton>
+            </Tooltip>
+          )}
+        </Box>
+      </TableCell>
     );
   }
 
@@ -2080,66 +2286,13 @@ export default function WordTable({
                       />
                     )}
                     {showImageUrl && (
-                    <TableCell {...selectableCellProps(rowIdx, 5, { omitUnselectedAria: true })}>
-                        <Box
-                          sx={{
-                            position: "relative",
-                            display: "inline-flex",
-                            "&:hover .remove-img-btn": { opacity: 1 },
-                          }}
-                        >
-                          <Tooltip title={t("words.generateNewImage")}>
-                            <IconButton
-                              size="small"
-                              aria-label={t("words.generateNewImage")}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                openFieldModal(word.id, "image");
-                              }}
-                              sx={{ p: 0 }}
-                            >
-                              {!isMissingField(mergedWord, "image") ? (
-                                <Box
-                                  component="img"
-                                  src={getResolvedImage(word.id) || mergedWord.imageUrl}
-                                  alt={mergedWord.collocation}
-                                  sx={{
-                                    width: 64,
-                                    height: 64,
-                                    objectFit: "cover",
-                                    borderRadius: 1,
-                                  }}
-                                />
-                              ) : (
-                                <AddPhotoAlternateIcon fontSize="small" />
-                              )}
-                            </IconButton>
-                          </Tooltip>
-                          {!isMissingField(mergedWord, "image") && (
-                            <Tooltip title={t("words.removeImage")}>
-                              <IconButton
-                                className="remove-img-btn"
-                                size="small"
-                                onClick={(e) => { e.stopPropagation(); handleRemoveImage(word.id); }}
-                                sx={{
-                                  position: "absolute",
-                                  top: -6,
-                                  right: -6,
-                                  opacity: 0,
-                                  transition: "opacity 0.15s",
-                                  bgcolor: "background.paper",
-                                  border: "1px solid",
-                                  borderColor: "divider",
-                                  p: "2px",
-                                  "&:hover": { bgcolor: "error.main", color: "white", borderColor: "error.main" },
-                                }}
-                              >
-                                <CloseIcon sx={{ fontSize: 12 }} />
-                              </IconButton>
-                            </Tooltip>
-                          )}
-                        </Box>
-                      </TableCell>
+                      <ImageDropCell
+                        wordId={word.id}
+                        imageUrl={getResolvedImage(word.id) || mergedWord.imageUrl}
+                        alt={mergedWord.collocation}
+                        row={rowIdx}
+                        col={5}
+                      />
                     )}
                   </>
                   ) : isIdiomWord(mergedWord) ? (
@@ -2197,66 +2350,13 @@ export default function WordTable({
                       />
                     )}
                     {showImageUrl && (
-                    <TableCell {...selectableCellProps(rowIdx, 4, { omitUnselectedAria: true })}>
-                        <Box
-                          sx={{
-                            position: "relative",
-                            display: "inline-flex",
-                            "&:hover .remove-img-btn": { opacity: 1 },
-                          }}
-                        >
-                          <Tooltip title={t("words.generateNewImage")}>
-                            <IconButton
-                              size="small"
-                              aria-label={t("words.generateNewImage")}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                openFieldModal(word.id, "image");
-                              }}
-                              sx={{ p: 0 }}
-                            >
-                              {!isMissingField(mergedWord, "image") ? (
-                                <Box
-                                  component="img"
-                                  src={getResolvedImage(word.id) || mergedWord.imageUrl}
-                                  alt={mergedWord.idiom}
-                                  sx={{
-                                    width: 64,
-                                    height: 64,
-                                    objectFit: "cover",
-                                    borderRadius: 1,
-                                  }}
-                                />
-                              ) : (
-                                <AddPhotoAlternateIcon fontSize="small" />
-                              )}
-                            </IconButton>
-                          </Tooltip>
-                          {!isMissingField(mergedWord, "image") && (
-                            <Tooltip title={t("words.removeImage")}>
-                              <IconButton
-                                className="remove-img-btn"
-                                size="small"
-                                onClick={(e) => { e.stopPropagation(); handleRemoveImage(word.id); }}
-                                sx={{
-                                  position: "absolute",
-                                  top: -6,
-                                  right: -6,
-                                  opacity: 0,
-                                  transition: "opacity 0.15s",
-                                  bgcolor: "background.paper",
-                                  border: "1px solid",
-                                  borderColor: "divider",
-                                  p: "2px",
-                                  "&:hover": { bgcolor: "error.main", color: "white", borderColor: "error.main" },
-                                }}
-                              >
-                                <CloseIcon sx={{ fontSize: 12 }} />
-                              </IconButton>
-                            </Tooltip>
-                          )}
-                        </Box>
-                      </TableCell>
+                      <ImageDropCell
+                        wordId={word.id}
+                        imageUrl={getResolvedImage(word.id) || mergedWord.imageUrl}
+                        alt={mergedWord.idiom}
+                        row={rowIdx}
+                        col={4}
+                      />
                     )}
                   </>
                   ) : isKanjiWord(mergedWord) ? (
@@ -2433,70 +2533,13 @@ export default function WordTable({
                       </>
                     )}
                     {showImageUrl && (
-                    <TableCell
-                      {...selectableCellProps(rowIdx, isJlptExampleHuriganaMode ? 5 : 8, {
-                        omitUnselectedAria: true,
-                      })}
-                    >
-                        <Box
-                          sx={{
-                            position: "relative",
-                            display: "inline-flex",
-                            "&:hover .remove-img-btn": { opacity: 1 },
-                          }}
-                        >
-                          <Tooltip title={t("words.generateNewImage")}>
-                            <IconButton
-                              size="small"
-                              aria-label={t("words.generateNewImage")}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                openFieldModal(word.id, "image");
-                              }}
-                              sx={{ p: 0 }}
-                            >
-                              {!isMissingField(mergedWord, "image") ? (
-                                <Box
-                                  component="img"
-                                  src={getResolvedImage(word.id) || mergedWord.imageUrl}
-                                  alt={mergedWord.word}
-                                  sx={{
-                                    width: 64,
-                                    height: 64,
-                                    objectFit: "cover",
-                                    borderRadius: 1,
-                                  }}
-                                />
-                              ) : (
-                                <AddPhotoAlternateIcon fontSize="small" />
-                              )}
-                            </IconButton>
-                          </Tooltip>
-                          {!isMissingField(mergedWord, "image") && (
-                            <Tooltip title={t("words.removeImage")}>
-                              <IconButton
-                                className="remove-img-btn"
-                                size="small"
-                                onClick={(e) => { e.stopPropagation(); handleRemoveImage(word.id); }}
-                                sx={{
-                                  position: "absolute",
-                                  top: -6,
-                                  right: -6,
-                                  opacity: 0,
-                                  transition: "opacity 0.15s",
-                                  bgcolor: "background.paper",
-                                  border: "1px solid",
-                                  borderColor: "divider",
-                                  p: "2px",
-                                  "&:hover": { bgcolor: "error.main", color: "white", borderColor: "error.main" },
-                                }}
-                              >
-                                <CloseIcon sx={{ fontSize: 12 }} />
-                              </IconButton>
-                            </Tooltip>
-                          )}
-                        </Box>
-                      </TableCell>
+                      <ImageDropCell
+                        wordId={word.id}
+                        imageUrl={getResolvedImage(word.id) || mergedWord.imageUrl}
+                        alt={mergedWord.word}
+                        row={rowIdx}
+                        col={isJlptExampleHuriganaMode ? 5 : 8}
+                      />
                     )}
                   </>
                   ) : isPrefixWord(mergedWord) ? (
@@ -2641,66 +2684,16 @@ export default function WordTable({
                       />
                     )}
                     {showImageUrl && (
-                      <TableCell {...selectableCellProps(rowIdx, 4, { omitUnselectedAria: true })}>
-                        <Box
-                          sx={{
-                            position: "relative",
-                            display: "inline-flex",
-                            "&:hover .remove-img-btn": { opacity: 1 },
-                          }}
-                        >
-                          <Tooltip title={t("words.generateNewImage")}>
-                            <IconButton
-                              size="small"
-                              aria-label={t("words.generateNewImage")}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                openFieldModal(word.id, "image");
-                              }}
-                              sx={{ p: 0 }}
-                            >
-                              {!isMissingField(mergedWord, "image") ? (
-                                <Box
-                                  component="img"
-                                  src={getResolvedImage(word.id) || (mergedWord as ExtremelyAdvancedWord).imageUrl}
-                                  alt={(mergedWord as ExtremelyAdvancedWord).word}
-                                  sx={{
-                                    width: 64,
-                                    height: 64,
-                                    objectFit: "cover",
-                                    borderRadius: 1,
-                                  }}
-                                />
-                              ) : (
-                                <AddPhotoAlternateIcon fontSize="small" />
-                              )}
-                            </IconButton>
-                          </Tooltip>
-                          {!isMissingField(mergedWord, "image") && (
-                            <Tooltip title={t("words.removeImage")}>
-                              <IconButton
-                                className="remove-img-btn"
-                                size="small"
-                                onClick={(e) => { e.stopPropagation(); handleRemoveImage(word.id); }}
-                                sx={{
-                                  position: "absolute",
-                                  top: -6,
-                                  right: -6,
-                                  opacity: 0,
-                                  transition: "opacity 0.15s",
-                                  bgcolor: "background.paper",
-                                  border: "1px solid",
-                                  borderColor: "divider",
-                                  p: "2px",
-                                  "&:hover": { bgcolor: "error.main", color: "white", borderColor: "error.main" },
-                                }}
-                              >
-                                <CloseIcon sx={{ fontSize: 12 }} />
-                              </IconButton>
-                            </Tooltip>
-                          )}
-                        </Box>
-                      </TableCell>
+                      <ImageDropCell
+                        wordId={word.id}
+                        imageUrl={
+                          getResolvedImage(word.id) ||
+                          (mergedWord as ExtremelyAdvancedWord).imageUrl
+                        }
+                        alt={(mergedWord as ExtremelyAdvancedWord).word}
+                        row={rowIdx}
+                        col={4}
+                      />
                     )}
                   </>
                   ) : (
@@ -2779,70 +2772,13 @@ export default function WordTable({
                       />
                     )}
                     {showImageUrl && (
-                      <TableCell
-                        {...selectableCellProps(rowIdx, hasSynonymColumn ? 6 : 5, {
-                          omitUnselectedAria: true,
-                        })}
-                      >
-                        <Box
-                          sx={{
-                            position: "relative",
-                            display: "inline-flex",
-                            "&:hover .remove-img-btn": { opacity: 1 },
-                          }}
-                        >
-                          <Tooltip title={t("words.generateNewImage")}>
-                            <IconButton
-                              size="small"
-                              aria-label={t("words.generateNewImage")}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                openFieldModal(word.id, "image");
-                              }}
-                              sx={{ p: 0 }}
-                            >
-                              {!isMissingField(mergedWord, "image") ? (
-                                <Box
-                                  component="img"
-                                  src={getResolvedImage(word.id) || mergedWord.imageUrl}
-                                  alt={mergedWord.word}
-                                  sx={{
-                                    width: 64,
-                                    height: 64,
-                                    objectFit: "cover",
-                                    borderRadius: 1,
-                                  }}
-                                />
-                              ) : (
-                                <AddPhotoAlternateIcon fontSize="small" />
-                              )}
-                            </IconButton>
-                          </Tooltip>
-                          {!isMissingField(mergedWord, "image") && (
-                            <Tooltip title={t("words.removeImage")}>
-                              <IconButton
-                                className="remove-img-btn"
-                                size="small"
-                                onClick={(e) => { e.stopPropagation(); handleRemoveImage(word.id); }}
-                                sx={{
-                                  position: "absolute",
-                                  top: -6,
-                                  right: -6,
-                                  opacity: 0,
-                                  transition: "opacity 0.15s",
-                                  bgcolor: "background.paper",
-                                  border: "1px solid",
-                                  borderColor: "divider",
-                                  p: "2px",
-                                  "&:hover": { bgcolor: "error.main", color: "white", borderColor: "error.main" },
-                                }}
-                              >
-                                <CloseIcon sx={{ fontSize: 12 }} />
-                              </IconButton>
-                            </Tooltip>
-                          )}
-                        </Box>
-                      </TableCell>
+                      <ImageDropCell
+                        wordId={word.id}
+                        imageUrl={getResolvedImage(word.id) || mergedWord.imageUrl}
+                        alt={mergedWord.word}
+                        row={rowIdx}
+                        col={hasSynonymColumn ? 6 : 5}
+                      />
                     )}
                     {(() => {
                       const derivatives = (mergedWord as StandardWord).derivative;
@@ -2981,6 +2917,27 @@ export default function WordTable({
           onClose={() => setCopySnackbar((prev) => ({ ...prev, open: false }))}
         >
           {copySnackbar.success ? t("common.copied") : t("common.copyFailed")}
+        </Alert>
+      </Snackbar>
+
+      <Snackbar
+        open={imageUploadSnackbar.open}
+        autoHideDuration={2200}
+        onClose={() =>
+          setImageUploadSnackbar((prev) => ({ ...prev, open: false }))
+        }
+        anchorOrigin={{ vertical: "top", horizontal: "center" }}
+      >
+        <Alert
+          severity={imageUploadSnackbar.success ? "success" : "error"}
+          onClose={() =>
+            setImageUploadSnackbar((prev) => ({ ...prev, open: false }))
+          }
+        >
+          {imageUploadSnackbar.success
+            ? t("words.imageUploadSuccess", "Image uploaded.")
+            : imageUploadSnackbar.message ??
+              t("words.uploadActionError", "Image upload failed.")}
         </Alert>
       </Snackbar>
 
