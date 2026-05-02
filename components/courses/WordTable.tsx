@@ -2288,7 +2288,7 @@ export default function WordTable({
                     {showImageUrl && (
                       <ImageDropCell
                         wordId={word.id}
-                        imageUrl={getResolvedImage(word.id) || mergedWord.imageUrl}
+                        imageUrl={getResolvedImage(word.id) || mergedWord.imageUrl || ""}
                         alt={mergedWord.collocation}
                         row={rowIdx}
                         col={5}
@@ -2352,7 +2352,7 @@ export default function WordTable({
                     {showImageUrl && (
                       <ImageDropCell
                         wordId={word.id}
-                        imageUrl={getResolvedImage(word.id) || mergedWord.imageUrl}
+                        imageUrl={getResolvedImage(word.id) || mergedWord.imageUrl || ""}
                         alt={mergedWord.idiom}
                         row={rowIdx}
                         col={4}
@@ -2535,7 +2535,7 @@ export default function WordTable({
                     {showImageUrl && (
                       <ImageDropCell
                         wordId={word.id}
-                        imageUrl={getResolvedImage(word.id) || mergedWord.imageUrl}
+                        imageUrl={getResolvedImage(word.id) || mergedWord.imageUrl || ""}
                         alt={mergedWord.word}
                         row={rowIdx}
                         col={isJlptExampleHuriganaMode ? 5 : 8}
@@ -2688,7 +2688,8 @@ export default function WordTable({
                         wordId={word.id}
                         imageUrl={
                           getResolvedImage(word.id) ||
-                          (mergedWord as ExtremelyAdvancedWord).imageUrl
+                          (mergedWord as ExtremelyAdvancedWord).imageUrl ||
+                          ""
                         }
                         alt={(mergedWord as ExtremelyAdvancedWord).word}
                         row={rowIdx}
@@ -2774,7 +2775,7 @@ export default function WordTable({
                     {showImageUrl && (
                       <ImageDropCell
                         wordId={word.id}
-                        imageUrl={getResolvedImage(word.id) || mergedWord.imageUrl}
+                        imageUrl={getResolvedImage(word.id) || mergedWord.imageUrl || ""}
                         alt={mergedWord.word}
                         row={rowIdx}
                         col={hasSynonymColumn ? 6 : 5}
