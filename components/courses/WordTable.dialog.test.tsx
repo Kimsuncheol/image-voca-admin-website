@@ -171,6 +171,12 @@ function getSelectableCell(text: string): HTMLTableCellElement | null {
   ) as HTMLTableCellElement | null;
 }
 
+function getImageCell(wordId: string): HTMLTableCellElement | null {
+  return document
+    .querySelector(`[data-testid="word-image-dropzone-${wordId}"]`)
+    ?.closest("td") as HTMLTableCellElement | null;
+}
+
 function dropFile(target: Element, file: File) {
   const event = new Event("drop", { bubbles: true });
   Object.defineProperty(event, "dataTransfer", {
@@ -383,23 +389,23 @@ describe("WordTable derivative dialog integration", () => {
     );
 
     const selectedCell = getSelectableCell("care");
-    let imageButton = document.querySelector('button[aria-label="Generate new image"]');
+    let imageCell = getImageCell("img-1");
     expect(selectedCell).not.toBeNull();
-    expect(imageButton).not.toBeNull();
+    expect(imageCell).not.toBeNull();
 
     act(() => {
       selectedCell?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
 
     expect(selectedCell?.getAttribute("aria-selected")).toBe("true");
-    imageButton = document.querySelector('button[aria-label="Generate new image"]');
+    imageCell = getImageCell("img-1");
 
     act(() => {
-      imageButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      imageCell?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
 
     expect(getSelectableCell("care")?.getAttribute("aria-selected")).toBe("false");
-    expect(imageButton?.closest("td")?.hasAttribute("aria-selected")).toBe(false);
+    expect(getImageCell("img-1")?.hasAttribute("aria-selected")).toBe(false);
     expect(document.body.textContent).toContain("missing:image");
   });
 
@@ -426,25 +432,66 @@ describe("WordTable derivative dialog integration", () => {
     );
 
     const selectedCell = getSelectableCell("use");
-    const image = document.querySelector('img[alt="use"]');
-    let imageButton = image?.closest("button");
+    let imageCell = getImageCell("img-2");
     expect(selectedCell).not.toBeNull();
-    expect(imageButton).not.toBeNull();
+    expect(imageCell).not.toBeNull();
 
     act(() => {
       selectedCell?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
 
     expect(selectedCell?.getAttribute("aria-selected")).toBe("true");
-    imageButton = document.querySelector('img[alt="use"]')?.closest("button");
+    imageCell = getImageCell("img-2");
 
     act(() => {
-      imageButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      imageCell?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
 
     expect(getSelectableCell("use")?.getAttribute("aria-selected")).toBe("false");
-    expect(imageButton?.closest("td")?.hasAttribute("aria-selected")).toBe(false);
+    expect(getImageCell("img-2")?.hasAttribute("aria-selected")).toBe(false);
     expect(document.body.textContent).toContain("missing:image");
+  });
+
+  it("removes an existing image without opening the image dialog", () => {
+    const onWordImageUpdated = vi.fn();
+
+    rendered = renderTable(
+      <WordTable
+        words={[
+          {
+            id: "img-remove-1",
+            word: "erase",
+            meaning: "remove",
+            pronunciation: "",
+            example: "",
+            translation: "",
+            imageUrl: "https://example.com/erase.png",
+          },
+        ]}
+        isCollocation={false}
+        showImageUrl
+        courseId="TOEIC"
+        coursePath="courses/TOEIC"
+        dayId="Day1"
+        onWordImageUpdated={onWordImageUpdated}
+      />,
+    );
+
+    const removeButton = document.querySelector(".remove-img-btn");
+    expect(removeButton).not.toBeNull();
+
+    act(() => {
+      removeButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    expect(updateWordImageUrl).toHaveBeenCalledWith(
+      "courses/TOEIC",
+      "Day1",
+      "img-remove-1",
+      "",
+    );
+    expect(onWordImageUpdated).toHaveBeenCalledWith("img-remove-1", "");
+    expect(document.body.textContent).not.toContain("missing:image");
   });
 
   it("uploads a dropped image for day-storage image cells", async () => {

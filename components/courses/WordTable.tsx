@@ -1324,8 +1324,16 @@ export default function WordTable({
       disabled: isUploading,
     });
 
+    const cellProps = selectableCellProps(row, col, { omitUnselectedAria: true });
+
     return (
-      <TableCell {...selectableCellProps(row, col, { omitUnselectedAria: true })}>
+      <TableCell
+        {...cellProps}
+        onClick={(event) => {
+          event.stopPropagation();
+          openFieldModal(wordId, "image");
+        }}
+      >
         <Box
           {...getRootProps()}
           data-testid={`word-image-dropzone-${wordId}`}
