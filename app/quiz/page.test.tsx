@@ -13,6 +13,7 @@ vi.mock("react-i18next", () => ({
         "quiz.generatorTab": "Generator",
         "quiz.reviewTab": "Review",
         "popQuiz.title": "Pop Quiz",
+        "wordsPlacement.title": "Words Placement",
       };
 
       return labels[key] ?? key;
@@ -71,12 +72,17 @@ vi.mock("./QuizReviewTab", () => ({
   ),
 }));
 
+vi.mock("./WordsPlacementGeneratorForm", () => ({
+  default: () => <div>Words Placement Generator Form</div>,
+}));
+
 describe("QuizPage", () => {
-  it("renders Quiz and Pop Quiz top tabs with generator/review chips", () => {
+  it("renders Quiz, Pop Quiz, and Words Placement top tabs with generator/review chips", () => {
     const markup = renderToStaticMarkup(<QuizPage />);
 
     expect(markup).toContain("Quiz");
     expect(markup).toContain("Pop Quiz");
+    expect(markup).toContain("Words Placement");
     expect(markup).toContain("Generator");
     expect(markup).toContain("Review");
     expect(markup).toContain('data-save-target="quiz"');

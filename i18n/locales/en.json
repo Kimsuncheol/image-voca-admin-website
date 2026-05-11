@@ -538,6 +538,16 @@
     "standbyDescription": "Select a language, course, and day, then generate a matching game.",
     "processingDescription": "Generating a matching-game pop quiz using the vocabulary database. Please wait."
   },
+  "wordsPlacement": {
+    "title": "Words Placement",
+    "description": "Generate sentence chunk placement games from vocabulary examples.",
+    "submitLabel": "Generate Words Placement",
+    "standbyTitle": "Ready to generate a words placement game?",
+    "standbyDescription": "Select an English course and day, then generate sentence chunks from example sentences.",
+    "processingDescription": "Generating sentence chunks using the vocabulary examples. Please wait.",
+    "saveSuccess": "Words placement game saved successfully.",
+    "saveError": "Failed to save words placement game. Please try again."
+  },
   "quizReview": {
     "loadButton": "Load",
     "loading": "Loading…",

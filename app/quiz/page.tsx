@@ -12,11 +12,12 @@ import PageLayout from "@/components/layout/PageLayout";
 import { useAdminGuard } from "@/hooks/useAdminGuard";
 import QuizGeneratorForm from "@/app/quiz-generator/QuizGeneratorForm";
 import QuizReviewTab from "./QuizReviewTab";
+import WordsPlacementGeneratorForm from "./WordsPlacementGeneratorForm";
 
 export default function QuizPage() {
   const { t } = useTranslation();
   const { user, authLoading } = useAdminGuard();
-  const [section, setSection] = useState<"quiz" | "pop_quiz">("quiz");
+  const [section, setSection] = useState<"quiz" | "pop_quiz" | "words_placement">("quiz");
   const [mode, setMode] = useState<"generator" | "review">("generator");
 
   if (authLoading) return null;
@@ -33,7 +34,7 @@ export default function QuizPage() {
 
       <Tabs
         value={section}
-        onChange={(_, value: "quiz" | "pop_quiz") => {
+        onChange={(_, value: "quiz" | "pop_quiz" | "words_placement") => {
           setSection(value);
           setMode("generator");
         }}
@@ -41,6 +42,7 @@ export default function QuizPage() {
       >
         <Tab value="quiz" label={t("quiz.title")} />
         <Tab value="pop_quiz" label={t("popQuiz.title")} />
+        <Tab value="words_placement" label={t("wordsPlacement.title")} />
       </Tabs>
 
       <Stack direction="row" spacing={1} sx={{ mb: 3 }}>
@@ -51,13 +53,15 @@ export default function QuizPage() {
           onClick={() => setMode("generator")}
           clickable
         />
-        <Chip
-          label={t("quiz.reviewTab")}
-          color={mode === "review" ? "primary" : "default"}
-          variant={mode === "review" ? "filled" : "outlined"}
-          onClick={() => setMode("review")}
-          clickable
-        />
+        {section !== "words_placement" && (
+          <Chip
+            label={t("quiz.reviewTab")}
+            color={mode === "review" ? "primary" : "default"}
+            variant={mode === "review" ? "filled" : "outlined"}
+            onClick={() => setMode("review")}
+            clickable
+          />
+        )}
       </Stack>
 
       {section === "quiz" && mode === "generator" && (
@@ -138,6 +142,24 @@ export default function QuizPage() {
           saveTarget="pop_quiz"
           fixedQuizType="matching"
           hideQuizTypeSelector
+        />
+      )}
+
+      {section === "words_placement" && mode === "generator" && (
+        <WordsPlacementGeneratorForm
+          submitLabel={t("wordsPlacement.submitLabel")}
+          loadingLabel={t("quizGenerator.loading")}
+          resetLabel={t("quizGenerator.reset")}
+          networkErrorMsg={t("quizGenerator.networkError")}
+          standbyTitle={t("wordsPlacement.standbyTitle")}
+          standbyDescription={t("wordsPlacement.standbyDescription")}
+          processingDescription={t("wordsPlacement.processingDescription")}
+          courseLabel={t("quizGenerator.courseLabel")}
+          dayLabel={t("quizGenerator.dayLabel")}
+          saveLabel={t("quizGenerator.add")}
+          savingLabel={t("quizGenerator.adding")}
+          saveSuccessMsg={t("wordsPlacement.saveSuccess")}
+          saveErrorMsg={t("wordsPlacement.saveError")}
         />
       )}
     </PageLayout>

@@ -1,0 +1,424 @@
+"use client";
+
+import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
+import Alert from "@mui/material/Alert";
+import Box from "@mui/material/Box";
+import Button from "@mui/material/Button";
+import Card from "@mui/material/Card";
+import CardContent from "@mui/material/CardContent";
+import Chip from "@mui/material/Chip";
+import FormControl from "@mui/material/FormControl";
+import Grid from "@mui/material/Grid";
+import InputLabel from "@mui/material/InputLabel";
+import MenuItem from "@mui/material/MenuItem";
+import Select from "@mui/material/Select";
+import Snackbar from "@mui/material/Snackbar";
+import Stack from "@mui/material/Stack";
+import TextField from "@mui/material/TextField";
+import Typography from "@mui/material/Typography";
+import ExtensionIcon from "@mui/icons-material/Extension";
+
+import type { WordPlacementChunk } from "@/lib/wordsPlacementChunkGenerator";
+
+type Course =
+  | "CSAT"
+  | "CSAT_IDIOMS"
+  | "TOEIC"
+  | "TOEFL_ITELS"
+  | "EXTREMELY_ADVANCED"
+  | "COLLOCATION";
+
+interface WordsPlacementItem {
+  wordId: string;
+  word: string;
+  example: string;
+  wordsToPlace: WordPlacementChunk[][];
+}
+
+interface WordsPlacementSkippedItem {
+  wordId: string;
+  word: string;
+  reason: string;
+}
+
+interface WordsPlacementResponse {
+  gameType: "words_placement";
+  courseId: string;
+  dayId: string;
+  version: 1;
+  items: WordsPlacementItem[];
+  skipped: WordsPlacementSkippedItem[];
+  saved?: boolean;
+  path?: string;
+  error?: string;
+}
+
+interface CountResponse {
+  max_days?: number;
+  max_count?: number;
+  error?: string;
+}
+
+const COURSES: Course[] = [
+  "CSAT",
+  "CSAT_IDIOMS",
+  "TOEIC",
+  "TOEFL_ITELS",
+  "EXTREMELY_ADVANCED",
+  "COLLOCATION",
+];
+
+export default function WordsPlacementGeneratorForm({
+  submitLabel,
+  loadingLabel,
+  resetLabel,
+  networkErrorMsg,
+  standbyTitle,
+  standbyDescription,
+  processingDescription,
+  courseLabel,
+  dayLabel,
+  saveLabel,
+  savingLabel,
+  saveSuccessMsg,
+  saveErrorMsg,
+}: {
+  submitLabel: string;
+  loadingLabel: string;
+  resetLabel: string;
+  networkErrorMsg: string;
+  standbyTitle: string;
+  standbyDescription: string;
+  processingDescription: string;
+  courseLabel: string;
+  dayLabel: string;
+  saveLabel: string;
+  savingLabel: string;
+  saveSuccessMsg: string;
+  saveErrorMsg: string;
+}) {
+  const [course, setCourse] = useState<Course>("CSAT");
+  const [day, setDay] = useState<number | string>(1);
+  const [result, setResult] = useState<WordsPlacementResponse | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const [saveError, setSaveError] = useState("");
+  const [saveSuccess, setSaveSuccess] = useState(false);
+  const [maxDays, setMaxDays] = useState<number | null>(null);
+  const [dayWordCount, setDayWordCount] = useState<number | null>(null);
+  const [dayAutoFilledMax, setDayAutoFilledMax] = useState(false);
+  const [countLoading, setCountLoading] = useState(false);
+  const [countError, setCountError] = useState("");
+  const dayMaxErrorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const flashDayMaxError = useCallback(() => {
+    setDayAutoFilledMax(true);
+    if (dayMaxErrorTimerRef.current) clearTimeout(dayMaxErrorTimerRef.current);
+    dayMaxErrorTimerRef.current = setTimeout(() => {
+      setDayAutoFilledMax(false);
+      dayMaxErrorTimerRef.current = null;
+    }, 1000);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (dayMaxErrorTimerRef.current) clearTimeout(dayMaxErrorTimerRef.current);
+    };
+  }, []);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    const params = new URLSearchParams({
+      course,
+      day: String(day),
+    });
+
+    setCountLoading(true);
+    setCountError("");
+    setMaxDays(null);
+    setDayWordCount(null);
+
+    fetch(`/api/text/quiz-generate/count?${params.toString()}`, {
+      signal: controller.signal,
+    })
+      .then(async (response) => {
+        const data = (await response.json()) as CountResponse;
+        if (typeof data.max_days === "number") {
+          setMaxDays(data.max_days);
+          const currentDay = typeof day === "string" ? parseInt(day, 10) : day;
+          if (
+            Number.isInteger(currentDay) &&
+            currentDay > data.max_days &&
+            data.max_days > 0
+          ) {
+            setDay(data.max_days);
+            flashDayMaxError();
+          }
+        }
+        if (!response.ok) throw new Error(data.error || networkErrorMsg);
+        setDayWordCount(typeof data.max_count === "number" ? data.max_count : null);
+      })
+      .catch((err: unknown) => {
+        if (err instanceof DOMException && err.name === "AbortError") return;
+        setDayWordCount(null);
+        setCountError(networkErrorMsg);
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setCountLoading(false);
+      });
+
+    return () => controller.abort();
+  }, [course, day, flashDayMaxError, networkErrorMsg]);
+
+  const dayNumber = typeof day === "string" ? parseInt(day, 10) : day;
+  const invalidDay = !Number.isInteger(dayNumber) || dayNumber < 1;
+  const dayExceedsMax = maxDays !== null && !invalidDay && dayNumber > maxDays;
+  const selectedDayHasNoWords = dayWordCount === 0;
+  const hasLimitError = invalidDay || dayExceedsMax || selectedDayHasNoWords;
+  const generateDisabled = loading || saving || countLoading || dayWordCount === null || hasLimitError;
+
+  async function requestGeneration(save: boolean) {
+    const response = await fetch("/api/admin/words-placement/generate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        course,
+        day: dayNumber,
+        ...(save ? { save: true } : {}),
+      }),
+    });
+    const data = (await response.json()) as WordsPlacementResponse;
+    if (!response.ok) throw new Error(data.error || networkErrorMsg);
+    return data;
+  }
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (hasLimitError || dayWordCount === null) {
+      setError(selectedDayHasNoWords ? "The selected day has no words." : networkErrorMsg);
+      return;
+    }
+
+    setLoading(true);
+    setError("");
+    setSaveError("");
+    setSaveSuccess(false);
+    setResult(null);
+
+    try {
+      setResult(await requestGeneration(false));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : networkErrorMsg);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleSave() {
+    if (hasLimitError || dayWordCount === null) return;
+
+    setSaving(true);
+    setSaveError("");
+    setSaveSuccess(false);
+
+    try {
+      const saved = await requestGeneration(true);
+      setResult(saved);
+      setSaveSuccess(true);
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : saveErrorMsg);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function handleReset() {
+    setResult(null);
+    setError("");
+    setSaveError("");
+    setSaveSuccess(false);
+  }
+
+  function renderChunkGroup(group: WordPlacementChunk[]) {
+    return (
+      <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
+        {group.map((chunk) => (
+          <Chip
+            key={chunk.id}
+            label={`${chunk.order}. ${chunk.text}`}
+            color={chunk.type === "answer" ? "primary" : "default"}
+            variant={chunk.type === "answer" ? "filled" : "outlined"}
+            size="small"
+          />
+        ))}
+      </Stack>
+    );
+  }
+
+  return (
+    <Box component="form" onSubmit={handleSubmit}>
+      <Stack spacing={3}>
+        <Grid container spacing={2}>
+          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+            <FormControl fullWidth>
+              <InputLabel id="words-placement-course-label">{courseLabel}</InputLabel>
+              <Select
+                labelId="words-placement-course-label"
+                value={course}
+                label={courseLabel}
+                onChange={(e) => setCourse(e.target.value as Course)}
+              >
+                {COURSES.map((courseOption) => (
+                  <MenuItem key={courseOption} value={courseOption}>
+                    {courseOption}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Grid>
+
+          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+            <TextField
+              label={dayLabel}
+              type="number"
+              value={day}
+              onChange={(e) => {
+                const rawValue = e.target.value;
+                const nextDay = parseInt(rawValue, 10);
+                if (
+                  maxDays !== null &&
+                  Number.isInteger(nextDay) &&
+                  nextDay > maxDays
+                ) {
+                  setDay(maxDays);
+                  flashDayMaxError();
+                  return;
+                }
+                setDayAutoFilledMax(false);
+                setDay(rawValue);
+              }}
+              onBlur={() => {
+                const value = parseInt(String(day), 10);
+                setDay(Number.isInteger(value) && value > 0 ? value : 1);
+              }}
+              onFocus={(e) => e.target.select()}
+              fullWidth
+              error={invalidDay || dayExceedsMax || dayAutoFilledMax}
+              helperText={
+                invalidDay
+                  ? "Enter a valid day."
+                  : maxDays !== null
+                    ? `Max: ${maxDays}`
+                    : undefined
+              }
+              slotProps={{
+                htmlInput: {
+                  min: 1,
+                  ...(maxDays !== null && maxDays > 0 ? { max: maxDays } : {}),
+                  inputMode: "numeric",
+                },
+              }}
+              sx={{
+                "& input::-webkit-outer-spin-button, & input::-webkit-inner-spin-button": {
+                  display: "none",
+                },
+                "& input[type=number]": {
+                  MozAppearance: "textfield",
+                },
+              }}
+            />
+          </Grid>
+        </Grid>
+
+        <Stack direction="row" spacing={2}>
+          <Button type="submit" variant="contained" disabled={generateDisabled}>
+            {loading ? loadingLabel : submitLabel}
+          </Button>
+          <Button type="button" variant="outlined" onClick={handleReset} disabled={loading || saving}>
+            {resetLabel}
+          </Button>
+          {result && (
+            <Button type="button" variant="contained" color="success" disabled={loading || saving} onClick={() => void handleSave()}>
+              {saving ? savingLabel : saveLabel}
+            </Button>
+          )}
+        </Stack>
+
+        {selectedDayHasNoWords ? <Alert severity="error">The selected day has no words.</Alert> : null}
+        {error ? <Alert severity="error">{error}</Alert> : null}
+        {countError ? <Alert severity="error">{countError}</Alert> : null}
+        {saveError ? <Alert severity="error">{saveError}</Alert> : null}
+
+        {!result && !error ? (
+          <Card
+            variant="outlined"
+            sx={{
+              minHeight: 200,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              bgcolor: "background.default",
+            }}
+          >
+            <CardContent>
+              <Stack spacing={1.5} alignItems="center" color="text.secondary">
+                <ExtensionIcon sx={{ fontSize: 48, opacity: loading ? 1 : 0.5 }} />
+                <Typography variant="subtitle1" fontWeight={600} align="center">
+                  {loading ? loadingLabel : standbyTitle}
+                </Typography>
+                <Typography variant="body2" align="center" sx={{ maxWidth: 360 }}>
+                  {loading ? processingDescription : standbyDescription}
+                </Typography>
+              </Stack>
+            </CardContent>
+          </Card>
+        ) : null}
+
+        {result ? (
+          <Stack spacing={2}>
+            <Alert severity={result.items.length > 0 ? "success" : "warning"}>
+              Generated {result.items.length} words placement items.
+              {result.skipped.length > 0 ? ` Skipped ${result.skipped.length}.` : ""}
+            </Alert>
+            {result.items.map((item, index) => (
+              <Card key={item.wordId} variant="outlined">
+                <CardContent>
+                  <Stack spacing={1.5}>
+                    <Box>
+                      <Typography variant="caption" color="text.secondary" fontWeight={600}>
+                        {index + 1}. {item.word}
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        {item.example}
+                      </Typography>
+                    </Box>
+                    {item.wordsToPlace.map((group, groupIndex) => (
+                      <Box key={`${item.wordId}-${groupIndex}`}>
+                        <Typography variant="caption" color="text.secondary" fontWeight={600}>
+                          Group {groupIndex + 1}
+                        </Typography>
+                        <Box sx={{ mt: 0.75 }}>{renderChunkGroup(group)}</Box>
+                      </Box>
+                    ))}
+                  </Stack>
+                </CardContent>
+              </Card>
+            ))}
+          </Stack>
+        ) : null}
+      </Stack>
+
+      <Snackbar
+        open={saveSuccess}
+        autoHideDuration={3000}
+        onClose={() => setSaveSuccess(false)}
+        anchorOrigin={{ vertical: "top", horizontal: "center" }}
+      >
+        <Alert severity="success" onClose={() => setSaveSuccess(false)}>
+          {saveSuccessMsg}
+        </Alert>
+      </Snackbar>
+    </Box>
+  );
+}
