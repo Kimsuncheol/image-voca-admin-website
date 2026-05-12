@@ -13,6 +13,7 @@ import { useAdminGuard } from "@/hooks/useAdminGuard";
 import QuizGeneratorForm from "@/app/quiz-generator/QuizGeneratorForm";
 import QuizReviewTab from "./QuizReviewTab";
 import WordsPlacementGeneratorForm from "./WordsPlacementGeneratorForm";
+import WordsPlacementReviewTab from "./WordsPlacementReviewTab";
 
 export default function QuizPage() {
   const { t } = useTranslation();
@@ -53,15 +54,13 @@ export default function QuizPage() {
           onClick={() => setMode("generator")}
           clickable
         />
-        {section !== "words_placement" && (
-          <Chip
-            label={t("quiz.reviewTab")}
-            color={mode === "review" ? "primary" : "default"}
-            variant={mode === "review" ? "filled" : "outlined"}
-            onClick={() => setMode("review")}
-            clickable
-          />
-        )}
+        <Chip
+          label={t("quiz.reviewTab")}
+          color={mode === "review" ? "primary" : "default"}
+          variant={mode === "review" ? "filled" : "outlined"}
+          onClick={() => setMode("review")}
+          clickable
+        />
       </Stack>
 
       {section === "quiz" && mode === "generator" && (
@@ -165,6 +164,10 @@ export default function QuizPage() {
           saveSuccessMsg={t("wordsPlacement.saveSuccess")}
           saveErrorMsg={t("wordsPlacement.saveError")}
         />
+      )}
+
+      {section === "words_placement" && mode === "review" && (
+        <WordsPlacementReviewTab />
       )}
     </PageLayout>
   );

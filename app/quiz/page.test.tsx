@@ -1,5 +1,9 @@
+// @vitest-environment jsdom
+
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
+import { act } from "react";
+import { createRoot } from "react-dom/client";
 import { describe, expect, it, vi } from "vitest";
 
 import QuizPage from "./page";
@@ -76,6 +80,10 @@ vi.mock("./WordsPlacementGeneratorForm", () => ({
   default: () => <div>Words Placement Generator Form</div>,
 }));
 
+vi.mock("./WordsPlacementReviewTab", () => ({
+  default: () => <div>Words Placement Review Tab</div>,
+}));
+
 describe("QuizPage", () => {
   it("renders Quiz, Pop Quiz, and Words Placement top tabs with generator/review chips", () => {
     const markup = renderToStaticMarkup(<QuizPage />);
@@ -86,5 +94,38 @@ describe("QuizPage", () => {
     expect(markup).toContain("Generator");
     expect(markup).toContain("Review");
     expect(markup).toContain('data-save-target="quiz"');
+  });
+
+  it("renders Words Placement review mode", () => {
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    const root = createRoot(container);
+
+    act(() => {
+      root.render(<QuizPage />);
+    });
+
+    const wordsPlacementTab = Array.from(document.querySelectorAll('[role="tab"]')).find(
+      (tab) => tab.textContent === "Words Placement",
+    );
+    expect(wordsPlacementTab).toBeTruthy();
+
+    act(() => {
+      wordsPlacementTab?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    const reviewChip = Array.from(document.querySelectorAll('[role="button"]')).find(
+      (button) => button.textContent === "Review",
+    );
+    expect(reviewChip).toBeTruthy();
+
+    act(() => {
+      reviewChip?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    expect(document.body.textContent).toContain("Words Placement Review Tab");
+
+    act(() => root.unmount());
+    container.remove();
   });
 });
