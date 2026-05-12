@@ -16,6 +16,7 @@ import Menu from "@mui/material/Menu";
 import MenuItem from "@mui/material/MenuItem";
 import Select from "@mui/material/Select";
 import Snackbar from "@mui/material/Snackbar";
+import Stack from "@mui/material/Stack";
 import Table from "@mui/material/Table";
 import TableBody from "@mui/material/TableBody";
 import TableCell from "@mui/material/TableCell";
@@ -26,8 +27,12 @@ import Typography from "@mui/material/Typography";
 import { useTranslation } from "react-i18next";
 
 import { dayGridTemplateColumns } from "@/components/courses/dayGridConfig";
+import type {
+  WordPlacementChunk,
+  WordsPlacementGroup,
+} from "@/lib/wordsPlacementChunkGenerator";
 
-type QuizType = "matching" | "fill_blank";
+type QuizType = "matching" | "fill_blank" | "words_placement";
 type Language = "english" | "japanese";
 type MeaningLanguage = "korean" | "english";
 type JlptLevel = "N1" | "N2" | "N3" | "N4" | "N5";
@@ -38,7 +43,17 @@ type Course =
   | "TOEFL_ITELS"
   | "EXTREMELY_ADVANCED"
   | "COLLOCATION"
-  | "JLPT";
+  | "JLPT"
+  | "KANJI";
+
+export type QuizGeneratorDraft = {
+  id: number;
+  quizType: QuizType;
+  language: Language;
+  course: Course;
+  level: JlptLevel | null;
+  day: number;
+};
 
 interface MatchingItem {
   id: string;
@@ -79,7 +94,22 @@ interface FillBlankQuizData {
   questions: FillBlankQuestion[];
 }
 
-type QuizData = MatchingQuizData | FillBlankQuizData;
+interface WordsPlacementItem {
+  wordId: string;
+  word: string;
+  example: string;
+  wordsToPlace: WordsPlacementGroup[];
+}
+
+interface WordsPlacementGameData {
+  gameType: "words_placement";
+  courseId: string;
+  dayId: string;
+  version: 1;
+  items: WordsPlacementItem[];
+}
+
+type QuizData = MatchingQuizData | FillBlankQuizData | WordsPlacementGameData;
 
 const ENGLISH_COURSES: Course[] = [
   "CSAT",
@@ -89,6 +119,7 @@ const ENGLISH_COURSES: Course[] = [
   "EXTREMELY_ADVANCED",
   "COLLOCATION",
 ];
+const JAPANESE_WORDS_PLACEMENT_COURSES: Course[] = ["JLPT", "KANJI"];
 const JLPT_LEVELS: JlptLevel[] = ["N1", "N2", "N3", "N4", "N5"];
 
 interface StatusResult {
@@ -114,6 +145,26 @@ function resolveChoice(choice: MatchingChoice, lang: MeaningLanguage): string {
 
 function resolveItem(item: MatchingItem): string {
   return item.word ?? item.text ?? item.id;
+}
+
+function getCourseOptions(language: Language, quizType: QuizType): Course[] {
+  if (language === "english") return ENGLISH_COURSES;
+  if (quizType === "words_placement") return JAPANESE_WORDS_PLACEMENT_COURSES;
+  return ["JLPT"];
+}
+
+function isWordsPlacementData(data: QuizData): data is WordsPlacementGameData {
+  return "gameType" in data && data.gameType === "words_placement";
+}
+
+function getWordsPlacementTranslations(group: WordsPlacementGroup) {
+  return [
+    group.translation,
+    group.translationEnglish,
+    group.translationKorean,
+    group.exampleEnglishTranslation,
+    group.exampleKoreanTranslation,
+  ].filter((value): value is string => Boolean(value));
 }
 
 function MatchingTable({ data }: { data: MatchingQuizData }) {
@@ -195,14 +246,93 @@ function FillBlankTable({ data }: { data: FillBlankQuizData }) {
   );
 }
 
+function WordsPlacementChunks({ chunks }: { chunks: WordPlacementChunk[] }) {
+  return (
+    <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap", mt: 1 }}>
+      {chunks.map((chunk) => (
+        <Box
+          key={chunk.id}
+          component="span"
+          sx={{
+            border: "1px solid",
+            borderColor: chunk.type === "answer" ? "primary.main" : "divider",
+            bgcolor: chunk.type === "answer" ? "primary.light" : "transparent",
+            color: chunk.type === "answer" ? "primary.dark" : "text.primary",
+            borderRadius: 999,
+            px: 1.25,
+            py: 0.4,
+            fontSize: 13,
+            fontWeight: chunk.type === "answer" ? 700 : 500,
+          }}
+        >
+          {chunk.order + 1}. {chunk.text}
+        </Box>
+      ))}
+    </Box>
+  );
+}
+
+function WordsPlacementPreview({ data }: { data: WordsPlacementGameData }) {
+  return (
+    <Stack spacing={2}>
+      <Alert severity="info">
+        {data.items.length} items /{" "}
+        {data.items.reduce((sum, item) => sum + item.wordsToPlace.length, 0)} groups
+      </Alert>
+      {data.items.map((item, itemIndex) => (
+        <Card key={item.wordId} variant="outlined">
+          <CardContent>
+            <Stack spacing={2}>
+              <Box>
+                <Typography variant="subtitle2" fontWeight={700}>
+                  {itemIndex + 1}. {item.word}
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  {item.wordId}
+                </Typography>
+              </Box>
+              {item.wordsToPlace.map((group, groupIndex) => {
+                const translations = getWordsPlacementTranslations(group);
+                return (
+                  <Box key={`${item.wordId}-${groupIndex}`}>
+                    <Typography variant="caption" color="text.secondary" fontWeight={700}>
+                      Group {groupIndex + 1}
+                    </Typography>
+                    <Typography variant="body2" sx={{ mt: 0.5 }}>
+                      {group.targetExample}
+                    </Typography>
+                    {translations.map((translation, translationIndex) => (
+                      <Typography
+                        key={`${item.wordId}-${groupIndex}-${translationIndex}`}
+                        variant="body2"
+                        color="text.secondary"
+                        sx={{ mt: 0.25, fontStyle: "italic" }}
+                      >
+                        {translation}
+                      </Typography>
+                    ))}
+                    <WordsPlacementChunks chunks={group.chunks} />
+                  </Box>
+                );
+              })}
+            </Stack>
+          </CardContent>
+        </Card>
+      ))}
+    </Stack>
+  );
+}
+
 export default function QuizReviewTab({
   saveTarget = "quiz",
   fixedQuizType,
   hideQuizTypeSelector = false,
+  onEmptyDayClick,
 }: {
   saveTarget?: "quiz" | "pop_quiz";
   fixedQuizType?: QuizType;
   hideQuizTypeSelector?: boolean;
+  onEmptyDayClick?: (draft: Omit<QuizGeneratorDraft, "id">) => void;
 }) {
   const { t } = useTranslation();
 
@@ -225,22 +355,37 @@ export default function QuizReviewTab({
   const [deleteSuccess, setDeleteSuccess] = useState(false);
   const [deleteError, setDeleteError] = useState("");
 
-  const effectiveCourse = language === "japanese" ? "JLPT" : course;
+  const effectiveCourse =
+    language === "japanese" && quizType !== "words_placement" ? "JLPT" : course;
+  const courseOptions = getCourseOptions(language, quizType);
+  const usesWordsPlacementApi = quizType === "words_placement";
 
   const buildParams = useCallback(
     (day?: number) => {
       const params = new URLSearchParams({
-        quiz_type: quizType,
-        language,
         course: effectiveCourse,
       });
-      if (saveTarget !== "quiz") params.set("save_target", saveTarget);
+      if (!usesWordsPlacementApi) {
+        params.set("quiz_type", quizType);
+        params.set("language", language);
+        if (saveTarget !== "quiz") params.set("save_target", saveTarget);
+      }
       if (effectiveCourse === "JLPT") params.set("level", level);
       if (day !== undefined) params.set("day", String(day));
       return params;
     },
-    [quizType, language, effectiveCourse, level, saveTarget],
+    [effectiveCourse, language, level, quizType, saveTarget, usesWordsPlacementApi],
   );
+
+  function resetReviewState() {
+    setStatus(null);
+    setLoadError("");
+    setSelectedDay(null);
+    setQuizData(null);
+    setQuizError("");
+    setContextMenu(null);
+    setDeleteError("");
+  }
 
   async function handleLoad() {
     setLoading(true);
@@ -249,7 +394,13 @@ export default function QuizReviewTab({
     setSelectedDay(null);
     setQuizData(null);
     try {
-      const res = await fetch(`/api/admin/quiz/status?${buildParams().toString()}`);
+      const res = await fetch(
+        `${
+          usesWordsPlacementApi
+            ? "/api/admin/words-placement/status"
+            : "/api/admin/quiz/status"
+        }?${buildParams().toString()}`,
+      );
       if (!res.ok) throw new Error();
       const data = (await res.json()) as StatusResult;
       setStatus(data);
@@ -271,7 +422,11 @@ export default function QuizReviewTab({
     setQuizError("");
     setQuizLoading(true);
     try {
-      const res = await fetch(`/api/admin/quiz?${buildParams(day).toString()}`);
+      const res = await fetch(
+        `${
+          usesWordsPlacementApi ? "/api/admin/words-placement" : "/api/admin/quiz"
+        }?${buildParams(day).toString()}`,
+      );
       if (!res.ok) throw new Error();
       const data = (await res.json()) as QuizData;
       setQuizData(data);
@@ -280,6 +435,16 @@ export default function QuizReviewTab({
     } finally {
       setQuizLoading(false);
     }
+  }
+
+  function handleEmptyDayClick(day: number) {
+    onEmptyDayClick?.({
+      quizType,
+      language,
+      course: effectiveCourse,
+      level: effectiveCourse === "JLPT" ? level : null,
+      day,
+    });
   }
 
   function handleContextMenu(e: React.MouseEvent, day: number) {
@@ -298,9 +463,12 @@ export default function QuizReviewTab({
     setDeleting(true);
     setDeleteError("");
     try {
-      const res = await fetch(`/api/admin/quiz?${buildParams(day).toString()}`, {
-        method: "DELETE",
-      });
+      const res = await fetch(
+        `${
+          usesWordsPlacementApi ? "/api/admin/words-placement" : "/api/admin/quiz"
+        }?${buildParams(day).toString()}`,
+        { method: "DELETE" },
+      );
       if (!res.ok && res.status !== 204) throw new Error();
       setStatus((prev) =>
         prev ? { ...prev, days: prev.days.filter((d) => d !== day) } : prev,
@@ -332,14 +500,18 @@ export default function QuizReviewTab({
                 label={t("quizGenerator.quizTypeLabel")}
                 onChange={(e) => {
                   if (fixedQuizType) return;
-                  setQuizType(e.target.value as QuizType);
-                  setStatus(null);
-                  setSelectedDay(null);
-                  setQuizData(null);
+                  const nextQuizType = e.target.value as QuizType;
+                  setQuizType(nextQuizType);
+                  const nextCourseOptions = getCourseOptions(language, nextQuizType);
+                  if (!nextCourseOptions.includes(course)) {
+                    setCourse(nextCourseOptions[0]);
+                  }
+                  resetReviewState();
                 }}
               >
                 <MenuItem value="matching">{t("quizGenerator.matching")}</MenuItem>
                 <MenuItem value="fill_blank">{t("quizGenerator.fillBlank")}</MenuItem>
+                <MenuItem value="words_placement">{t("quizGenerator.wordsPlacement")}</MenuItem>
               </Select>
             </FormControl>
           </Grid>
@@ -353,10 +525,13 @@ export default function QuizReviewTab({
               value={language}
               label={t("quizGenerator.languageLabel")}
               onChange={(e) => {
-                setLanguage(e.target.value as Language);
-                setStatus(null);
-                setSelectedDay(null);
-                setQuizData(null);
+                const nextLanguage = e.target.value as Language;
+                setLanguage(nextLanguage);
+                const nextCourseOptions = getCourseOptions(nextLanguage, quizType);
+                if (!nextCourseOptions.includes(course)) {
+                  setCourse(nextCourseOptions[0]);
+                }
+                resetReviewState();
               }}
             >
               <MenuItem value="english">{t("quizGenerator.english")}</MenuItem>
@@ -365,7 +540,7 @@ export default function QuizReviewTab({
           </FormControl>
         </Grid>
 
-        {language === "english" && (
+        {(language === "english" || quizType === "words_placement") && (
           <Grid size={{ xs: 12, sm: 6, md: 3 }}>
             <FormControl fullWidth>
               <InputLabel id="review-course-label">{t("quizGenerator.courseLabel")}</InputLabel>
@@ -373,9 +548,12 @@ export default function QuizReviewTab({
                 labelId="review-course-label"
                 value={course}
                 label={t("quizGenerator.courseLabel")}
-                onChange={(e) => { setCourse(e.target.value as Course); setStatus(null); setSelectedDay(null); setQuizData(null); }}
+                onChange={(e) => {
+                  setCourse(e.target.value as Course);
+                  resetReviewState();
+                }}
               >
-                {ENGLISH_COURSES.map((c) => (
+                {courseOptions.map((c) => (
                   <MenuItem key={c} value={c}>{c}</MenuItem>
                 ))}
               </Select>
@@ -383,7 +561,7 @@ export default function QuizReviewTab({
           </Grid>
         )}
 
-        {language === "japanese" && (
+        {effectiveCourse === "JLPT" && (
           <Grid size={{ xs: 12, sm: 6, md: 3 }}>
             <FormControl fullWidth>
               <InputLabel id="review-level-label">{t("quizGenerator.levelLabel")}</InputLabel>
@@ -391,7 +569,10 @@ export default function QuizReviewTab({
                 labelId="review-level-label"
                 value={level}
                 label={t("quizGenerator.levelLabel")}
-                onChange={(e) => { setLevel(e.target.value as JlptLevel); setStatus(null); setSelectedDay(null); setQuizData(null); }}
+                onChange={(e) => {
+                  setLevel(e.target.value as JlptLevel);
+                  resetReviewState();
+                }}
               >
                 {JLPT_LEVELS.map((l) => (
                   <MenuItem key={l} value={l}>{l}</MenuItem>
@@ -460,9 +641,14 @@ export default function QuizReviewTab({
                     onContextMenu={hasQuiz ? (e) => handleContextMenu(e, day) : undefined}
                   >
                     <CardActionArea
-                      disabled={!hasQuiz}
                       sx={{ height: "100%" }}
-                      onClick={() => void handleDayClick(day)}
+                      onClick={() => {
+                        if (hasQuiz) {
+                          void handleDayClick(day);
+                        } else {
+                          handleEmptyDayClick(day);
+                        }
+                      }}
                       onContextMenu={hasQuiz ? (e) => handleContextMenu(e, day) : undefined}
                     >
                       <CardContent
@@ -507,9 +693,11 @@ export default function QuizReviewTab({
               )}
               {quizError && <Alert severity="error">{quizError}</Alert>}
               {!quizLoading && quizData && (
-                quizData.quiz_type === "matching"
-                  ? <MatchingTable data={quizData} />
-                  : <FillBlankTable data={quizData} />
+                isWordsPlacementData(quizData)
+                  ? <WordsPlacementPreview data={quizData} />
+                  : quizData.quiz_type === "matching"
+                    ? <MatchingTable data={quizData} />
+                    : <FillBlankTable data={quizData} />
               )}
             </Box>
           )}

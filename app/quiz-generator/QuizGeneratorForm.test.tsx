@@ -22,6 +22,7 @@ const defaultProps = {
   countLabel: "Number of Questions",
   matchingLabel: "Matching",
   fillBlankLabel: "Fill in the Blank",
+  wordsPlacementLabel: "Words Placement",
   englishLabel: "English",
   japaneseLabel: "Japanese",
   itemsLabel: "Items",
@@ -103,6 +104,26 @@ async function setInputValue(input: HTMLInputElement, value: string) {
     valueSetter?.call(input, value);
     input.dispatchEvent(new Event("input", { bubbles: true }));
     input.dispatchEvent(new Event("change", { bubbles: true }));
+  });
+}
+
+async function selectMuiOption(currentText: string, optionText: string) {
+  const select = Array.from(document.querySelectorAll('[role="combobox"]')).find(
+    (node) => node.textContent?.includes(currentText),
+  );
+  expect(select).toBeTruthy();
+
+  await act(async () => {
+    select?.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+  });
+
+  const option = Array.from(document.querySelectorAll('[role="option"]')).find(
+    (node) => node.textContent === optionText,
+  );
+  expect(option).toBeTruthy();
+
+  await act(async () => {
+    option?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
   });
 }
 
@@ -226,6 +247,386 @@ describe("QuizGeneratorForm", () => {
     };
     expect(body.count).toBe(14);
     expect("meaning_language" in body).toBe(false);
+  });
+
+  it("shows Words Placement as a quiz type option", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      Response.json({ max_days: 20, max_count: 6 }),
+    );
+
+    rendered = renderForm(<QuizGeneratorForm {...defaultProps} />);
+
+    const quizTypeSelect = Array.from(document.querySelectorAll('[role="combobox"]')).find(
+      (node) => node.textContent?.includes("Matching"),
+    );
+    expect(quizTypeSelect).toBeTruthy();
+
+    await act(async () => {
+      quizTypeSelect?.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+    });
+
+    await waitFor(() => {
+      expect(document.body.textContent).toContain("Words Placement");
+    });
+  });
+
+  it("applies a matching generator draft without immediately generating", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      Response.json({ max_days: 20, max_count: 6 }),
+    );
+
+    rendered = renderForm(
+      <QuizGeneratorForm
+        {...defaultProps}
+        generatorDraft={{
+          id: 1,
+          quizType: "matching",
+          language: "english",
+          course: "CSAT",
+          level: null,
+          day: 3,
+        }}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(getDayInput().value).toBe("3");
+      expect(document.body.textContent).toContain("Matching");
+      expect(document.body.textContent).toContain("English");
+      expect(document.body.textContent).toContain("CSAT");
+    });
+
+    expect(
+      fetchMock.mock.calls.some(([url]) =>
+        String(url).includes("/api/text/quiz-generate") &&
+        !String(url).includes("/count"),
+      ),
+    ).toBe(false);
+    expect(
+      fetchMock.mock.calls.some(
+        ([url]) => String(url) === "/api/admin/words-placement/generate",
+      ),
+    ).toBe(false);
+  });
+
+  it("resets Day to 1 when quiz type changes", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      Response.json({ max_days: 20, max_count: 6 }),
+    );
+
+    rendered = renderForm(<QuizGeneratorForm {...defaultProps} />);
+
+    await waitFor(() => {
+      expect(getDayInput().value).toBe("1");
+    });
+    await setInputValue(getDayInput(), "5");
+    await selectMuiOption("Matching", "Words Placement");
+
+    await waitFor(() => {
+      expect(getDayInput().value).toBe("1");
+      expect(document.body.textContent).toContain("Words Placement");
+    });
+  });
+
+  it("resets Day to 1 when language changes", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      Response.json({ max_days: 20, max_count: 6 }),
+    );
+
+    rendered = renderForm(<QuizGeneratorForm {...defaultProps} />);
+
+    await waitFor(() => {
+      expect(getDayInput().value).toBe("1");
+    });
+    await setInputValue(getDayInput(), "5");
+    await selectMuiOption("English", "Japanese");
+
+    await waitFor(() => {
+      expect(getDayInput().value).toBe("1");
+      expect(document.body.textContent).toContain("Japanese");
+      expect(document.body.textContent).toContain("JLPT");
+    });
+  });
+
+  it("resets Day to 1 when course changes", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      Response.json({ max_days: 20, max_count: 6 }),
+    );
+
+    rendered = renderForm(<QuizGeneratorForm {...defaultProps} />);
+
+    await waitFor(() => {
+      expect(getDayInput().value).toBe("1");
+    });
+    await setInputValue(getDayInput(), "5");
+    await selectMuiOption("TOEIC", "CSAT");
+
+    await waitFor(() => {
+      expect(getDayInput().value).toBe("1");
+      expect(document.body.textContent).toContain("CSAT");
+    });
+  });
+
+  it("resets Day to 1 when JLPT level changes", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      Response.json({ max_days: 20, max_count: 6 }),
+    );
+
+    rendered = renderForm(<QuizGeneratorForm {...defaultProps} />);
+
+    await waitFor(() => {
+      expect(getDayInput().value).toBe("1");
+    });
+    await selectMuiOption("English", "Japanese");
+    await waitFor(() => {
+      expect(document.body.textContent).toContain("N3");
+    });
+    await setInputValue(getDayInput(), "5");
+    await selectMuiOption("N3", "N5");
+
+    await waitFor(() => {
+      expect(getDayInput().value).toBe("1");
+      expect(document.body.textContent).toContain("N5");
+    });
+  });
+
+  it("applies a Japanese Words Placement generator draft", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      Response.json({ max_days: 20, max_count: 6 }),
+    );
+
+    rendered = renderForm(
+      <QuizGeneratorForm
+        {...defaultProps}
+        generatorDraft={{
+          id: 1,
+          quizType: "words_placement",
+          language: "japanese",
+          course: "JLPT",
+          level: "N5",
+          day: 6,
+        }}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(getDayInput().value).toBe("6");
+      expect(document.body.textContent).toContain("Words Placement");
+      expect(document.body.textContent).toContain("Japanese");
+      expect(document.body.textContent).toContain("JLPT");
+      expect(document.body.textContent).toContain("N5");
+    });
+  });
+
+  it("keeps a Pop Quiz draft fixed to matching", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(
+      async (input, init) => {
+        if (String(input) === "/api/text/quiz-generate" && init?.method === "POST") {
+          return Response.json({
+          quiz_type: "matching",
+          language: "japanese",
+          course: "JLPT",
+          level: "N5",
+          day: 2,
+          items: [],
+          choices: [],
+          answer_key: [],
+          });
+        }
+        return Response.json({ max_days: 20, max_count: 6 });
+      },
+    );
+
+    rendered = renderForm(
+      <QuizGeneratorForm
+        {...defaultProps}
+        fixedQuizType="matching"
+        hideQuizTypeSelector
+        saveTarget="pop_quiz"
+        generatorDraft={{
+          id: 1,
+          quizType: "words_placement",
+          language: "japanese",
+          course: "JLPT",
+          level: "N5",
+          day: 2,
+        }}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(getDayInput().value).toBe("2");
+      expect(document.body.textContent).not.toContain("Quiz Type");
+      expect(document.body.textContent).toContain("Japanese");
+      expect(document.body.textContent).toContain("N5");
+    });
+
+    const generateButton = Array.from(document.querySelectorAll("button")).find(
+      (node) => node.textContent === "Generate Quiz",
+    );
+    expect(generateButton).toBeTruthy();
+
+    await waitFor(() => {
+      expect(generateButton).toHaveProperty("disabled", false);
+    });
+
+    await act(async () => {
+      generateButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    await waitFor(() => {
+      expect(
+        fetchMock.mock.calls.some(([url, init]) => {
+          if (String(url) !== "/api/text/quiz-generate") return false;
+          const body = JSON.parse(String(init?.body)) as { quiz_type?: string };
+          return body.quiz_type === "matching";
+        }),
+      ).toBe(true);
+    });
+  });
+
+  it("generates and saves Words Placement through the words-placement endpoint", async () => {
+    const wordsPlacementResponse = {
+      gameType: "words_placement",
+      courseId: "TOEIC",
+      dayId: "Day1",
+      version: 1,
+      items: [
+        {
+          wordId: "word-1",
+          word: "measure",
+          example: "A number of measures were taken to solve the problem.",
+          wordsToPlace: [
+            {
+              targetExample: "A number of measures were taken to solve the problem.",
+              translation: "문제를 해결하기 위해 여러 조치가 취해졌다.",
+              chunks: [
+                { id: "chunk-1", text: "A number of", type: "sentence_chunk", order: 0 },
+                { id: "chunk-2", text: "measures", type: "answer", order: 1 },
+              ],
+            },
+          ],
+        },
+      ],
+      skipped: [],
+    };
+    const fetchMock = vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(Response.json({ max_days: 20, max_count: 6 }))
+      .mockResolvedValueOnce(Response.json(wordsPlacementResponse))
+      .mockResolvedValueOnce(Response.json({ ...wordsPlacementResponse, saved: true }));
+
+    rendered = renderForm(
+      <QuizGeneratorForm
+        {...defaultProps}
+        fixedQuizType="words_placement"
+        hideQuizTypeSelector
+      />,
+    );
+
+    await waitFor(() => {
+      expect(getCountInput().value).toBe("6");
+    });
+
+    const generateButton = Array.from(document.querySelectorAll("button")).find(
+      (node) => node.textContent === "Generate Quiz",
+    );
+    expect(generateButton).toBeTruthy();
+
+    await act(async () => {
+      generateButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    await waitFor(() => {
+      expect(document.body.textContent).toContain("A number of measures were taken");
+      expect(document.body.textContent).toContain("문제를 해결하기 위해 여러 조치가 취해졌다.");
+    });
+
+    expect(String(fetchMock.mock.calls[1]?.[0])).toBe(
+      "/api/admin/words-placement/generate",
+    );
+    expect(JSON.parse(String(fetchMock.mock.calls[1]?.[1]?.body))).toEqual({
+      course: "TOEIC",
+      level: null,
+      day: 1,
+    });
+
+    const addButton = Array.from(document.querySelectorAll("button")).find(
+      (node) => node.textContent === "Add",
+    );
+    expect(addButton).toBeTruthy();
+
+    await act(async () => {
+      addButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledTimes(3);
+    });
+    expect(String(fetchMock.mock.calls[2]?.[0])).toBe(
+      "/api/admin/words-placement/generate",
+    );
+    expect(JSON.parse(String(fetchMock.mock.calls[2]?.[1]?.body))).toMatchObject({
+      course: "TOEIC",
+      level: null,
+      day: 1,
+      save: true,
+    });
+  });
+
+  it("supports KANJI for Japanese Words Placement generation", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      Response.json({ max_days: 2, max_count: 2 }),
+    );
+    fetchMock.mockResolvedValueOnce(Response.json({ max_days: 2, max_count: 2 }));
+    fetchMock.mockResolvedValueOnce(Response.json({ max_days: 2, max_count: 2 }));
+    fetchMock.mockResolvedValueOnce(Response.json({ max_days: 2, max_count: 2 }));
+    fetchMock.mockResolvedValueOnce(
+      Response.json({
+        gameType: "words_placement",
+        courseId: "KANJI",
+        dayId: "Day1",
+        version: 1,
+        items: [],
+        skipped: [],
+      }),
+    );
+
+    rendered = renderForm(
+      <QuizGeneratorForm
+        {...defaultProps}
+        fixedQuizType="words_placement"
+        hideQuizTypeSelector
+      />,
+    );
+
+    await waitFor(() => {
+      expect(getCountInput().value).toBe("2");
+    });
+
+    await selectMuiOption("English", "Japanese");
+    await waitFor(() => {
+      expect(document.body.textContent).toContain("JLPT");
+    });
+    await selectMuiOption("JLPT", "KANJI");
+
+    const generateButton = Array.from(document.querySelectorAll("button")).find(
+      (node) => node.textContent === "Generate Quiz",
+    );
+    expect(generateButton).toBeTruthy();
+
+    await act(async () => {
+      generateButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    await waitFor(() => {
+      expect(
+        fetchMock.mock.calls.some(
+          ([url, init]) =>
+            String(url) === "/api/admin/words-placement/generate" &&
+            JSON.parse(String(init?.body)).course === "KANJI",
+        ),
+      ).toBe(true);
+    });
   });
 
   it("can hide the quiz type selector and force matching generation", async () => {

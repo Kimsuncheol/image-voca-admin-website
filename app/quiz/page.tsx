@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import Typography from "@mui/material/Typography";
 import Tabs from "@mui/material/Tabs";
 import Tab from "@mui/material/Tab";
@@ -10,16 +10,19 @@ import { useTranslation } from "react-i18next";
 
 import PageLayout from "@/components/layout/PageLayout";
 import { useAdminGuard } from "@/hooks/useAdminGuard";
-import QuizGeneratorForm from "@/app/quiz-generator/QuizGeneratorForm";
+import QuizGeneratorForm, {
+  type QuizGeneratorDraft,
+} from "@/app/quiz-generator/QuizGeneratorForm";
 import QuizReviewTab from "./QuizReviewTab";
-import WordsPlacementGeneratorForm from "./WordsPlacementGeneratorForm";
-import WordsPlacementReviewTab from "./WordsPlacementReviewTab";
 
 export default function QuizPage() {
   const { t } = useTranslation();
   const { user, authLoading } = useAdminGuard();
-  const [section, setSection] = useState<"quiz" | "pop_quiz" | "words_placement">("quiz");
+  const [section, setSection] = useState<"quiz" | "pop_quiz">("quiz");
   const [mode, setMode] = useState<"generator" | "review">("generator");
+  const [quizDraft, setQuizDraft] = useState<QuizGeneratorDraft | null>(null);
+  const [popQuizDraft, setPopQuizDraft] = useState<QuizGeneratorDraft | null>(null);
+  const draftIdRef = useRef(0);
 
   if (authLoading) return null;
   if (user?.role !== "admin" && user?.role !== "super-admin") return null;
@@ -35,7 +38,7 @@ export default function QuizPage() {
 
       <Tabs
         value={section}
-        onChange={(_, value: "quiz" | "pop_quiz" | "words_placement") => {
+        onChange={(_, value: "quiz" | "pop_quiz") => {
           setSection(value);
           setMode("generator");
         }}
@@ -43,7 +46,6 @@ export default function QuizPage() {
       >
         <Tab value="quiz" label={t("quiz.title")} />
         <Tab value="pop_quiz" label={t("popQuiz.title")} />
-        <Tab value="words_placement" label={t("wordsPlacement.title")} />
       </Tabs>
 
       <Stack direction="row" spacing={1} sx={{ mb: 3 }}>
@@ -65,6 +67,7 @@ export default function QuizPage() {
 
       {section === "quiz" && mode === "generator" && (
         <QuizGeneratorForm
+          generatorDraft={quizDraft}
           submitLabel={t("quizGenerator.submitLabel")}
           loadingLabel={t("quizGenerator.loading")}
           resetLabel={t("quizGenerator.reset")}
@@ -80,6 +83,7 @@ export default function QuizPage() {
           countLabel={t("quizGenerator.countLabel")}
           matchingLabel={t("quizGenerator.matching")}
           fillBlankLabel={t("quizGenerator.fillBlank")}
+          wordsPlacementLabel={t("quizGenerator.wordsPlacement")}
           englishLabel={t("quizGenerator.english")}
           japaneseLabel={t("quizGenerator.japanese")}
           itemsLabel={t("quizGenerator.items")}
@@ -97,13 +101,21 @@ export default function QuizPage() {
         />
       )}
 
-      {section === "quiz" && mode === "review" && <QuizReviewTab />}
+      {section === "quiz" && mode === "review" && (
+        <QuizReviewTab
+          onEmptyDayClick={(draft) => {
+            setQuizDraft({ ...draft, id: ++draftIdRef.current });
+            setMode("generator");
+          }}
+        />
+      )}
 
       {section === "pop_quiz" && mode === "generator" && (
         <QuizGeneratorForm
           fixedQuizType="matching"
           hideQuizTypeSelector
           saveTarget="pop_quiz"
+          generatorDraft={popQuizDraft}
           submitLabel={t("popQuiz.submitLabel")}
           loadingLabel={t("quizGenerator.loading")}
           resetLabel={t("quizGenerator.reset")}
@@ -119,6 +131,7 @@ export default function QuizPage() {
           countLabel={t("quizGenerator.countLabel")}
           matchingLabel={t("quizGenerator.matching")}
           fillBlankLabel={t("quizGenerator.fillBlank")}
+          wordsPlacementLabel={t("quizGenerator.wordsPlacement")}
           englishLabel={t("quizGenerator.english")}
           japaneseLabel={t("quizGenerator.japanese")}
           itemsLabel={t("quizGenerator.items")}
@@ -141,34 +154,13 @@ export default function QuizPage() {
           saveTarget="pop_quiz"
           fixedQuizType="matching"
           hideQuizTypeSelector
+          onEmptyDayClick={(draft) => {
+            setPopQuizDraft({ ...draft, id: ++draftIdRef.current });
+            setMode("generator");
+          }}
         />
       )}
 
-      {section === "words_placement" && mode === "generator" && (
-        <WordsPlacementGeneratorForm
-          submitLabel={t("wordsPlacement.submitLabel")}
-          loadingLabel={t("quizGenerator.loading")}
-          resetLabel={t("quizGenerator.reset")}
-          networkErrorMsg={t("quizGenerator.networkError")}
-          standbyTitle={t("wordsPlacement.standbyTitle")}
-          standbyDescription={t("wordsPlacement.standbyDescription")}
-          processingDescription={t("wordsPlacement.processingDescription")}
-          languageLabel={t("quizGenerator.languageLabel")}
-          courseLabel={t("quizGenerator.courseLabel")}
-          levelLabel={t("quizGenerator.levelLabel")}
-          dayLabel={t("quizGenerator.dayLabel")}
-          englishLabel={t("quizGenerator.english")}
-          japaneseLabel={t("quizGenerator.japanese")}
-          saveLabel={t("quizGenerator.add")}
-          savingLabel={t("quizGenerator.adding")}
-          saveSuccessMsg={t("wordsPlacement.saveSuccess")}
-          saveErrorMsg={t("wordsPlacement.saveError")}
-        />
-      )}
-
-      {section === "words_placement" && mode === "review" && (
-        <WordsPlacementReviewTab />
-      )}
     </PageLayout>
   );
 }

@@ -24,7 +24,12 @@ import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import QuizIcon from "@mui/icons-material/Quiz";
 
-type QuizType = "matching" | "fill_blank";
+import type {
+  WordPlacementChunk,
+  WordsPlacementGroup,
+} from "@/lib/wordsPlacementChunkGenerator";
+
+type QuizType = "matching" | "fill_blank" | "words_placement";
 type Language = "english" | "japanese";
 type Course =
   | "CSAT"
@@ -33,9 +38,18 @@ type Course =
   | "TOEFL_ITELS"
   | "EXTREMELY_ADVANCED"
   | "COLLOCATION"
-  | "JLPT";
+  | "JLPT"
+  | "KANJI";
 type JlptLevel = "N1" | "N2" | "N3" | "N4" | "N5";
 
+export type QuizGeneratorDraft = {
+  id: number;
+  quizType: QuizType;
+  language: Language;
+  course: Course;
+  level: JlptLevel | null;
+  day: number;
+};
 
 type MatchingItem = {
   id: string;
@@ -88,7 +102,28 @@ type FillBlankQuizResponse = {
   questions: FillBlankQuestion[];
 };
 
-type QuizResponse = MatchingQuizResponse | FillBlankQuizResponse;
+type WordsPlacementItem = {
+  wordId: string;
+  word: string;
+  example: string;
+  wordsToPlace: WordsPlacementGroup[];
+};
+
+type WordsPlacementResponse = {
+  gameType: "words_placement";
+  courseId: string;
+  dayId: string;
+  version: 1;
+  items: WordsPlacementItem[];
+  skipped?: Array<{ wordId: string; word: string; reason: string }>;
+  saved?: boolean;
+  path?: string;
+};
+
+type QuizResponse =
+  | MatchingQuizResponse
+  | FillBlankQuizResponse
+  | WordsPlacementResponse;
 type SaveTarget = "quiz" | "pop_quiz";
 
 type PreviewMeta = {
@@ -112,17 +147,39 @@ type ApiErrorResponse = {
   message?: string;
 };
 
-const COURSES: Course[] = [
+const ENGLISH_COURSES: Course[] = [
   "CSAT",
   "CSAT_IDIOMS",
   "TOEIC",
   "TOEFL_ITELS",
   "EXTREMELY_ADVANCED",
   "COLLOCATION",
-  "JLPT",
 ];
+const JAPANESE_WORDS_PLACEMENT_COURSES: Course[] = ["JLPT", "KANJI"];
 
 const JLPT_LEVELS: JlptLevel[] = ["N1", "N2", "N3", "N4", "N5"];
+
+function getCourseOptions(language: Language, quizType: QuizType): Course[] {
+  if (language === "english") return ENGLISH_COURSES;
+  if (quizType === "words_placement") return JAPANESE_WORDS_PLACEMENT_COURSES;
+  return ["JLPT"];
+}
+
+function isWordsPlacementResponse(
+  value: QuizResponse,
+): value is WordsPlacementResponse {
+  return "gameType" in value && value.gameType === "words_placement";
+}
+
+function getWordsPlacementTranslations(group: WordsPlacementGroup) {
+  return [
+    group.translation,
+    group.translationEnglish,
+    group.translationKorean,
+    group.exampleEnglishTranslation,
+    group.exampleKoreanTranslation,
+  ].filter((value): value is string => Boolean(value));
+}
 
 function renderSentenceWithBlank(sentence: string) {
   const parts = sentence.split(/(_+)/);
@@ -154,6 +211,7 @@ export default function QuizGeneratorForm({
   fixedQuizType,
   hideQuizTypeSelector = false,
   saveTarget = "quiz",
+  generatorDraft,
   submitLabel,
   loadingLabel,
   resetLabel,
@@ -169,6 +227,7 @@ export default function QuizGeneratorForm({
   countLabel,
   matchingLabel,
   fillBlankLabel,
+  wordsPlacementLabel,
   englishLabel,
   japaneseLabel,
   itemsLabel,
@@ -187,6 +246,7 @@ export default function QuizGeneratorForm({
   fixedQuizType?: QuizType;
   hideQuizTypeSelector?: boolean;
   saveTarget?: SaveTarget;
+  generatorDraft?: QuizGeneratorDraft | null;
   submitLabel: string;
   loadingLabel: string;
   resetLabel: string;
@@ -202,6 +262,7 @@ export default function QuizGeneratorForm({
   countLabel: string;
   matchingLabel: string;
   fillBlankLabel: string;
+  wordsPlacementLabel: string;
   englishLabel: string;
   japaneseLabel: string;
   itemsLabel: string;
@@ -249,6 +310,26 @@ export default function QuizGeneratorForm({
     if (fixedQuizType) setQuizType(fixedQuizType);
   }, [fixedQuizType]);
 
+  useEffect(() => {
+    if (!generatorDraft) return;
+
+    generationRequestIdRef.current += 1;
+    if (!fixedQuizType) {
+      setQuizType(generatorDraft.quizType);
+    }
+    setLanguage(generatorDraft.language);
+    setCourse(generatorDraft.course);
+    setLevel(generatorDraft.level ?? "N3");
+    setDay(generatorDraft.day);
+    setResult(null);
+    setResultMeta(null);
+    setError("");
+    setSaveError("");
+    setSaveSuccess(false);
+    setDayTouched(false);
+    setShownAnswers(new Set());
+  }, [fixedQuizType, generatorDraft]);
+
   function toggleAnswer(questionId: string) {
     setShownAnswers((prev) => {
       const next = new Set(prev);
@@ -277,6 +358,20 @@ export default function QuizGeneratorForm({
       setCountAutoFilledMax(false);
       countMaxErrorTimerRef.current = null;
     }, 1000);
+  }, []);
+
+  const resetForFilterChange = useCallback(() => {
+    generationRequestIdRef.current += 1;
+    setDay(1);
+    setDayTouched(false);
+    setDayAutoFilledMax(false);
+    setCountAutoFilledMax(false);
+    setResult(null);
+    setResultMeta(null);
+    setError("");
+    setSaveError("");
+    setSaveSuccess(false);
+    setShownAnswers(new Set());
   }, []);
 
   useEffect(() => {
@@ -381,6 +476,7 @@ export default function QuizGeneratorForm({
     selectedDayHasNoWords;
   const generateDisabled =
     loading || adding || countUnavailable || hasLimitError;
+  const courseOptions = getCourseOptions(language, quizType);
 
   const buildPreviewMeta = useCallback((): PreviewMeta | null => {
     if (
@@ -442,18 +538,32 @@ export default function QuizGeneratorForm({
     setShownAnswers(new Set());
 
     try {
-      const response = await fetch("/api/text/quiz-generate", {
+      const isWordsPlacement = quizType === "words_placement";
+      const response = await fetch(
+        isWordsPlacement
+          ? "/api/admin/words-placement/generate"
+          : "/api/text/quiz-generate",
+        {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          quiz_type: quizType,
-          language,
-          course,
-          level: course === "JLPT" ? level : null,
-          day: dayNumber,
-          count: countNumber,
-        }),
-      });
+        body: JSON.stringify(
+          isWordsPlacement
+            ? {
+                course,
+                level: course === "JLPT" ? level : null,
+                day: dayNumber,
+              }
+            : {
+                quiz_type: quizType,
+                language,
+                course,
+                level: course === "JLPT" ? level : null,
+                day: dayNumber,
+                count: countNumber,
+              },
+        ),
+        },
+      );
 
       const data = (await response.json()) as QuizResponse;
 
@@ -537,18 +647,33 @@ export default function QuizGeneratorForm({
     setSaveSuccess(false);
 
     try {
-      const response = await fetch("/api/admin/quiz-save", {
+      const isWordsPlacement = isWordsPlacementResponse(result);
+      const response = await fetch(
+        isWordsPlacement
+          ? "/api/admin/words-placement/generate"
+          : "/api/admin/quiz-save",
+        {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          quiz_type: result.quiz_type,
-          save_target: saveTarget,
-          course,
-          level: course === "JLPT" ? level : null,
-          day,
-          quiz_data: result,
-        }),
-      });
+        body: JSON.stringify(
+          isWordsPlacement
+            ? {
+                course,
+                level: course === "JLPT" ? level : null,
+                day,
+                save: true,
+              }
+            : {
+                quiz_type: result.quiz_type,
+                save_target: saveTarget,
+                course,
+                level: course === "JLPT" ? level : null,
+                day,
+                quiz_data: result,
+              },
+        ),
+        },
+      );
 
       if (!response.ok) {
         let errorMessage = addErrorMsg;
@@ -563,6 +688,11 @@ export default function QuizGeneratorForm({
       }
 
       setSaveSuccess(true);
+      if (isWordsPlacement) {
+        const savedData = (await response.json()) as WordsPlacementResponse;
+        setResult(savedData);
+        setResultMeta(buildPreviewMeta());
+      }
     } catch {
       setSaveError(addErrorMsg);
     } finally {
@@ -820,8 +950,73 @@ export default function QuizGeneratorForm({
     );
   }
 
+  function renderWordsPlacementChunks(chunks: WordPlacementChunk[]) {
+    return (
+      <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
+        {chunks.map((chunk) => (
+          <Chip
+            key={chunk.id}
+            size="small"
+            color={chunk.type === "answer" ? "primary" : "default"}
+            variant={chunk.type === "answer" ? "filled" : "outlined"}
+            label={`${chunk.order + 1}. ${chunk.text}`}
+          />
+        ))}
+      </Stack>
+    );
+  }
+
+  function renderWordsPlacementResult(data: WordsPlacementResponse) {
+    return (
+      <Stack spacing={2}>
+        <Alert severity="success">
+          Generated {data.items.length} words placement items. Skipped{" "}
+          {data.skipped?.length ?? 0}.
+        </Alert>
+        {data.items.map((item, itemIndex) => (
+          <Card key={item.wordId} variant="outlined">
+            <CardContent>
+              <Stack spacing={2}>
+                <Typography variant="subtitle2" fontWeight={700}>
+                  {itemIndex + 1}. {item.word}
+                </Typography>
+                {item.wordsToPlace.map((group, groupIndex) => {
+                  const translations = getWordsPlacementTranslations(group);
+                  return (
+                    <Box key={`${item.wordId}-${groupIndex}`}>
+                      <Typography variant="caption" color="text.secondary" fontWeight={700}>
+                        Group {groupIndex + 1}
+                      </Typography>
+                      <Typography variant="body2" sx={{ mt: 0.5 }}>
+                        {group.targetExample}
+                      </Typography>
+                      {translations.map((translation, translationIndex) => (
+                        <Typography
+                          key={`${item.wordId}-${groupIndex}-${translationIndex}`}
+                          variant="body2"
+                          color="text.secondary"
+                          sx={{ mt: 0.25, fontStyle: "italic" }}
+                        >
+                          {translation}
+                        </Typography>
+                      ))}
+                      <Box sx={{ mt: 1 }}>
+                        {renderWordsPlacementChunks(group.chunks)}
+                      </Box>
+                    </Box>
+                  );
+                })}
+              </Stack>
+            </CardContent>
+          </Card>
+        ))}
+      </Stack>
+    );
+  }
+
   function renderResult() {
     if (!result) return null;
+    if (isWordsPlacementResponse(result)) return renderWordsPlacementResult(result);
     if (result.quiz_type === "matching") return renderMatchingResult(result);
     return renderFillBlankResult(result);
   }
@@ -840,11 +1035,18 @@ export default function QuizGeneratorForm({
                   label={quizTypeLabel}
                   onChange={(e) => {
                     if (fixedQuizType) return;
-                    setQuizType(e.target.value as QuizType);
+                    const nextQuizType = e.target.value as QuizType;
+                    setQuizType(nextQuizType);
+                    const nextCourseOptions = getCourseOptions(language, nextQuizType);
+                    if (!nextCourseOptions.includes(course)) {
+                      setCourse(nextCourseOptions[0]);
+                    }
+                    resetForFilterChange();
                   }}
                 >
                   <MenuItem value="matching">{matchingLabel}</MenuItem>
                   <MenuItem value="fill_blank">{fillBlankLabel}</MenuItem>
+                  <MenuItem value="words_placement">{wordsPlacementLabel}</MenuItem>
                 </Select>
               </FormControl>
             </Grid>
@@ -862,9 +1064,10 @@ export default function QuizGeneratorForm({
                   setLanguage(newLang);
                   if (newLang === "japanese") {
                     setCourse("JLPT");
-                  } else if (newLang === "english" && course === "JLPT") {
+                  } else if (newLang === "english" && (course === "JLPT" || course === "KANJI")) {
                     setCourse("TOEIC");
                   }
+                  resetForFilterChange();
                 }}
               >
                 <MenuItem value="english">{englishLabel}</MenuItem>
@@ -882,9 +1085,10 @@ export default function QuizGeneratorForm({
                 label={courseLabel}
                 onChange={(e) => {
                   setCourse(e.target.value as Course);
+                  resetForFilterChange();
                 }}
               >
-                {COURSES.filter((c) => (language === "english" ? c !== "JLPT" : c === "JLPT")).map((c) => (
+                {courseOptions.map((c) => (
                   <MenuItem key={c} value={c}>
                     {c}
                   </MenuItem>
@@ -903,7 +1107,10 @@ export default function QuizGeneratorForm({
                   labelId="level-label"
                   value={level}
                   label={levelLabel}
-                  onChange={(e) => setLevel(e.target.value as JlptLevel)}
+                  onChange={(e) => {
+                    setLevel(e.target.value as JlptLevel);
+                    resetForFilterChange();
+                  }}
                 >
                   {JLPT_LEVELS.map((l) => (
                     <MenuItem key={l} value={l}>

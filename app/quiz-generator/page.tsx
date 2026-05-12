@@ -39,6 +39,7 @@ export default function QuizGeneratorPage() {
         countLabel={t("quizGenerator.countLabel")}
         matchingLabel={t("quizGenerator.matching")}
         fillBlankLabel={t("quizGenerator.fillBlank")}
+        wordsPlacementLabel={t("quizGenerator.wordsPlacement")}
         englishLabel={t("quizGenerator.english")}
         japaneseLabel={t("quizGenerator.japanese")}
         itemsLabel={t("quizGenerator.items")}
