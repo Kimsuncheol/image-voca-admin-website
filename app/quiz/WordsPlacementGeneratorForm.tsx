@@ -18,7 +18,7 @@ import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import ExtensionIcon from "@mui/icons-material/Extension";
 
-import type { WordPlacementChunk } from "@/lib/wordsPlacementChunkGenerator";
+import type { WordPlacementChunk, WordsPlacementGroup } from "@/lib/wordsPlacementChunkGenerator";
 
 type Course =
   | "CSAT"
@@ -26,13 +26,17 @@ type Course =
   | "TOEIC"
   | "TOEFL_ITELS"
   | "EXTREMELY_ADVANCED"
-  | "COLLOCATION";
+  | "COLLOCATION"
+  | "JLPT"
+  | "KANJI";
+type Language = "english" | "japanese";
+type JlptLevel = "N1" | "N2" | "N3" | "N4" | "N5";
 
 interface WordsPlacementItem {
   wordId: string;
   word: string;
   example: string;
-  wordsToPlace: WordPlacementChunk[][];
+  wordsToPlace: WordsPlacementGroup[];
 }
 
 interface WordsPlacementSkippedItem {
@@ -59,7 +63,7 @@ interface CountResponse {
   error?: string;
 }
 
-const COURSES: Course[] = [
+const ENGLISH_COURSES: Course[] = [
   "CSAT",
   "CSAT_IDIOMS",
   "TOEIC",
@@ -67,6 +71,8 @@ const COURSES: Course[] = [
   "EXTREMELY_ADVANCED",
   "COLLOCATION",
 ];
+const JAPANESE_COURSES: Course[] = ["JLPT", "KANJI"];
+const JLPT_LEVELS: JlptLevel[] = ["N1", "N2", "N3", "N4", "N5"];
 
 export default function WordsPlacementGeneratorForm({
   submitLabel,
@@ -76,8 +82,12 @@ export default function WordsPlacementGeneratorForm({
   standbyTitle,
   standbyDescription,
   processingDescription,
+  languageLabel,
   courseLabel,
+  levelLabel,
   dayLabel,
+  englishLabel,
+  japaneseLabel,
   saveLabel,
   savingLabel,
   saveSuccessMsg,
@@ -90,14 +100,20 @@ export default function WordsPlacementGeneratorForm({
   standbyTitle: string;
   standbyDescription: string;
   processingDescription: string;
+  languageLabel: string;
   courseLabel: string;
+  levelLabel: string;
   dayLabel: string;
+  englishLabel: string;
+  japaneseLabel: string;
   saveLabel: string;
   savingLabel: string;
   saveSuccessMsg: string;
   saveErrorMsg: string;
 }) {
+  const [language, setLanguage] = useState<Language>("english");
   const [course, setCourse] = useState<Course>("CSAT");
+  const [level, setLevel] = useState<JlptLevel>("N3");
   const [day, setDay] = useState<number | string>(1);
   const [result, setResult] = useState<WordsPlacementResponse | null>(null);
   const [loading, setLoading] = useState(false);
@@ -133,6 +149,7 @@ export default function WordsPlacementGeneratorForm({
       course,
       day: String(day),
     });
+    if (course === "JLPT") params.set("level", level);
 
     setCountLoading(true);
     setCountError("");
@@ -169,7 +186,7 @@ export default function WordsPlacementGeneratorForm({
       });
 
     return () => controller.abort();
-  }, [course, day, flashDayMaxError, networkErrorMsg]);
+  }, [course, day, flashDayMaxError, level, networkErrorMsg]);
 
   const dayNumber = typeof day === "string" ? parseInt(day, 10) : day;
   const invalidDay = !Number.isInteger(dayNumber) || dayNumber < 1;
@@ -184,6 +201,7 @@ export default function WordsPlacementGeneratorForm({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         course,
+        ...(course === "JLPT" ? { level } : {}),
         day: dayNumber,
         ...(save ? { save: true } : {}),
       }),
@@ -262,6 +280,25 @@ export default function WordsPlacementGeneratorForm({
         <Grid container spacing={2}>
           <Grid size={{ xs: 12, sm: 6, md: 3 }}>
             <FormControl fullWidth>
+              <InputLabel id="words-placement-language-label">{languageLabel}</InputLabel>
+              <Select
+                labelId="words-placement-language-label"
+                value={language}
+                label={languageLabel}
+                onChange={(e) => {
+                  const nextLanguage = e.target.value as Language;
+                  setLanguage(nextLanguage);
+                  setCourse(nextLanguage === "japanese" ? "JLPT" : "CSAT");
+                }}
+              >
+                <MenuItem value="english">{englishLabel}</MenuItem>
+                <MenuItem value="japanese">{japaneseLabel}</MenuItem>
+              </Select>
+            </FormControl>
+          </Grid>
+
+          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+            <FormControl fullWidth>
               <InputLabel id="words-placement-course-label">{courseLabel}</InputLabel>
               <Select
                 labelId="words-placement-course-label"
@@ -269,7 +306,7 @@ export default function WordsPlacementGeneratorForm({
                 label={courseLabel}
                 onChange={(e) => setCourse(e.target.value as Course)}
               >
-                {COURSES.map((courseOption) => (
+                {(language === "japanese" ? JAPANESE_COURSES : ENGLISH_COURSES).map((courseOption) => (
                   <MenuItem key={courseOption} value={courseOption}>
                     {courseOption}
                   </MenuItem>
@@ -277,6 +314,26 @@ export default function WordsPlacementGeneratorForm({
               </Select>
             </FormControl>
           </Grid>
+
+          {course === "JLPT" && (
+            <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+              <FormControl fullWidth>
+                <InputLabel id="words-placement-level-label">{levelLabel}</InputLabel>
+                <Select
+                  labelId="words-placement-level-label"
+                  value={level}
+                  label={levelLabel}
+                  onChange={(e) => setLevel(e.target.value as JlptLevel)}
+                >
+                  {JLPT_LEVELS.map((levelOption) => (
+                    <MenuItem key={levelOption} value={levelOption}>
+                      {levelOption}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+          )}
 
           <Grid size={{ xs: 12, sm: 6, md: 3 }}>
             <TextField
@@ -389,16 +446,16 @@ export default function WordsPlacementGeneratorForm({
                       <Typography variant="caption" color="text.secondary" fontWeight={600}>
                         {index + 1}. {item.word}
                       </Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        {item.example}
-                      </Typography>
                     </Box>
                     {item.wordsToPlace.map((group, groupIndex) => (
                       <Box key={`${item.wordId}-${groupIndex}`}>
                         <Typography variant="caption" color="text.secondary" fontWeight={600}>
                           Group {groupIndex + 1}
                         </Typography>
-                        <Box sx={{ mt: 0.75 }}>{renderChunkGroup(group)}</Box>
+                        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.25 }}>
+                          {group.targetExample}
+                        </Typography>
+                        <Box sx={{ mt: 0.75 }}>{renderChunkGroup(group.chunks)}</Box>
                       </Box>
                     ))}
                   </Stack>

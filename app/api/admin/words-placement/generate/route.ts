@@ -9,6 +9,7 @@ import {
 
 interface WordsPlacementGenerateBody {
   course?: string;
+  level?: string | null;
   day?: number;
   save?: boolean;
 }
@@ -31,6 +32,7 @@ export async function POST(req: NextRequest) {
     const { result, savePath } = await generateWordsPlacementGame({
       db: adminDb,
       course: body.course,
+      level: body.level,
       day: body.day,
     });
 

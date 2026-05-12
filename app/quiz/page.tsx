@@ -154,8 +154,12 @@ export default function QuizPage() {
           standbyTitle={t("wordsPlacement.standbyTitle")}
           standbyDescription={t("wordsPlacement.standbyDescription")}
           processingDescription={t("wordsPlacement.processingDescription")}
+          languageLabel={t("quizGenerator.languageLabel")}
           courseLabel={t("quizGenerator.courseLabel")}
+          levelLabel={t("quizGenerator.levelLabel")}
           dayLabel={t("quizGenerator.dayLabel")}
+          englishLabel={t("quizGenerator.english")}
+          japaneseLabel={t("quizGenerator.japanese")}
           saveLabel={t("quizGenerator.add")}
           savingLabel={t("quizGenerator.adding")}
           saveSuccessMsg={t("wordsPlacement.saveSuccess")}

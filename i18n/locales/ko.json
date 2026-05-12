@@ -543,7 +543,7 @@
     "description": "예문에서 문장 조각 배치 게임을 생성합니다.",
     "submitLabel": "단어 배치 생성",
     "standbyTitle": "단어 배치 게임을 생성할 준비가 됐나요?",
-    "standbyDescription": "영어 코스와 Day를 선택한 뒤 예문에서 문장 조각을 생성하세요.",
+    "standbyDescription": "코스와 Day를 선택한 뒤 예문에서 문장 조각을 생성하세요.",
     "processingDescription": "어휘 예문에서 문장 조각을 생성하고 있습니다. 잠시만 기다려 주세요.",
     "saveSuccess": "단어 배치 게임이 저장되었습니다.",
     "saveError": "단어 배치 게임 저장에 실패했습니다. 다시 시도해주세요."

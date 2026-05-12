@@ -7,6 +7,11 @@ export interface WordPlacementChunk {
   order: number;
 }
 
+export interface WordsPlacementGroup {
+  targetExample: string;
+  chunks: WordPlacementChunk[];
+}
+
 export interface GenerateWordsPlacementChunksInput {
   word: string;
   example: string;
@@ -145,7 +150,7 @@ function buildChunkGroup({
   sentence: string;
   span: { start: number; end: number };
   idPrefix: string;
-}): WordPlacementChunk[] {
+}): WordsPlacementGroup {
   const before = normalizeSpaces(sentence.slice(0, span.start));
   let answer = normalizeSpaces(sentence.slice(span.start, span.end));
   let after = normalizeSpaces(sentence.slice(span.end));
@@ -167,19 +172,22 @@ function buildChunkGroup({
     })),
   ].filter((part) => isUsefulChunk(part.text));
 
-  return parts.map((part, index) => ({
-    id: `${idPrefix}-chunk-${index + 1}`,
-    text: part.text,
-    type: part.type,
-    order: index + 1,
-  }));
+  return {
+    targetExample: normalizeSpaces(sentence),
+    chunks: parts.map((part, index) => ({
+      id: `${idPrefix}-chunk-${index + 1}`,
+      text: part.text,
+      type: part.type,
+      order: index + 1,
+    })),
+  };
 }
 
 export function generateWordsPlacementChunks({
   word,
   example,
   wordId,
-}: GenerateWordsPlacementChunksInput): WordPlacementChunk[][] {
+}: GenerateWordsPlacementChunksInput): WordsPlacementGroup[] {
   const normalizedWord = normalizeSpaces(word);
   if (!normalizedWord) return [];
 
@@ -193,5 +201,5 @@ export function generateWordsPlacementChunks({
         idPrefix: `${wordId ? slug(wordId) : slug(normalizedWord)}-${sentenceIndex + 1}`,
       });
     })
-    .filter((group): group is WordPlacementChunk[] => Boolean(group?.length));
+    .filter((group): group is WordsPlacementGroup => Boolean(group?.chunks.length));
 }

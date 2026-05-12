@@ -58,7 +58,7 @@ describe("POST /api/admin/words-placement/generate", () => {
     };
     generateWordsPlacementGame.mockResolvedValue({
       result,
-      savePath: "courses/csat/Day1/Day1-game/words_placement/data",
+      savePath: "courses/csat/Day1/Day1-quiz/words_placement/data",
     });
     toFirestoreWordsPlacementDoc.mockReturnValue({ gameType: "words_placement" });
 
@@ -74,13 +74,14 @@ describe("POST /api/admin/words-placement/generate", () => {
     expect(generateWordsPlacementGame).toHaveBeenCalledWith({
       db: expect.any(Object),
       course: "CSAT",
+      level: undefined,
       day: 1,
     });
-    expect(docMock).toHaveBeenCalledWith("courses/csat/Day1/Day1-game/words_placement/data");
+    expect(docMock).toHaveBeenCalledWith("courses/csat/Day1/Day1-quiz/words_placement/data");
     expect(setMock).toHaveBeenCalledWith({ gameType: "words_placement" });
     await expect(response.json()).resolves.toMatchObject({
       saved: true,
-      path: "courses/csat/Day1/Day1-game/words_placement/data",
+      path: "courses/csat/Day1/Day1-quiz/words_placement/data",
     });
   });
 });

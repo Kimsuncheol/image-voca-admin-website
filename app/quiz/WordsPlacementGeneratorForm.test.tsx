@@ -14,8 +14,12 @@ const defaultProps = {
   standbyTitle: "Ready",
   standbyDescription: "Select options.",
   processingDescription: "Processing.",
+  languageLabel: "Language",
   courseLabel: "Course",
+  levelLabel: "JLPT Level",
   dayLabel: "Day",
+  englishLabel: "English",
+  japaneseLabel: "Japanese",
   saveLabel: "Add",
   savingLabel: "Adding...",
   saveSuccessMsg: "Words placement game saved successfully.",
@@ -68,6 +72,26 @@ function findButton(label: string) {
   return button;
 }
 
+async function selectVisibleOption(currentText: string, optionText: string) {
+  const select = Array.from(document.querySelectorAll('[role="combobox"]')).find(
+    (node) => node.textContent === currentText,
+  );
+  expect(select).toBeTruthy();
+
+  await act(async () => {
+    select?.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+  });
+
+  const option = Array.from(document.querySelectorAll('[role="option"]')).find(
+    (node) => node.textContent === optionText,
+  );
+  expect(option).toBeTruthy();
+
+  await act(async () => {
+    option?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+  });
+}
+
 describe("WordsPlacementGeneratorForm", () => {
   let rendered: ReturnType<typeof renderForm> | null = null;
 
@@ -98,11 +122,14 @@ describe("WordsPlacementGeneratorForm", () => {
             word: "spoil",
             example: "Too much help may spoil your child.",
             wordsToPlace: [
-              [
-                { id: "word-1-1-chunk-1", text: "Too much help may", type: "sentence_chunk", order: 1 },
-                { id: "word-1-1-chunk-2", text: "spoil", type: "answer", order: 2 },
-                { id: "word-1-1-chunk-3", text: "your child.", type: "sentence_chunk", order: 3 },
-              ],
+              {
+                targetExample: "Too much help may spoil your child.",
+                chunks: [
+                  { id: "word-1-1-chunk-1", text: "Too much help may", type: "sentence_chunk", order: 1 },
+                  { id: "word-1-1-chunk-2", text: "spoil", type: "answer", order: 2 },
+                  { id: "word-1-1-chunk-3", text: "your child.", type: "sentence_chunk", order: 3 },
+                ],
+              },
             ],
           },
         ],
@@ -115,7 +142,7 @@ describe("WordsPlacementGeneratorForm", () => {
         dayId: "Day1",
         version: 1,
         saved: true,
-        path: "courses/csat/Day1/Day1-game/words_placement/data",
+        path: "courses/csat/Day1/Day1-quiz/words_placement/data",
         items: [],
         skipped: [],
       }),
@@ -162,5 +189,108 @@ describe("WordsPlacementGeneratorForm", () => {
 
     expect(generateBody).toEqual({ course: "CSAT", day: 1 });
     expect(saveBody).toEqual({ course: "CSAT", day: 1, save: true });
+  });
+
+  it("renders targetExample instead of raw Japanese source example", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      Response.json({ max_days: 20, max_count: 1 }),
+    ).mockResolvedValueOnce(
+      Response.json({
+        gameType: "words_placement",
+        courseId: "JLPT_N3",
+        dayId: "Day1",
+        version: 1,
+        items: [
+          {
+            wordId: "jlpt-1",
+            word: "間",
+            example: "家(いえ)と学(がっ)校(こう)の間(あいだ)に公(こう)園(えん)がある。",
+            wordsToPlace: [
+              {
+                targetExample: "家と学校の間に公園がある。",
+                chunks: [
+                  { id: "jlpt-1-1-chunk-1", text: "家と", type: "sentence_chunk", order: 1 },
+                  { id: "jlpt-1-1-chunk-2", text: "学校の", type: "sentence_chunk", order: 2 },
+                  { id: "jlpt-1-1-chunk-3", text: "間に", type: "answer", order: 3 },
+                ],
+              },
+            ],
+          },
+        ],
+        skipped: [],
+      }),
+    );
+
+    rendered = renderForm(<WordsPlacementGeneratorForm {...defaultProps} />);
+
+    await waitFor(() => {
+      expect(document.querySelector<HTMLInputElement>('input[type="number"]')?.max).toBe("20");
+    });
+
+    await act(async () => {
+      findButton("Generate Words Placement")?.dispatchEvent(
+        new MouseEvent("click", { bubbles: true }),
+      );
+    });
+
+    await waitFor(() => {
+      expect(document.body.textContent).toContain("家と学校の間に公園がある。");
+      expect(document.body.textContent).not.toContain("家(いえ)");
+      expect(document.body.textContent).not.toContain("公(こう)");
+    });
+  });
+
+  it("supports Japanese JLPT level generation requests", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(async (url) => {
+      if (url === "/api/admin/words-placement/generate") {
+        return Response.json({
+          gameType: "words_placement",
+          courseId: "JLPT_N3",
+          dayId: "Day1",
+          version: 1,
+          items: [],
+          skipped: [],
+        });
+      }
+      return Response.json({ max_days: 20, max_count: 1 });
+    });
+
+    rendered = renderForm(<WordsPlacementGeneratorForm {...defaultProps} />);
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        "/api/text/quiz-generate/count?course=CSAT&day=1",
+        expect.any(Object),
+      );
+    });
+
+    await selectVisibleOption("English", "Japanese");
+
+    await waitFor(() => {
+      expect(document.body.textContent).toContain("JLPT Level");
+      expect(fetchMock).toHaveBeenCalledWith(
+        "/api/text/quiz-generate/count?course=JLPT&day=1&level=N3",
+        expect.any(Object),
+      );
+    });
+
+    await act(async () => {
+      findButton("Generate Words Placement")?.dispatchEvent(
+        new MouseEvent("click", { bubbles: true }),
+      );
+    });
+
+    await waitFor(() => {
+      const generateCall = fetchMock.mock.calls.find(
+        ([url]) => url === "/api/admin/words-placement/generate",
+      );
+      expect(generateCall).toBeTruthy();
+      const latestBody = JSON.parse(String(generateCall?.[1]?.body)) as {
+        course?: string;
+        level?: string;
+        day?: number;
+      };
+      expect(latestBody).toEqual({ course: "JLPT", level: "N3", day: 1 });
+    });
   });
 });

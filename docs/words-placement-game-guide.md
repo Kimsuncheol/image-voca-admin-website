@@ -5,13 +5,13 @@
 Store one game document per course day:
 
 ```txt
-{coursePath}/Day{day}/Day{day}-game/words_placement/data
+{coursePath}/Day{day}/Day{day}-quiz/words_placement/data
 ```
 
 CSAT Day1:
 
 ```txt
-voca/pdw9crwerFb2qGFltJJY/course/BKQz1pqPyizbHzi1RxKK/CSAT/mNaFSzquidDTdaOq1cS0/Day1/Day1-game/words_placement/data
+voca/pdw9crwerFb2qGFltJJY/course/BKQz1pqPyizbHzi1RxKK/CSAT/mNaFSzquidDTdaOq1cS0/Day1/Day1-quiz/words_placement/data
 ```
 
 ## Document Shape
@@ -29,6 +29,7 @@ voca/pdw9crwerFb2qGFltJJY/course/BKQz1pqPyizbHzi1RxKK/CSAT/mNaFSzquidDTdaOq1cS0/
       "example": "Too much help may spoil your child.",
       "wordsToPlace": [
         {
+          "targetExample": "Too much help may spoil your child.",
           "chunks": [
             {
               "id": "4zvokwpdrv0zidnhahc3-1-chunk-1",
@@ -79,6 +80,7 @@ type WordsPlacementItem = {
 };
 
 type WordPlacementChunkGroup = {
+  targetExample: string;
   chunks: WordPlacementChunk[];
 };
 
@@ -90,11 +92,13 @@ type WordPlacementChunk = {
 };
 ```
 
-`wordsToPlace` is an array of chunk groups because one Firestore `example` field can contain multiple numbered examples or sentences. Each `chunks` array is one reconstruction task.
+`wordsToPlace` is an array of chunk groups because one Firestore `example` field can contain multiple numbered examples or sentences. Each group has the cleaned `targetExample` shown to the app/admin UI and a `chunks` array for one reconstruction task.
 
-Do not store `WordPlacementChunk[][]` directly in Firestore. Firestore does not allow arrays that directly contain arrays. The admin generator may use `WordPlacementChunk[][]` for in-memory preview responses, but saved documents must wrap each group as `{ chunks: WordPlacementChunk[] }`.
+Do not store `WordPlacementChunk[][]` directly in Firestore. Firestore does not allow arrays that directly contain arrays. Store each group as `{ targetExample, chunks }`.
 
 ## Generator Rules
+
+English:
 
 - Remove numbered prefixes such as `1.` and `2.`.
 - Generate one chunk group per line or sentence.
@@ -104,6 +108,22 @@ Do not store `WordPlacementChunk[][]` directly in Firestore. Firestore does not 
 - Never generate standalone punctuation chunks such as `"."`, `","`, or `"\""`.
 - Store chunks in correct sentence order and use `order` for validation.
 - Shuffle chunks only in the app UI.
+
+JLPT:
+
+- Strip reading parentheses before matching and chunking, e.g. `家(いえ)` becomes `家`.
+- Tokenize server-side with `kuromoji`.
+- Match the target word by token surface form, base form, or compound containment.
+- Attach particles such as `に`, `を`, `は`, `が`, `と`, and `の` to the previous useful chunk.
+- Attach sentence punctuation such as `。` to the previous useful chunk.
+
+Kanji:
+
+- Use `[[[...]]]` markers as the answer source of truth.
+- Strip reading parentheses from output chunks.
+- Expand marked answers into useful compounds, e.g. `[[[一]]]月(いちがつ)` becomes `一月`.
+- Attach particles for kana answers, e.g. `[[[いつ]]]で` becomes `いつで`.
+- Skip examples without markers.
 
 ## Examples
 
@@ -118,6 +138,7 @@ generateWordsPlacementChunks({
 ```json
 [
   {
+    "targetExample": "He measured the width of the floor.",
     "chunks": [
       { "id": "measure-1-chunk-1", "text": "He", "type": "sentence_chunk", "order": 1 },
       { "id": "measure-1-chunk-2", "text": "measured", "type": "answer", "order": 2 },
@@ -126,6 +147,7 @@ generateWordsPlacementChunks({
     ]
   },
   {
+    "targetExample": "Valid experiments also must have data that are measurable.",
     "chunks": [
       { "id": "measure-2-chunk-1", "text": "Valid experiments also", "type": "sentence_chunk", "order": 1 },
       { "id": "measure-2-chunk-2", "text": "must have data", "type": "sentence_chunk", "order": 2 },

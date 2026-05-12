@@ -4,8 +4,12 @@ import { FieldValue, type Firestore } from "firebase-admin/firestore";
 
 import { getQuizCourse } from "@/lib/server/quizGeneration";
 import {
+  generateJapaneseWordsPlacementChunks,
+  generateKanjiWordsPlacementChunks,
+} from "@/lib/japaneseWordsPlacementChunkGenerator";
+import {
   generateWordsPlacementChunks,
-  type WordPlacementChunk,
+  type WordsPlacementGroup,
 } from "@/lib/wordsPlacementChunkGenerator";
 
 type SupportedWordsPlacementCourse =
@@ -14,7 +18,9 @@ type SupportedWordsPlacementCourse =
   | "TOEIC"
   | "TOEFL_ITELS"
   | "EXTREMELY_ADVANCED"
-  | "COLLOCATION";
+  | "COLLOCATION"
+  | "JLPT"
+  | "KANJI";
 
 type RawWordDoc = Record<string, unknown> & { id: string };
 
@@ -22,7 +28,7 @@ export interface WordsPlacementItem {
   wordId: string;
   word: string;
   example: string;
-  wordsToPlace: WordPlacementChunk[][];
+  wordsToPlace: WordsPlacementGroup[];
 }
 
 export interface WordsPlacementSkippedItem {
@@ -49,7 +55,7 @@ export interface SavedWordsPlacementGameDoc {
     wordId: string;
     word: string;
     example: string;
-    wordsToPlace: Array<{ chunks: WordPlacementChunk[] }>;
+    wordsToPlace: WordsPlacementGroup[];
   }>;
   createdAt: FieldValue;
   updatedAt: FieldValue;
@@ -62,6 +68,8 @@ const SUPPORTED_COURSES = new Set<string>([
   "TOEFL_ITELS",
   "EXTREMELY_ADVANCED",
   "COLLOCATION",
+  "JLPT",
+  "KANJI",
 ]);
 
 function hasText(value: unknown): value is string {
@@ -77,7 +85,7 @@ export function assertSupportedWordsPlacementCourse(
   course: unknown,
 ): asserts course is SupportedWordsPlacementCourse {
   if (!hasText(course) || !SUPPORTED_COURSES.has(course)) {
-    throw new Error("Words placement supports English day-based courses only.");
+    throw new Error("Words placement supports English, JLPT, and Kanji day-based courses only.");
   }
 }
 
@@ -97,10 +105,32 @@ export function buildWordsPlacementResult({
   day: number;
   words: RawWordDoc[];
 }): WordsPlacementGenerationResult {
+  return buildWordsPlacementResultFromItems({
+    courseId,
+    day,
+    items: words.map((wordDoc) => ({
+      wordDoc,
+      wordsToPlace: null,
+    })),
+  });
+}
+
+function buildWordsPlacementResultFromItems({
+  courseId,
+  day,
+  items: generatedItems,
+}: {
+  courseId: string;
+  day: number;
+  items: Array<{
+    wordDoc: RawWordDoc;
+    wordsToPlace: WordsPlacementGroup[] | null;
+  }>;
+}): WordsPlacementGenerationResult {
   const items: WordsPlacementItem[] = [];
   const skipped: WordsPlacementSkippedItem[] = [];
 
-  for (const wordDoc of words) {
+  for (const { wordDoc, wordsToPlace: precomputedWordsToPlace } of generatedItems) {
     const targetText = resolveTargetText(wordDoc);
     const example = hasText(wordDoc.example) ? wordDoc.example.trim() : "";
 
@@ -118,7 +148,7 @@ export function buildWordsPlacementResult({
       continue;
     }
 
-    const wordsToPlace = generateWordsPlacementChunks({
+    const wordsToPlace = precomputedWordsToPlace ?? generateWordsPlacementChunks({
       word: targetText,
       example,
       wordId: wordDoc.id,
@@ -151,6 +181,55 @@ export function buildWordsPlacementResult({
   };
 }
 
+async function buildCourseAwareWordsPlacementResult({
+  courseId,
+  day,
+  words,
+}: {
+  courseId: string;
+  day: number;
+  words: RawWordDoc[];
+}): Promise<WordsPlacementGenerationResult> {
+  if (courseId === "JLPT" || courseId.startsWith("JLPT_")) {
+    const items = await Promise.all(
+      words.map(async (wordDoc) => {
+        const targetText = resolveTargetText(wordDoc);
+        const example = hasText(wordDoc.example) ? wordDoc.example.trim() : "";
+        return {
+          wordDoc,
+          wordsToPlace: targetText && example
+            ? await generateJapaneseWordsPlacementChunks({
+                word: targetText,
+                example,
+                wordId: wordDoc.id,
+              })
+            : null,
+        };
+      }),
+    );
+    return buildWordsPlacementResultFromItems({ courseId, day, items });
+  }
+
+  if (courseId === "KANJI") {
+    const items = words.map((wordDoc) => ({
+      wordDoc: {
+        ...wordDoc,
+        word: hasText(wordDoc.kanji) ? wordDoc.kanji : wordDoc.word,
+        example: Array.isArray(wordDoc.example)
+          ? wordDoc.example.join("\n")
+          : wordDoc.example,
+      },
+      wordsToPlace: generateKanjiWordsPlacementChunks({
+        example: Array.isArray(wordDoc.example) ? wordDoc.example : String(wordDoc.example ?? ""),
+        wordId: wordDoc.id,
+      }),
+    }));
+    return buildWordsPlacementResultFromItems({ courseId, day, items });
+  }
+
+  return buildWordsPlacementResult({ courseId, day, words });
+}
+
 export function toFirestoreWordsPlacementDoc(
   result: WordsPlacementGenerationResult,
 ): SavedWordsPlacementGameDoc {
@@ -161,7 +240,7 @@ export function toFirestoreWordsPlacementDoc(
     version: result.version,
     items: result.items.map((item) => ({
       ...item,
-      wordsToPlace: item.wordsToPlace.map((chunks) => ({ chunks })),
+    wordsToPlace: item.wordsToPlace,
     })),
     createdAt: FieldValue.serverTimestamp(),
     updatedAt: FieldValue.serverTimestamp(),
@@ -171,10 +250,12 @@ export function toFirestoreWordsPlacementDoc(
 export async function generateWordsPlacementGame({
   db,
   course,
+  level,
   day,
 }: {
   db: Firestore;
   course: unknown;
+  level?: unknown;
   day: unknown;
 }): Promise<{
   result: WordsPlacementGenerationResult;
@@ -184,7 +265,7 @@ export async function generateWordsPlacementGame({
   const dayNumber = normalizeWordsPlacementDay(day);
   if (dayNumber === null) throw new Error("Invalid day.");
 
-  const courseConfig = getQuizCourse({ course });
+  const courseConfig = getQuizCourse({ course, level: course === "JLPT" ? level as string | null : null });
   if (!courseConfig?.path) throw new Error("Unknown course.");
 
   const dayId = `Day${dayNumber}`;
@@ -195,11 +276,11 @@ export async function generateWordsPlacementGame({
   }));
 
   return {
-    result: buildWordsPlacementResult({
+    result: await buildCourseAwareWordsPlacementResult({
       courseId: courseConfig.id,
       day: dayNumber,
       words,
     }),
-    savePath: `${courseConfig.path}/${dayId}/${dayId}-game/words_placement/data`,
+    savePath: `${courseConfig.path}/${dayId}/${dayId}-quiz/words_placement/data`,
   };
 }

@@ -543,7 +543,7 @@
     "description": "Generate sentence chunk placement games from vocabulary examples.",
     "submitLabel": "Generate Words Placement",
     "standbyTitle": "Ready to generate a words placement game?",
-    "standbyDescription": "Select an English course and day, then generate sentence chunks from example sentences.",
+    "standbyDescription": "Select a course and day, then generate sentence chunks from example sentences.",
     "processingDescription": "Generating sentence chunks using the vocabulary examples. Please wait.",
     "saveSuccess": "Words placement game saved successfully.",
     "saveError": "Failed to save words placement game. Please try again."
