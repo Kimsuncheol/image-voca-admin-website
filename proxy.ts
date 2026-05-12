@@ -11,10 +11,6 @@ export function proxy(request: NextRequest) {
     pathname.startsWith('/api') ||
     pathname.startsWith('/_next')
   ) {
-    // If signed in and visiting auth pages, redirect to dashboard
-    if (session && (pathname.startsWith('/sign-in') || pathname.startsWith('/sign-up'))) {
-      return NextResponse.redirect(new URL('/', request.url));
-    }
     return NextResponse.next();
   }
 
