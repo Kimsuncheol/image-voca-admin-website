@@ -274,6 +274,28 @@ export default function WordsPlacementGeneratorForm({
     );
   }
 
+  function renderGroupTranslations(group: WordsPlacementGroup) {
+    const translations = [
+      group.translation,
+      group.translationEnglish,
+      group.translationKorean,
+      group.exampleEnglishTranslation,
+      group.exampleKoreanTranslation,
+    ].filter((text): text is string => Boolean(text?.trim()));
+
+    if (translations.length === 0) return null;
+
+    return (
+      <Stack spacing={0.25} sx={{ mt: 0.5 }}>
+        {translations.map((translation, index) => (
+          <Typography key={`${translation}-${index}`} variant="caption" color="text.secondary">
+            {translation}
+          </Typography>
+        ))}
+      </Stack>
+    );
+  }
+
   return (
     <Box component="form" onSubmit={handleSubmit}>
       <Stack spacing={3}>
@@ -455,6 +477,7 @@ export default function WordsPlacementGeneratorForm({
                         <Typography variant="body2" color="text.secondary" sx={{ mt: 0.25 }}>
                           {group.targetExample}
                         </Typography>
+                        {renderGroupTranslations(group)}
                         <Box sx={{ mt: 0.75 }}>{renderChunkGroup(group.chunks)}</Box>
                       </Box>
                     ))}

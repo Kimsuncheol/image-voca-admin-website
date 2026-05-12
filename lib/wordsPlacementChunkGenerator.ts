@@ -10,6 +10,11 @@ export interface WordPlacementChunk {
 export interface WordsPlacementGroup {
   targetExample: string;
   chunks: WordPlacementChunk[];
+  translation?: string;
+  translationEnglish?: string;
+  translationKorean?: string;
+  exampleEnglishTranslation?: string;
+  exampleKoreanTranslation?: string;
 }
 
 export interface GenerateWordsPlacementChunksInput {

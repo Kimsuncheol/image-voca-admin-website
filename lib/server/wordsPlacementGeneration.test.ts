@@ -34,6 +34,8 @@ describe("words placement generation", () => {
           word: "measure",
           example: `1. He measured the width of the floor.
 2. Valid experiments also must have data that are measurable.`,
+          translation: `1. 그는 바닥의 너비를 측정했다.
+2. 유효한 실험은 측정 가능한 데이터도 있어야 한다.`,
         },
         { id: "word-2", word: "empty", example: "" },
         { id: "word-3", word: "absent", example: "Nothing matches here." },
@@ -50,6 +52,7 @@ describe("words placement generation", () => {
     expect(result.items[0]?.wordsToPlace).toHaveLength(2);
     expect(result.items[0]?.wordsToPlace[1]).toMatchObject({
       targetExample: "Valid experiments also must have data that are measurable.",
+      translation: "유효한 실험은 측정 가능한 데이터도 있어야 한다.",
     });
     expect(result.items[0]?.wordsToPlace[1]?.chunks.at(-1)).toMatchObject({
       text: "measurable.",
@@ -86,6 +89,8 @@ describe("words placement generation", () => {
             data: () => ({
               word: "間",
               example: "家(いえ)と学(がっ)校(こう)の間(あいだ)に公(こう)園(えん)がある。",
+              translationEnglish: "There is a park between my house and school.",
+              translationKorean: "집과 학교 사이에 공원이 있다.",
             }),
           },
         ],
@@ -104,6 +109,8 @@ describe("words placement generation", () => {
     expect(result.courseId).toBe("JLPT_N3");
     expect(result.items[0]?.wordsToPlace[0]).toEqual({
       targetExample: "家と学校の間に公園がある。",
+      translationEnglish: "There is a park between my house and school.",
+      translationKorean: "집과 학교 사이에 공원이 있다.",
       chunks: [
         { id: "jlpt-1-1-chunk-1", text: "家と", type: "sentence_chunk", order: 1 },
         { id: "jlpt-1-1-chunk-2", text: "学校の", type: "sentence_chunk", order: 2 },
@@ -123,8 +130,19 @@ describe("words placement generation", () => {
             data: () => ({
               kanji: "一",
               example: [
+                "marker 없는 예문",
                 "これは[[[いつ]]]でいくらですか。",
                 "[[[一]]]月(いちがつ)新(あたら)しい一(いち)年(ねん)の始(はじ)まりだ。",
+              ],
+              exampleEnglishTranslation: [
+                "Unmarked example.",
+                "How much is this one?",
+                "January is the beginning of a new year.",
+              ],
+              exampleKoreanTranslation: [
+                "마커 없는 예문.",
+                "이것은 한 개에 얼마입니까?",
+                "1월은 새로운 한 해의 시작이다.",
               ],
             }),
           },
@@ -144,6 +162,8 @@ describe("words placement generation", () => {
     expect(result.items[0]?.wordsToPlace).toHaveLength(2);
     expect(result.items[0]?.wordsToPlace[0]).toMatchObject({
       targetExample: "これはいつでいくらですか。",
+      exampleEnglishTranslation: "How much is this one?",
+      exampleKoreanTranslation: "이것은 한 개에 얼마입니까?",
     });
     expect(result.items[0]?.wordsToPlace[0]?.chunks[1]).toMatchObject({
       text: "いつで",
@@ -151,6 +171,8 @@ describe("words placement generation", () => {
     });
     expect(result.items[0]?.wordsToPlace[1]).toMatchObject({
       targetExample: "一月新しい一年の始まりだ。",
+      exampleEnglishTranslation: "January is the beginning of a new year.",
+      exampleKoreanTranslation: "1월은 새로운 한 해의 시작이다.",
     });
     expect(result.items[0]?.wordsToPlace[1]?.chunks[0]).toMatchObject({
       text: "一月",
@@ -167,6 +189,7 @@ describe("words placement generation", () => {
             data: () => ({
               word: "spoil",
               example: "Too much help may spoil your child.",
+              translation: "너무 많은 도움은 아이를 망칠 수 있다.",
             }),
           },
         ],
@@ -185,6 +208,7 @@ describe("words placement generation", () => {
     expect(doc.items[0]?.wordsToPlace).toEqual([
       {
         targetExample: "Too much help may spoil your child.",
+        translation: "너무 많은 도움은 아이를 망칠 수 있다.",
         chunks: [
           { id: "word-1-1-chunk-1", text: "Too much help may", type: "sentence_chunk", order: 1 },
           { id: "word-1-1-chunk-2", text: "spoil", type: "answer", order: 2 },

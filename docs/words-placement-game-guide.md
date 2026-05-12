@@ -1,65 +1,32 @@
 # Words Placement Game Guide
 
+This guide is for implementing the `words_placement` game in `image-voca-app`.
+
+The admin website generates and saves the game data. The app only reads the saved Firestore document and renders the placement game.
+
 ## Firestore Path
 
-Store one game document per course day:
+Read one game document per course day:
 
 ```txt
 {coursePath}/Day{day}/Day{day}-quiz/words_placement/data
 ```
 
-CSAT Day1:
+Example, CSAT Day1:
 
 ```txt
 voca/pdw9crwerFb2qGFltJJY/course/BKQz1pqPyizbHzi1RxKK/CSAT/mNaFSzquidDTdaOq1cS0/Day1/Day1-quiz/words_placement/data
 ```
 
-## Document Shape
+The source day words still live under:
 
-```json
-{
-  "gameType": "words_placement",
-  "courseId": "CSAT",
-  "dayId": "Day1",
-  "version": 1,
-  "items": [
-    {
-      "wordId": "4zvOkwPDRV0zidNHAhc3",
-      "word": "spoil",
-      "example": "Too much help may spoil your child.",
-      "wordsToPlace": [
-        {
-          "targetExample": "Too much help may spoil your child.",
-          "chunks": [
-            {
-              "id": "4zvokwpdrv0zidnhahc3-1-chunk-1",
-              "text": "Too much help may",
-              "type": "sentence_chunk",
-              "order": 1
-            },
-            {
-              "id": "4zvokwpdrv0zidnhahc3-1-chunk-2",
-              "text": "spoil",
-              "type": "answer",
-              "order": 2
-            },
-            {
-              "id": "4zvokwpdrv0zidnhahc3-1-chunk-3",
-              "text": "your child.",
-              "type": "sentence_chunk",
-              "order": 3
-            }
-          ]
-        }
-      ]
-    }
-  ],
-  "createdAt": "Firestore Timestamp",
-  "updatedAt": "Firestore Timestamp"
-}
+```txt
+{coursePath}/Day{day}
 ```
 
-## Types
+The app should not generate chunks from the source words. It should use only the saved `words_placement/data` document.
+
+## Firestore Schema
 
 ```ts
 type WordsPlacementGameDoc = {
@@ -76,12 +43,23 @@ type WordsPlacementItem = {
   wordId: string;
   word: string;
   example: string;
-  wordsToPlace: WordPlacementChunkGroup[];
+  wordsToPlace: WordsPlacementGroup[];
 };
 
-type WordPlacementChunkGroup = {
+type WordsPlacementGroup = {
   targetExample: string;
   chunks: WordPlacementChunk[];
+
+  // English courses
+  translation?: string;
+
+  // JLPT
+  translationEnglish?: string;
+  translationKorean?: string;
+
+  // Kanji
+  exampleEnglishTranslation?: string;
+  exampleKoreanTranslation?: string;
 };
 
 type WordPlacementChunk = {
@@ -92,80 +70,147 @@ type WordPlacementChunk = {
 };
 ```
 
-`wordsToPlace` is an array of chunk groups because one Firestore `example` field can contain multiple numbered examples or sentences. Each group has the cleaned `targetExample` shown to the app/admin UI and a `chunks` array for one reconstruction task.
+`item.example` is raw source/debug data. Do not render it as the game sentence. It can contain JLPT readings like `家(いえ)` or Kanji markers like `[[[一]]]`.
 
-Do not store `WordPlacementChunk[][]` directly in Firestore. Firestore does not allow arrays that directly contain arrays. Store each group as `{ targetExample, chunks }`.
+Use `group.targetExample` as the clean sentence for the game.
 
-## Generator Rules
+## Playable Round Model
 
-English:
-
-- Remove numbered prefixes such as `1.` and `2.`.
-- Generate one chunk group per line or sentence.
-- Find the vocabulary word or a common derived form in each sentence.
-- Split the sentence into `before`, `answer`, and `after` chunks.
-- Keep punctuation attached to a useful text chunk.
-- Never generate standalone punctuation chunks such as `"."`, `","`, or `"\""`.
-- Store chunks in correct sentence order and use `order` for validation.
-- Shuffle chunks only in the app UI.
-
-JLPT:
-
-- Strip reading parentheses before matching and chunking, e.g. `家(いえ)` becomes `家`.
-- Tokenize server-side with `kuromoji`.
-- Match the target word by token surface form, base form, or compound containment.
-- Attach particles such as `に`, `を`, `は`, `が`, `と`, and `の` to the previous useful chunk.
-- Attach sentence punctuation such as `。` to the previous useful chunk.
-
-Kanji:
-
-- Use `[[[...]]]` markers as the answer source of truth.
-- Strip reading parentheses from output chunks.
-- Expand marked answers into useful compounds, e.g. `[[[一]]]月(いちがつ)` becomes `一月`.
-- Attach particles for kana answers, e.g. `[[[いつ]]]で` becomes `いつで`.
-- Skip examples without markers.
-
-## Examples
+Each `wordsToPlace` group is one playable round. One word item can produce multiple rounds.
 
 ```ts
-generateWordsPlacementChunks({
-  word: "measure",
-  example: `1. He measured the width of the floor.
-2. Valid experiments also must have data that are measurable.`,
-});
+type WordsPlacementRound = {
+  roundId: string;
+  wordId: string;
+  word: string;
+  targetExample: string;
+  chunks: WordPlacementChunk[];
+  translations: string[];
+};
+
+function getGroupTranslations(group: WordsPlacementGroup): string[] {
+  return [
+    group.translation,
+    group.translationEnglish,
+    group.translationKorean,
+    group.exampleEnglishTranslation,
+    group.exampleKoreanTranslation,
+  ].filter((value): value is string => Boolean(value?.trim()));
+}
+
+function buildWordsPlacementRounds(doc: WordsPlacementGameDoc): WordsPlacementRound[] {
+  return doc.items.flatMap((item) =>
+    item.wordsToPlace.map((group, groupIndex) => ({
+      roundId: `${item.wordId}-${groupIndex}`,
+      wordId: item.wordId,
+      word: item.word,
+      targetExample: group.targetExample,
+      chunks: group.chunks,
+      translations: getGroupTranslations(group),
+    })),
+  );
+}
 ```
+
+## Game Behavior
+
+For each round:
+
+1. Show `round.word` as the prompt.
+2. Shuffle `round.chunks` for the choice chips.
+3. Let the user place chips into an answer area.
+4. Validate the placed chip order against `chunk.order`.
+5. On success, show `round.targetExample` and the available translations.
+
+Do not validate by comparing text. Use chunk IDs or `order`, because different chunks can theoretically have the same text.
+
+```ts
+function getAnswerChunks(chunks: WordPlacementChunk[]): WordPlacementChunk[] {
+  return [...chunks].sort((a, b) => a.order - b.order);
+}
+
+function isCorrectPlacement(
+  selectedChunks: WordPlacementChunk[],
+  answerChunks: WordPlacementChunk[],
+): boolean {
+  const correctIds = getAnswerChunks(answerChunks).map((chunk) => chunk.id);
+  const selectedIds = selectedChunks.map((chunk) => chunk.id);
+
+  return (
+    selectedIds.length === correctIds.length &&
+    selectedIds.every((id, index) => id === correctIds[index])
+  );
+}
+```
+
+Shuffle only the UI choices. Never mutate the original `chunks` array when building the answer.
+
+## Course Examples
+
+English course group:
 
 ```json
-[
-  {
-    "targetExample": "He measured the width of the floor.",
-    "chunks": [
-      { "id": "measure-1-chunk-1", "text": "He", "type": "sentence_chunk", "order": 1 },
-      { "id": "measure-1-chunk-2", "text": "measured", "type": "answer", "order": 2 },
-      { "id": "measure-1-chunk-3", "text": "the width of", "type": "sentence_chunk", "order": 3 },
-      { "id": "measure-1-chunk-4", "text": "the floor.", "type": "sentence_chunk", "order": 4 }
-    ]
-  },
-  {
-    "targetExample": "Valid experiments also must have data that are measurable.",
-    "chunks": [
-      { "id": "measure-2-chunk-1", "text": "Valid experiments also", "type": "sentence_chunk", "order": 1 },
-      { "id": "measure-2-chunk-2", "text": "must have data", "type": "sentence_chunk", "order": 2 },
-      { "id": "measure-2-chunk-3", "text": "that are", "type": "sentence_chunk", "order": 3 },
-      { "id": "measure-2-chunk-4", "text": "measurable.", "type": "answer", "order": 4 }
-    ]
-  }
-]
+{
+  "targetExample": "Too much help may spoil your child.",
+  "translation": "너무 많은 도움은 아이를 망칠 수 있다.",
+  "chunks": [
+    { "id": "word-1-1-chunk-1", "text": "Too much help may", "type": "sentence_chunk", "order": 1 },
+    { "id": "word-1-1-chunk-2", "text": "spoil", "type": "answer", "order": 2 },
+    { "id": "word-1-1-chunk-3", "text": "your child.", "type": "sentence_chunk", "order": 3 }
+  ]
+}
 ```
 
-## App Behavior
+JLPT group:
 
-For each `WordsPlacementItem`:
+```json
+{
+  "targetExample": "家と学校の間に公園がある。",
+  "translationEnglish": "There is a park between my house and school.",
+  "translationKorean": "집과 학교 사이에 공원이 있다.",
+  "chunks": [
+    { "id": "jlpt-1-1-chunk-1", "text": "家と", "type": "sentence_chunk", "order": 1 },
+    { "id": "jlpt-1-1-chunk-2", "text": "学校の", "type": "sentence_chunk", "order": 2 },
+    { "id": "jlpt-1-1-chunk-3", "text": "間に", "type": "answer", "order": 3 },
+    { "id": "jlpt-1-1-chunk-4", "text": "公園が", "type": "sentence_chunk", "order": 4 },
+    { "id": "jlpt-1-1-chunk-5", "text": "ある。", "type": "sentence_chunk", "order": 5 }
+  ]
+}
+```
 
-1. Pick one `wordsToPlace` group.
-2. Shuffle that group's `chunks` for display.
-3. Let the user place chunks into ordered slots.
-4. Validate by comparing selected chunk IDs sorted by slot position against chunks sorted by `order`.
-5. Reconstruct the sentence by joining ordered chunk text with spaces.
+Kanji group:
 
-The app should treat `wordId` as the identity. Do not use `word` or chunk text as a unique key because duplicate words can exist in the same day.
+```json
+{
+  "targetExample": "これはいつでいくらですか。",
+  "exampleEnglishTranslation": "How much is this one?",
+  "exampleKoreanTranslation": "이것은 한 개에 얼마입니까?",
+  "chunks": [
+    { "id": "kanji-1-1-chunk-1", "text": "これは", "type": "sentence_chunk", "order": 1 },
+    { "id": "kanji-1-1-chunk-2", "text": "いつで", "type": "answer", "order": 2 },
+    { "id": "kanji-1-1-chunk-3", "text": "いくらですか。", "type": "sentence_chunk", "order": 3 }
+  ]
+}
+```
+
+## UI Recommendations
+
+- Display the word prompt prominently.
+- Display shuffled chunks as tappable chips.
+- Move selected chips into a stable answer area.
+- Let users tap a selected chip to return it to choices.
+- Disable submit until all chunks are placed.
+- On wrong answer, keep the placed chunks and allow retry.
+- On correct answer, reveal `targetExample` and translations.
+
+For Japanese rounds, chunks should be joined without inserting extra spaces. For English rounds, displaying chips separately is usually better than reconstructing with manual spacing.
+
+## Data Rules
+
+- `wordsToPlace[n]` is the playable unit.
+- `targetExample` is the clean sentence.
+- `chunks` are already in the correct answer order by `order`.
+- `type: "answer"` marks the vocabulary chunk, useful for review/highlight after submission.
+- Translation fields are optional but generated as empty strings when source translations are missing.
+- Do not rely on `item.example` for app display.
+- Do not store or expect nested arrays like `WordPlacementChunk[][]`; Firestore stores group objects.

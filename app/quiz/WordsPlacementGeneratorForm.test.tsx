@@ -124,6 +124,7 @@ describe("WordsPlacementGeneratorForm", () => {
             wordsToPlace: [
               {
                 targetExample: "Too much help may spoil your child.",
+                translation: "너무 많은 도움은 아이를 망칠 수 있다.",
                 chunks: [
                   { id: "word-1-1-chunk-1", text: "Too much help may", type: "sentence_chunk", order: 1 },
                   { id: "word-1-1-chunk-2", text: "spoil", type: "answer", order: 2 },
@@ -164,6 +165,7 @@ describe("WordsPlacementGeneratorForm", () => {
     await waitFor(() => {
       expect(document.body.textContent).toContain("Generated 1 words placement items.");
       expect(document.body.textContent).toContain("Too much help may");
+      expect(document.body.textContent).toContain("너무 많은 도움은 아이를 망칠 수 있다.");
       expect(document.body.textContent).toContain("2. spoil");
       expect(document.body.textContent).toContain("your child.");
     });
@@ -208,6 +210,8 @@ describe("WordsPlacementGeneratorForm", () => {
             wordsToPlace: [
               {
                 targetExample: "家と学校の間に公園がある。",
+                translationEnglish: "There is a park between my house and school.",
+                translationKorean: "집과 학교 사이에 공원이 있다.",
                 chunks: [
                   { id: "jlpt-1-1-chunk-1", text: "家と", type: "sentence_chunk", order: 1 },
                   { id: "jlpt-1-1-chunk-2", text: "学校の", type: "sentence_chunk", order: 2 },
@@ -235,6 +239,8 @@ describe("WordsPlacementGeneratorForm", () => {
 
     await waitFor(() => {
       expect(document.body.textContent).toContain("家と学校の間に公園がある。");
+      expect(document.body.textContent).toContain("There is a park between my house and school.");
+      expect(document.body.textContent).toContain("집과 학교 사이에 공원이 있다.");
       expect(document.body.textContent).not.toContain("家(いえ)");
       expect(document.body.textContent).not.toContain("公(こう)");
     });

@@ -96,6 +96,61 @@ function resolveTargetText(word: RawWordDoc): string {
   return "";
 }
 
+const NUMBERED_TRANSLATION_PATTERN = /^\s*\d+[.)]\s*/;
+
+function normalizeTextField(value: unknown): string {
+  return hasText(value) ? value.trim() : "";
+}
+
+function splitTranslationLines(value: unknown): Array<{ text: string; numbered: boolean }> {
+  if (!hasText(value)) return [];
+  return value
+    .replace(/\r\n?/g, "\n")
+    .split("\n")
+    .map((line) => {
+      const numbered = NUMBERED_TRANSLATION_PATTERN.test(line);
+      return {
+        text: line.replace(NUMBERED_TRANSLATION_PATTERN, "").trim(),
+        numbered,
+      };
+    })
+    .filter((line) => line.text.length > 0);
+}
+
+function resolveIndexedTranslation(value: unknown, index: number, totalGroups: number): string {
+  const lines = splitTranslationLines(value);
+  const numberedLines = lines.filter((line) => line.numbered);
+  if (numberedLines.length >= totalGroups) return numberedLines[index]?.text ?? "";
+  if (totalGroups > 1 && lines.length >= totalGroups) return lines[index]?.text ?? "";
+  return normalizeTextField(value);
+}
+
+function withEnglishTranslations(
+  groups: WordsPlacementGroup[],
+  wordDoc: RawWordDoc,
+): WordsPlacementGroup[] {
+  return groups.map((group, index) => ({
+    ...group,
+    translation: resolveIndexedTranslation(wordDoc.translation, index, groups.length),
+  }));
+}
+
+function withJlptTranslations(
+  groups: WordsPlacementGroup[],
+  wordDoc: RawWordDoc,
+): WordsPlacementGroup[] {
+  return groups.map((group, index) => ({
+    ...group,
+    translationEnglish: resolveIndexedTranslation(wordDoc.translationEnglish, index, groups.length),
+    translationKorean: resolveIndexedTranslation(wordDoc.translationKorean, index, groups.length),
+  }));
+}
+
+function getStringArray(value: unknown): string[] {
+  if (Array.isArray(value)) return value.map((item) => normalizeTextField(item));
+  return [];
+}
+
 export function buildWordsPlacementResult({
   courseId,
   day,
@@ -148,11 +203,14 @@ function buildWordsPlacementResultFromItems({
       continue;
     }
 
-    const wordsToPlace = precomputedWordsToPlace ?? generateWordsPlacementChunks({
-      word: targetText,
-      example,
-      wordId: wordDoc.id,
-    });
+    const wordsToPlace = precomputedWordsToPlace ?? withEnglishTranslations(
+      generateWordsPlacementChunks({
+        word: targetText,
+        example,
+        wordId: wordDoc.id,
+      }),
+      wordDoc,
+    );
 
     if (wordsToPlace.length === 0) {
       skipped.push({
@@ -198,11 +256,14 @@ async function buildCourseAwareWordsPlacementResult({
         return {
           wordDoc,
           wordsToPlace: targetText && example
-            ? await generateJapaneseWordsPlacementChunks({
-                word: targetText,
-                example,
-                wordId: wordDoc.id,
-              })
+            ? withJlptTranslations(
+                await generateJapaneseWordsPlacementChunks({
+                  word: targetText,
+                  example,
+                  wordId: wordDoc.id,
+                }),
+                wordDoc,
+              )
             : null,
         };
       }),
@@ -211,19 +272,34 @@ async function buildCourseAwareWordsPlacementResult({
   }
 
   if (courseId === "KANJI") {
-    const items = words.map((wordDoc) => ({
-      wordDoc: {
-        ...wordDoc,
-        word: hasText(wordDoc.kanji) ? wordDoc.kanji : wordDoc.word,
-        example: Array.isArray(wordDoc.example)
-          ? wordDoc.example.join("\n")
-          : wordDoc.example,
-      },
-      wordsToPlace: generateKanjiWordsPlacementChunks({
-        example: Array.isArray(wordDoc.example) ? wordDoc.example : String(wordDoc.example ?? ""),
-        wordId: wordDoc.id,
-      }),
-    }));
+    const items = words.map((wordDoc) => {
+      const rawExamples = Array.isArray(wordDoc.example)
+        ? wordDoc.example
+        : [String(wordDoc.example ?? "")];
+      const englishTranslations = getStringArray(wordDoc.exampleEnglishTranslation);
+      const koreanTranslations = getStringArray(wordDoc.exampleKoreanTranslation);
+      const wordsToPlace = rawExamples.flatMap((rawExample, index) =>
+        generateKanjiWordsPlacementChunks({
+          example: String(rawExample),
+          wordId: wordDoc.id,
+        }).map((group) => ({
+          ...group,
+          exampleEnglishTranslation: englishTranslations[index] ?? "",
+          exampleKoreanTranslation: koreanTranslations[index] ?? "",
+        })),
+      );
+
+      return {
+        wordDoc: {
+          ...wordDoc,
+          word: hasText(wordDoc.kanji) ? wordDoc.kanji : wordDoc.word,
+          example: Array.isArray(wordDoc.example)
+            ? wordDoc.example.join("\n")
+            : wordDoc.example,
+        },
+        wordsToPlace,
+      };
+    });
     return buildWordsPlacementResultFromItems({ courseId, day, items });
   }
 
@@ -240,7 +316,7 @@ export function toFirestoreWordsPlacementDoc(
     version: result.version,
     items: result.items.map((item) => ({
       ...item,
-    wordsToPlace: item.wordsToPlace,
+      wordsToPlace: item.wordsToPlace,
     })),
     createdAt: FieldValue.serverTimestamp(),
     updatedAt: FieldValue.serverTimestamp(),
