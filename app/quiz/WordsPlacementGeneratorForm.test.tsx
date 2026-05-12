@@ -72,6 +72,24 @@ function findButton(label: string) {
   return button;
 }
 
+function getDayInput() {
+  const input = document.querySelector<HTMLInputElement>('input[type="number"]');
+  expect(input).toBeTruthy();
+  return input;
+}
+
+async function setInputValue(input: HTMLInputElement, value: string) {
+  await act(async () => {
+    const valueSetter = Object.getOwnPropertyDescriptor(
+      HTMLInputElement.prototype,
+      "value",
+    )?.set;
+    valueSetter?.call(input, value);
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    input.dispatchEvent(new Event("change", { bubbles: true }));
+  });
+}
+
 async function selectVisibleOption(currentText: string, optionText: string) {
   const select = Array.from(document.querySelectorAll('[role="combobox"]')).find(
     (node) => node.textContent === currentText,
@@ -104,6 +122,7 @@ describe("WordsPlacementGeneratorForm", () => {
     rendered?.unmount();
     rendered = null;
     document.body.innerHTML = "";
+    vi.useRealTimers();
     vi.restoreAllMocks();
   });
 
@@ -297,6 +316,127 @@ describe("WordsPlacementGeneratorForm", () => {
         day?: number;
       };
       expect(latestBody).toEqual({ course: "JLPT", level: "N3", day: 1 });
+    });
+  });
+
+  it("auto-generates after day changes without clearing the current preview", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(async (url, init) => {
+      if (String(url).startsWith("/api/text/quiz-generate/count")) {
+        return Response.json({ max_days: 20, max_count: 1 });
+      }
+
+      const body = JSON.parse(String(init?.body)) as { day?: number; save?: boolean };
+      return Response.json({
+        gameType: "words_placement",
+        courseId: "CSAT",
+        dayId: `Day${body.day}`,
+        version: 1,
+        items: [
+          {
+            wordId: `word-${body.day}`,
+            word: `word-${body.day}`,
+            example: `Day ${body.day} example.`,
+            wordsToPlace: [
+              {
+                targetExample: `Day ${body.day} example.`,
+                chunks: [
+                  { id: `chunk-${body.day}`, text: `Day ${body.day}`, type: "answer", order: 1 },
+                ],
+              },
+            ],
+          },
+        ],
+        skipped: [],
+      });
+    });
+
+    rendered = renderForm(<WordsPlacementGeneratorForm {...defaultProps} />);
+
+    await waitFor(() => {
+      expect(getDayInput().max).toBe("20");
+    });
+
+    await act(async () => {
+      findButton("Generate Words Placement")?.dispatchEvent(
+        new MouseEvent("click", { bubbles: true }),
+      );
+    });
+
+    await waitFor(() => {
+      expect(document.body.textContent).toContain("Day 1 example.");
+    });
+
+    vi.useFakeTimers();
+    await setInputValue(getDayInput(), "2");
+    await act(async () => {
+      await Promise.resolve();
+      vi.advanceTimersByTime(3000);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(document.body.textContent).toContain("Day 2 example.");
+    const generateBodies = fetchMock.mock.calls
+      .filter(([url]) => url === "/api/admin/words-placement/generate")
+      .map(([, init]) => JSON.parse(String(init?.body)) as { day?: number; save?: boolean });
+    expect(generateBodies).toEqual([
+      { course: "CSAT", day: 1 },
+      { course: "CSAT", day: 2 },
+    ]);
+  });
+
+  it("includes JLPT level in debounced auto-generation requests", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(async (url, init) => {
+      if (String(url).startsWith("/api/text/quiz-generate/count")) {
+        return Response.json({ max_days: 20, max_count: 1 });
+      }
+
+      const body = JSON.parse(String(init?.body)) as { day?: number };
+      return Response.json({
+        gameType: "words_placement",
+        courseId: "JLPT_N3",
+        dayId: `Day${body.day}`,
+        version: 1,
+        items: [],
+        skipped: [],
+      });
+    });
+
+    rendered = renderForm(<WordsPlacementGeneratorForm {...defaultProps} />);
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        "/api/text/quiz-generate/count?course=CSAT&day=1",
+        expect.any(Object),
+      );
+    });
+
+    await selectVisibleOption("English", "Japanese");
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        "/api/text/quiz-generate/count?course=JLPT&day=1&level=N3",
+        expect.any(Object),
+      );
+    });
+
+    vi.useFakeTimers();
+    await setInputValue(getDayInput(), "2");
+    await act(async () => {
+      await Promise.resolve();
+      vi.advanceTimersByTime(3000);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    const generateCall = fetchMock.mock.calls.find(
+      ([url]) => url === "/api/admin/words-placement/generate",
+    );
+    expect(generateCall).toBeTruthy();
+    expect(JSON.parse(String(generateCall?.[1]?.body))).toEqual({
+      course: "JLPT",
+      level: "N3",
+      day: 2,
     });
   });
 });

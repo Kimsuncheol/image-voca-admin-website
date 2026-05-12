@@ -94,6 +94,18 @@ function getDayInput() {
   return dayInput;
 }
 
+async function setInputValue(input: HTMLInputElement, value: string) {
+  await act(async () => {
+    const valueSetter = Object.getOwnPropertyDescriptor(
+      HTMLInputElement.prototype,
+      "value",
+    )?.set;
+    valueSetter?.call(input, value);
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    input.dispatchEvent(new Event("change", { bubbles: true }));
+  });
+}
+
 describe("QuizGeneratorForm", () => {
   let rendered: ReturnType<typeof renderForm> | null = null;
 
@@ -106,6 +118,7 @@ describe("QuizGeneratorForm", () => {
     rendered?.unmount();
     rendered = null;
     document.body.innerHTML = "";
+    vi.useRealTimers();
     vi.restoreAllMocks();
   });
 
@@ -524,5 +537,120 @@ describe("QuizGeneratorForm", () => {
         "Pop quiz storage path is not configured.",
       );
     });
+  });
+
+  it("auto-generates three seconds after day changes without clearing the current preview", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(async (url, init) => {
+      if (String(url).startsWith("/api/text/quiz-generate/count")) {
+        return Response.json({ max_days: 20, max_count: 1 });
+      }
+
+      const body = JSON.parse(String(init?.body)) as { day?: number };
+      return Response.json({
+        quiz_type: "matching",
+        language: "english",
+        course: "TOEIC",
+        level: null,
+        day: body.day,
+        items: [{ id: `item-${body.day}`, word: `day-${body.day}`, meaning: "meaning" }],
+        choices: [{ id: `choice-${body.day}`, word: `choice-${body.day}`, meaning: "meaning" }],
+        answer_key: [{ item_id: `item-${body.day}`, choice_id: `choice-${body.day}` }],
+      });
+    });
+
+    rendered = renderForm(<QuizGeneratorForm {...defaultProps} />);
+
+    await waitFor(() => {
+      expect(getCountInput().value).toBe("1");
+    });
+
+    await act(async () => {
+      Array.from(document.querySelectorAll("button"))
+        .find((node) => node.textContent === "Generate Quiz")
+        ?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    await waitFor(() => {
+      expect(document.body.textContent).toContain("day-1");
+    });
+
+    vi.useFakeTimers();
+    await setInputValue(getDayInput(), "2");
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(document.body.textContent).toContain("day-1");
+    expect(fetchMock.mock.calls.filter(([url]) => url === "/api/text/quiz-generate")).toHaveLength(1);
+
+    await act(async () => {
+      vi.advanceTimersByTime(2999);
+      await Promise.resolve();
+    });
+
+    expect(document.body.textContent).toContain("day-1");
+    expect(fetchMock.mock.calls.filter(([url]) => url === "/api/text/quiz-generate")).toHaveLength(1);
+
+    await act(async () => {
+      vi.advanceTimersByTime(1);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    await waitFor(() => {
+      expect(document.body.textContent).toContain("day-2");
+    });
+  });
+
+  it("does not clear or regenerate when day changes back to the already generated day before debounce fires", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(async (url, init) => {
+      if (String(url).startsWith("/api/text/quiz-generate/count")) {
+        return Response.json({ max_days: 20, max_count: 1 });
+      }
+
+      const body = JSON.parse(String(init?.body)) as { day?: number };
+      return Response.json({
+        quiz_type: "matching",
+        language: "english",
+        course: "TOEIC",
+        level: null,
+        day: body.day,
+        items: [{ id: `item-${body.day}`, word: `day-${body.day}`, meaning: "meaning" }],
+        choices: [{ id: `choice-${body.day}`, word: `choice-${body.day}`, meaning: "meaning" }],
+        answer_key: [{ item_id: `item-${body.day}`, choice_id: `choice-${body.day}` }],
+      });
+    });
+
+    rendered = renderForm(<QuizGeneratorForm {...defaultProps} />);
+
+    await waitFor(() => {
+      expect(getCountInput().value).toBe("1");
+    });
+
+    await act(async () => {
+      Array.from(document.querySelectorAll("button"))
+        .find((node) => node.textContent === "Generate Quiz")
+        ?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    await waitFor(() => {
+      expect(document.body.textContent).toContain("day-1");
+    });
+
+    vi.useFakeTimers();
+    await setInputValue(getDayInput(), "2");
+    await act(async () => {
+      await Promise.resolve();
+      vi.advanceTimersByTime(1000);
+    });
+    await setInputValue(getDayInput(), "1");
+    await act(async () => {
+      await Promise.resolve();
+      vi.advanceTimersByTime(3000);
+      await Promise.resolve();
+    });
+
+    expect(document.body.textContent).toContain("day-1");
+    expect(fetchMock.mock.calls.filter(([url]) => url === "/api/text/quiz-generate")).toHaveLength(1);
   });
 });

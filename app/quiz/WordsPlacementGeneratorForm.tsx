@@ -57,6 +57,13 @@ interface WordsPlacementResponse {
   error?: string;
 }
 
+type PreviewMeta = {
+  course: Course;
+  level: JlptLevel | null;
+  day: number;
+  language: Language;
+};
+
 interface CountResponse {
   max_days?: number;
   max_count?: number;
@@ -116,17 +123,20 @@ export default function WordsPlacementGeneratorForm({
   const [level, setLevel] = useState<JlptLevel>("N3");
   const [day, setDay] = useState<number | string>(1);
   const [result, setResult] = useState<WordsPlacementResponse | null>(null);
+  const [resultMeta, setResultMeta] = useState<PreviewMeta | null>(null);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [saveError, setSaveError] = useState("");
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [dayTouched, setDayTouched] = useState(false);
   const [maxDays, setMaxDays] = useState<number | null>(null);
   const [dayWordCount, setDayWordCount] = useState<number | null>(null);
   const [dayAutoFilledMax, setDayAutoFilledMax] = useState(false);
   const [countLoading, setCountLoading] = useState(false);
   const [countError, setCountError] = useState("");
   const dayMaxErrorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const generationRequestIdRef = useRef(0);
 
   const flashDayMaxError = useCallback(() => {
     setDayAutoFilledMax(true);
@@ -195,7 +205,25 @@ export default function WordsPlacementGeneratorForm({
   const hasLimitError = invalidDay || dayExceedsMax || selectedDayHasNoWords;
   const generateDisabled = loading || saving || countLoading || dayWordCount === null || hasLimitError;
 
-  async function requestGeneration(save: boolean) {
+  const buildPreviewMeta = useCallback((): PreviewMeta | null => {
+    if (!Number.isInteger(dayNumber) || dayNumber < 1) return null;
+    return {
+      course,
+      level: course === "JLPT" ? level : null,
+      day: dayNumber,
+      language,
+    };
+  }, [course, dayNumber, language, level]);
+
+  const previewMetaMatches = useCallback((left: PreviewMeta | null, right: PreviewMeta | null) => (
+    Boolean(left && right) &&
+    left?.course === right?.course &&
+    left?.level === right?.level &&
+    left?.day === right?.day &&
+    left?.language === right?.language
+  ), []);
+
+  const requestGeneration = useCallback(async (save: boolean) => {
     const response = await fetch("/api/admin/words-placement/generate", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -209,28 +237,77 @@ export default function WordsPlacementGeneratorForm({
     const data = (await response.json()) as WordsPlacementResponse;
     if (!response.ok) throw new Error(data.error || networkErrorMsg);
     return data;
-  }
+  }, [course, dayNumber, level, networkErrorMsg]);
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  const generatePreview = useCallback(async () => {
     if (hasLimitError || dayWordCount === null) {
       setError(selectedDayHasNoWords ? "The selected day has no words." : networkErrorMsg);
-      return;
+      return false;
     }
+
+    const requestMeta = buildPreviewMeta();
+    if (!requestMeta) {
+      setError(networkErrorMsg);
+      return false;
+    }
+    const requestId = ++generationRequestIdRef.current;
 
     setLoading(true);
     setError("");
     setSaveError("");
     setSaveSuccess(false);
-    setResult(null);
 
     try {
-      setResult(await requestGeneration(false));
+      const data = await requestGeneration(false);
+      if (requestId !== generationRequestIdRef.current) return false;
+      setResult(data);
+      setResultMeta(requestMeta);
+      return true;
     } catch (err) {
-      setError(err instanceof Error ? err.message : networkErrorMsg);
+      if (requestId === generationRequestIdRef.current) {
+        setError(err instanceof Error ? err.message : networkErrorMsg);
+      }
+      return false;
     } finally {
-      setLoading(false);
+      if (requestId === generationRequestIdRef.current) setLoading(false);
     }
+  }, [
+    buildPreviewMeta,
+    dayWordCount,
+    hasLimitError,
+    networkErrorMsg,
+    requestGeneration,
+    selectedDayHasNoWords,
+  ]);
+
+  useEffect(() => {
+    if (!dayTouched || generateDisabled) return;
+
+    const nextMeta = buildPreviewMeta();
+    if (previewMetaMatches(resultMeta, nextMeta)) {
+      setDayTouched(false);
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      setDayTouched(false);
+      void generatePreview();
+    }, 3000);
+
+    return () => clearTimeout(timer);
+  }, [
+    buildPreviewMeta,
+    dayTouched,
+    generateDisabled,
+    generatePreview,
+    previewMetaMatches,
+    resultMeta,
+  ]);
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setDayTouched(false);
+    await generatePreview();
   }
 
   async function handleSave() {
@@ -243,6 +320,7 @@ export default function WordsPlacementGeneratorForm({
     try {
       const saved = await requestGeneration(true);
       setResult(saved);
+      setResultMeta(buildPreviewMeta());
       setSaveSuccess(true);
     } catch (err) {
       setSaveError(err instanceof Error ? err.message : saveErrorMsg);
@@ -252,10 +330,13 @@ export default function WordsPlacementGeneratorForm({
   }
 
   function handleReset() {
+    generationRequestIdRef.current += 1;
     setResult(null);
+    setResultMeta(null);
     setError("");
     setSaveError("");
     setSaveSuccess(false);
+    setDayTouched(false);
   }
 
   function renderChunkGroup(group: WordPlacementChunk[]) {
@@ -370,15 +451,20 @@ export default function WordsPlacementGeneratorForm({
                   Number.isInteger(nextDay) &&
                   nextDay > maxDays
                 ) {
+                  setDayTouched(true);
                   setDay(maxDays);
                   flashDayMaxError();
                   return;
                 }
                 setDayAutoFilledMax(false);
+                setDayTouched(true);
                 setDay(rawValue);
               }}
               onBlur={() => {
                 const value = parseInt(String(day), 10);
+                if (!Number.isInteger(value) || value < 1 || value !== day) {
+                  setDayTouched(true);
+                }
                 setDay(Number.isInteger(value) && value > 0 ? value : 1);
               }}
               onFocus={(e) => e.target.select()}

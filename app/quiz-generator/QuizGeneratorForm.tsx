@@ -91,6 +91,16 @@ type FillBlankQuizResponse = {
 type QuizResponse = MatchingQuizResponse | FillBlankQuizResponse;
 type SaveTarget = "quiz" | "pop_quiz";
 
+type PreviewMeta = {
+  course: Course;
+  level: JlptLevel | null;
+  day: number;
+  quizType: QuizType;
+  count: number;
+  language: Language;
+  saveTarget: SaveTarget;
+};
+
 type QuizCountResponse = {
   max_days?: number;
   max_count?: number;
@@ -214,6 +224,7 @@ export default function QuizGeneratorForm({
   const [day, setDay] = useState<number | string>(1);
   const [count, setCount] = useState<number | string>(10);
   const [result, setResult] = useState<QuizResponse | null>(null);
+  const [resultMeta, setResultMeta] = useState<PreviewMeta | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [maxDays, setMaxDays] = useState<number | null>(null);
@@ -222,9 +233,11 @@ export default function QuizGeneratorForm({
   const [countAutoFilledMax, setCountAutoFilledMax] = useState(false);
   const [countLoading, setCountLoading] = useState(false);
   const [countError, setCountError] = useState("");
+  const [dayTouched, setDayTouched] = useState(false);
   const countRef = useRef<number | string>(count);
   const dayMaxErrorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const countMaxErrorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const generationRequestIdRef = useRef(0);
   const [shownAnswers, setShownAnswers] = useState<Set<string>>(new Set());
   const [adding, setAdding] = useState(false);
   const [saveError, setSaveError] = useState("");
@@ -369,24 +382,63 @@ export default function QuizGeneratorForm({
   const generateDisabled =
     loading || adding || countUnavailable || hasLimitError;
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  const buildPreviewMeta = useCallback((): PreviewMeta | null => {
+    if (
+      !Number.isInteger(dayNumber) ||
+      dayNumber < 1 ||
+      !Number.isInteger(countNumber) ||
+      countNumber < 1
+    ) {
+      return null;
+    }
+
+    return {
+      course,
+      level: course === "JLPT" ? level : null,
+      day: dayNumber,
+      quizType,
+      count: countNumber,
+      language,
+      saveTarget,
+    };
+  }, [course, countNumber, dayNumber, language, level, quizType, saveTarget]);
+
+  const previewMetaMatches = useCallback((left: PreviewMeta | null, right: PreviewMeta | null) => (
+    Boolean(left && right) &&
+    left?.course === right?.course &&
+    left?.level === right?.level &&
+    left?.day === right?.day &&
+    left?.quizType === right?.quizType &&
+    left?.count === right?.count &&
+    left?.language === right?.language &&
+    left?.saveTarget === right?.saveTarget
+  ), []);
+
+  const generatePreview = useCallback(async () => {
     if (selectedDayHasNoWords) {
       setError("The selected day has no words.");
-      return;
+      return false;
     }
     if (hasLimitError) {
       setError("Day or question count exceeds the available maximum.");
-      return;
+      return false;
     }
     if (countUnavailable) {
       setError(networkErrorMsg);
-      return;
+      return false;
     }
+
+    const requestMeta = buildPreviewMeta();
+    if (!requestMeta) {
+      setError(networkErrorMsg);
+      return false;
+    }
+    const requestId = ++generationRequestIdRef.current;
 
     setLoading(true);
     setError("");
-    setResult(null);
+    setSaveError("");
+    setSaveSuccess(false);
     setShownAnswers(new Set());
 
     try {
@@ -407,24 +459,74 @@ export default function QuizGeneratorForm({
 
       console.log("Server response:", data);
 
+      if (requestId !== generationRequestIdRef.current) return false;
+
       if (!response.ok) {
         setError(networkErrorMsg);
-        return;
+        return false;
       }
 
       setResult(data);
+      setResultMeta(requestMeta);
+      return true;
     } catch {
-      setError(networkErrorMsg);
+      if (requestId === generationRequestIdRef.current) setError(networkErrorMsg);
+      return false;
     } finally {
-      setLoading(false);
+      if (requestId === generationRequestIdRef.current) setLoading(false);
     }
+  }, [
+    buildPreviewMeta,
+    countNumber,
+    countUnavailable,
+    course,
+    dayNumber,
+    hasLimitError,
+    language,
+    level,
+    networkErrorMsg,
+    quizType,
+    selectedDayHasNoWords,
+  ]);
+
+  useEffect(() => {
+    if (!dayTouched || generateDisabled) return;
+
+    const nextMeta = buildPreviewMeta();
+    if (previewMetaMatches(resultMeta, nextMeta)) {
+      setDayTouched(false);
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      setDayTouched(false);
+      void generatePreview();
+    }, 3000);
+
+    return () => clearTimeout(timer);
+  }, [
+    buildPreviewMeta,
+    dayTouched,
+    generateDisabled,
+    generatePreview,
+    previewMetaMatches,
+    resultMeta,
+  ]);
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setDayTouched(false);
+    await generatePreview();
   }
 
   function handleReset() {
+    generationRequestIdRef.current += 1;
     setResult(null);
+    setResultMeta(null);
     setError("");
     setSaveError("");
     setSaveSuccess(false);
+    setDayTouched(false);
     setShownAnswers(new Set());
   }
 
@@ -826,16 +928,19 @@ export default function QuizGeneratorForm({
                   Number.isInteger(nextDay) &&
                   nextDay > maxDays
                 ) {
+                  setDayTouched(true);
                   setDay(maxDays);
                   flashDayMaxError();
                   return;
                 }
                 setDayAutoFilledMax(false);
+                setDayTouched(true);
                 setDay(rawValue);
               }}
               onBlur={() => {
                 const val = parseInt(String(day), 10);
                 if (isNaN(val) || val < 1) {
+                  setDayTouched(true);
                   setDay(1);
                 } else {
                   setDay(val);
