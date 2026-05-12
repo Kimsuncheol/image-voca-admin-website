@@ -23,7 +23,8 @@ export async function POST(request: NextRequest) {
     });
 
     return response;
-  } catch {
+  } catch (error) {
+    console.error('Failed to create Firebase session cookie', error);
     return NextResponse.json({ error: 'Failed to create session' }, { status: 401 });
   }
 }
