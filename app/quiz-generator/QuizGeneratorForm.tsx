@@ -299,10 +299,28 @@ export default function QuizGeneratorForm({
   const dayMaxErrorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const countMaxErrorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const generationRequestIdRef = useRef(0);
+  const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const autoSaveIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const autoSaveTokenRef = useRef(0);
   const [shownAnswers, setShownAnswers] = useState<Set<string>>(new Set());
   const [adding, setAdding] = useState(false);
+  const [autoSaving, setAutoSaving] = useState(false);
+  const [autoSaveCountdown, setAutoSaveCountdown] = useState<number | null>(null);
   const [saveError, setSaveError] = useState("");
   const [saveSuccess, setSaveSuccess] = useState(false);
+
+  const cancelAutoSave = useCallback(() => {
+    autoSaveTokenRef.current += 1;
+    if (autoSaveTimerRef.current) {
+      clearTimeout(autoSaveTimerRef.current);
+      autoSaveTimerRef.current = null;
+    }
+    if (autoSaveIntervalRef.current) {
+      clearInterval(autoSaveIntervalRef.current);
+      autoSaveIntervalRef.current = null;
+    }
+    setAutoSaveCountdown(null);
+  }, []);
 
   countRef.current = count;
 
@@ -313,6 +331,7 @@ export default function QuizGeneratorForm({
   useEffect(() => {
     if (!generatorDraft) return;
 
+    cancelAutoSave();
     generationRequestIdRef.current += 1;
     if (!fixedQuizType) {
       setQuizType(generatorDraft.quizType);
@@ -328,7 +347,7 @@ export default function QuizGeneratorForm({
     setSaveSuccess(false);
     setDayTouched(false);
     setShownAnswers(new Set());
-  }, [fixedQuizType, generatorDraft]);
+  }, [cancelAutoSave, fixedQuizType, generatorDraft]);
 
   function toggleAnswer(questionId: string) {
     setShownAnswers((prev) => {
@@ -361,6 +380,7 @@ export default function QuizGeneratorForm({
   }, []);
 
   const resetForFilterChange = useCallback(() => {
+    cancelAutoSave();
     generationRequestIdRef.current += 1;
     setDay(1);
     setDayTouched(false);
@@ -372,12 +392,14 @@ export default function QuizGeneratorForm({
     setSaveError("");
     setSaveSuccess(false);
     setShownAnswers(new Set());
-  }, []);
+  }, [cancelAutoSave]);
 
   useEffect(() => {
     return () => {
       if (dayMaxErrorTimerRef.current) clearTimeout(dayMaxErrorTimerRef.current);
       if (countMaxErrorTimerRef.current) clearTimeout(countMaxErrorTimerRef.current);
+      if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+      if (autoSaveIntervalRef.current) clearInterval(autoSaveIntervalRef.current);
     };
   }, []);
 
@@ -510,7 +532,145 @@ export default function QuizGeneratorForm({
     left?.saveTarget === right?.saveTarget
   ), []);
 
-  const generatePreview = useCallback(async () => {
+  const saveGeneratedResult = useCallback(async ({
+    source,
+    resultToSave,
+    metaToSave,
+    token,
+  }: {
+    source: "manual" | "auto";
+    resultToSave?: QuizResponse;
+    metaToSave?: PreviewMeta | null;
+    token?: number;
+  }) => {
+    const targetResult = resultToSave ?? result;
+    if (!targetResult) return false;
+
+    const targetMeta = metaToSave ?? resultMeta ?? buildPreviewMeta();
+    if (!targetMeta) {
+      setSaveError(addErrorMsg);
+      return false;
+    }
+
+    if (source === "manual") {
+      cancelAutoSave();
+      setAdding(true);
+    } else {
+      setAutoSaving(true);
+    }
+    setSaveError("");
+    setSaveSuccess(false);
+
+    try {
+      const isWordsPlacement = isWordsPlacementResponse(targetResult);
+      const response = await fetch(
+        isWordsPlacement
+          ? "/api/admin/words-placement/generate"
+          : "/api/admin/quiz-save",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(
+            isWordsPlacement
+              ? {
+                  course: targetMeta.course,
+                  level: targetMeta.level,
+                  day: targetMeta.day,
+                  save: true,
+                }
+              : {
+                  quiz_type: targetResult.quiz_type,
+                  save_target: targetMeta.saveTarget,
+                  course: targetMeta.course,
+                  level: targetMeta.level,
+                  day: targetMeta.day,
+                  quiz_data: targetResult,
+                },
+          ),
+        },
+      );
+
+      if (source === "auto" && token !== autoSaveTokenRef.current) return false;
+
+      if (!response.ok) {
+        let errorMessage = addErrorMsg;
+        try {
+          const errorData = (await response.json()) as ApiErrorResponse;
+          errorMessage = errorData.message ?? errorData.error ?? addErrorMsg;
+        } catch {
+          // Fall back to the localized generic message.
+        }
+        setSaveError(errorMessage);
+        return false;
+      }
+
+      setSaveSuccess(true);
+      setAutoSaveCountdown(null);
+      if (isWordsPlacement) {
+        const savedData = (await response.json()) as WordsPlacementResponse;
+        if (source === "manual" || token === autoSaveTokenRef.current) {
+          setResult(savedData);
+          setResultMeta(targetMeta);
+        }
+      }
+      return true;
+    } catch {
+      if (source === "manual" || token === autoSaveTokenRef.current) {
+        setSaveError(addErrorMsg);
+      }
+      return false;
+    } finally {
+      if (source === "manual") {
+        setAdding(false);
+      } else if (token === autoSaveTokenRef.current) {
+        setAutoSaving(false);
+        setAutoSaveCountdown(null);
+      }
+    }
+  }, [
+    addErrorMsg,
+    buildPreviewMeta,
+    cancelAutoSave,
+    result,
+    resultMeta,
+  ]);
+
+  const startAutoSaveCountdown = useCallback(({
+    generatedResult,
+    generatedMeta,
+  }: {
+    generatedResult: QuizResponse;
+    generatedMeta: PreviewMeta;
+  }) => {
+    cancelAutoSave();
+    const token = autoSaveTokenRef.current;
+    setAutoSaveCountdown(10);
+    autoSaveIntervalRef.current = setInterval(() => {
+      setAutoSaveCountdown((prev) => {
+        if (prev === null) return prev;
+        return Math.max(prev - 1, 0);
+      });
+    }, 1000);
+    autoSaveTimerRef.current = setTimeout(() => {
+      if (autoSaveIntervalRef.current) {
+        clearInterval(autoSaveIntervalRef.current);
+        autoSaveIntervalRef.current = null;
+      }
+      setAutoSaveCountdown(0);
+      void saveGeneratedResult({
+        source: "auto",
+        resultToSave: generatedResult,
+        metaToSave: generatedMeta,
+        token,
+      });
+    }, 10000);
+  }, [cancelAutoSave, saveGeneratedResult]);
+
+  const generatePreview = useCallback(async ({
+    source,
+  }: {
+    source: "manual" | "auto";
+  }) => {
     if (selectedDayHasNoWords) {
       setError("The selected day has no words.");
       return false;
@@ -531,6 +691,7 @@ export default function QuizGeneratorForm({
     }
     const requestId = ++generationRequestIdRef.current;
 
+    cancelAutoSave();
     setLoading(true);
     setError("");
     setSaveError("");
@@ -578,6 +739,12 @@ export default function QuizGeneratorForm({
 
       setResult(data);
       setResultMeta(requestMeta);
+      if (source === "auto") {
+        startAutoSaveCountdown({
+          generatedResult: data,
+          generatedMeta: requestMeta,
+        });
+      }
       return true;
     } catch {
       if (requestId === generationRequestIdRef.current) setError(networkErrorMsg);
@@ -587,6 +754,7 @@ export default function QuizGeneratorForm({
     }
   }, [
     buildPreviewMeta,
+    cancelAutoSave,
     countNumber,
     countUnavailable,
     course,
@@ -597,6 +765,7 @@ export default function QuizGeneratorForm({
     networkErrorMsg,
     quizType,
     selectedDayHasNoWords,
+    startAutoSaveCountdown,
   ]);
 
   useEffect(() => {
@@ -610,7 +779,7 @@ export default function QuizGeneratorForm({
 
     const timer = setTimeout(() => {
       setDayTouched(false);
-      void generatePreview();
+      void generatePreview({ source: "auto" });
     }, 3000);
 
     return () => clearTimeout(timer);
@@ -626,10 +795,11 @@ export default function QuizGeneratorForm({
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setDayTouched(false);
-    await generatePreview();
+    await generatePreview({ source: "manual" });
   }
 
   function handleReset() {
+    cancelAutoSave();
     generationRequestIdRef.current += 1;
     setResult(null);
     setResultMeta(null);
@@ -641,63 +811,7 @@ export default function QuizGeneratorForm({
   }
 
   async function handleAdd() {
-    if (!result) return;
-    setAdding(true);
-    setSaveError("");
-    setSaveSuccess(false);
-
-    try {
-      const isWordsPlacement = isWordsPlacementResponse(result);
-      const response = await fetch(
-        isWordsPlacement
-          ? "/api/admin/words-placement/generate"
-          : "/api/admin/quiz-save",
-        {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(
-          isWordsPlacement
-            ? {
-                course,
-                level: course === "JLPT" ? level : null,
-                day,
-                save: true,
-              }
-            : {
-                quiz_type: result.quiz_type,
-                save_target: saveTarget,
-                course,
-                level: course === "JLPT" ? level : null,
-                day,
-                quiz_data: result,
-              },
-        ),
-        },
-      );
-
-      if (!response.ok) {
-        let errorMessage = addErrorMsg;
-        try {
-          const errorData = (await response.json()) as ApiErrorResponse;
-          errorMessage = errorData.message ?? errorData.error ?? addErrorMsg;
-        } catch {
-          // Fall back to the localized generic message.
-        }
-        setSaveError(errorMessage);
-        return;
-      }
-
-      setSaveSuccess(true);
-      if (isWordsPlacement) {
-        const savedData = (await response.json()) as WordsPlacementResponse;
-        setResult(savedData);
-        setResultMeta(buildPreviewMeta());
-      }
-    } catch {
-      setSaveError(addErrorMsg);
-    } finally {
-      setAdding(false);
-    }
+    await saveGeneratedResult({ source: "manual" });
   }
 
   function renderMatchingResult(data: MatchingQuizResponse) {
@@ -1245,7 +1359,7 @@ export default function QuizGeneratorForm({
           <Button type="submit" variant="contained" disabled={generateDisabled}>
             {loading ? loadingLabel : submitLabel}
           </Button>
-          <Button type="button" variant="outlined" onClick={handleReset} disabled={loading || adding}>
+          <Button type="button" variant="outlined" onClick={handleReset} disabled={loading || adding || autoSaving}>
             {resetLabel}
           </Button>
           {result !== null && (
@@ -1253,13 +1367,17 @@ export default function QuizGeneratorForm({
               type="button"
               variant="contained"
               color="success"
-              disabled={adding || loading}
+              disabled={adding || autoSaving || loading}
               onClick={() => void handleAdd()}
             >
               {adding ? addingLabel : addLabel}
             </Button>
           )}
         </Stack>
+
+        {autoSaveCountdown !== null ? (
+          <Alert severity="info">Auto-saving in {autoSaveCountdown}s.</Alert>
+        ) : null}
 
         {error ? <Alert severity="error">{error}</Alert> : null}
         {countError ? <Alert severity="error">{countError}</Alert> : null}
