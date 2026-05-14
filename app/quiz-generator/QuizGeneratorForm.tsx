@@ -666,11 +666,10 @@ export default function QuizGeneratorForm({
     }, 10000);
   }, [cancelAutoSave, saveGeneratedResult]);
 
-  const generatePreview = useCallback(async ({
-    source,
-  }: {
+  const generatePreview = useCallback(async (_options?: {
     source: "manual" | "auto";
   }) => {
+    void _options;
     if (selectedDayHasNoWords) {
       setError("The selected day has no words.");
       return false;
@@ -739,12 +738,10 @@ export default function QuizGeneratorForm({
 
       setResult(data);
       setResultMeta(requestMeta);
-      if (source === "auto") {
-        startAutoSaveCountdown({
-          generatedResult: data,
-          generatedMeta: requestMeta,
-        });
-      }
+      startAutoSaveCountdown({
+        generatedResult: data,
+        generatedMeta: requestMeta,
+      });
       return true;
     } catch {
       if (requestId === generationRequestIdRef.current) setError(networkErrorMsg);

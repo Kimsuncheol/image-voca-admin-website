@@ -507,7 +507,7 @@ describe("QuizGeneratorForm", () => {
     });
   });
 
-  it("does not auto-save manually generated quizzes", async () => {
+  it("auto-saves a manually generated matching quiz after 10 seconds", async () => {
     vi.useFakeTimers();
     const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(
       async (input, init) => {
@@ -544,15 +544,91 @@ describe("QuizGeneratorForm", () => {
     });
     await flushPromises();
 
+    expect(document.body.textContent).toContain("Auto-saving in 10s.");
+
     await act(async () => {
       await vi.advanceTimersByTimeAsync(10000);
     });
     await flushPromises();
 
-    expect(document.body.textContent).not.toContain("Auto-saving in");
-    expect(
-      fetchMock.mock.calls.some(([url]) => String(url) === "/api/admin/quiz-save"),
-    ).toBe(false);
+    const saveCall = fetchMock.mock.calls.find(
+      ([url]) => String(url) === "/api/admin/quiz-save",
+    );
+    expect(saveCall).toBeTruthy();
+    expect(JSON.parse(String(saveCall?.[1]?.body))).toMatchObject({
+      quiz_type: "matching",
+      save_target: "quiz",
+      course: "TOEIC",
+      level: null,
+      day: 1,
+    });
+  });
+
+  it("auto-saves a manually generated Words Placement quiz after 10 seconds", async () => {
+    vi.useFakeTimers();
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(
+      async (input, init) => {
+        const url = String(input);
+        if (url.includes("/api/text/quiz-generate/count")) {
+          return Response.json({ max_days: 20, max_count: 6 });
+        }
+        if (url === "/api/admin/words-placement/generate" && init?.method === "POST") {
+          const body = JSON.parse(String(init.body)) as { save?: boolean };
+          return Response.json({
+            gameType: "words_placement",
+            courseId: "TOEIC",
+            dayId: "Day1",
+            version: 1,
+            items: [],
+            skipped: [],
+            saved: Boolean(body.save),
+          });
+        }
+        return Response.json({ id: "saved" });
+      },
+    );
+
+    rendered = renderForm(
+      <QuizGeneratorForm
+        {...defaultProps}
+        fixedQuizType="words_placement"
+        hideQuizTypeSelector
+      />,
+    );
+    await flushPromises();
+
+    const generateButton = Array.from(document.querySelectorAll("button")).find(
+      (node) => node.textContent === "Generate Quiz",
+    );
+    expect(generateButton).toBeTruthy();
+
+    await act(async () => {
+      generateButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+    await flushPromises();
+
+    expect(document.body.textContent).toContain("Auto-saving in 10s.");
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(10000);
+    });
+    await flushPromises();
+
+    const wordsPlacementCalls = fetchMock.mock.calls.filter(
+      ([url]) => String(url) === "/api/admin/words-placement/generate",
+    );
+    expect(wordsPlacementCalls).toHaveLength(2);
+    expect(JSON.parse(String(wordsPlacementCalls[0]?.[1]?.body))).toMatchObject({
+      course: "TOEIC",
+      level: null,
+      day: 1,
+    });
+    expect(JSON.parse(String(wordsPlacementCalls[1]?.[1]?.body))).toMatchObject({
+      course: "TOEIC",
+      level: null,
+      day: 1,
+      save: true,
+    });
   });
 
   it("clicking Add during the countdown cancels auto-save and saves once", async () => {
